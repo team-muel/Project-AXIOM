@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-04-09T17:00:23.624Z",
+  "scenarios_run": 6,
+  "passed": 4,
+  "failed": 2,
+  "verdict": "RESILIENCE_ISSUE",
+  "results": [
+    {
+      "id": "llm_provider_timeout",
+      "category": "failure",
+      "ok": true,
+      "detail": "timeout injection flag set/reverted successfully"
+    },
+    {
+      "id": "supabase_unavailable",
+      "category": "failure",
+      "ok": true,
+      "detail": "supabase URL was replaced"
+    },
+    {
+      "id": "memory_queue_overflow",
+      "category": "failure",
+      "ok": true,
+      "detail": "queue overflow flag set/reverted"
+    },
+    {
+      "id": "api_health_degraded",
+      "category": "failure",
+      "ok": false,
+      "detail": "health check failed: fetch failed"
+    },
+    {
+      "id": "security_injection_xss",
+      "category": "security",
+      "ok": false,
+      "detail": "discordService.ts not found for sanitization check"
+    },
+    {
+      "id": "security_injection_sqli",
+      "category": "security",
+      "ok": true,
+      "detail": "parameterized patterns found (0 files)"
+    }
+  ]
+}

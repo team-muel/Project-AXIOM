@@ -1,0 +1,80 @@
+import { callMcpTool, listMcpTools } from "./toolAdapter.js";
+import type { JsonRpcRequest, JsonRpcResponse } from "./types.js";
+
+export const MCP_PROTOCOL_VERSION = "2026-03-01";
+
+const asObject = (value: unknown): Record<string, unknown> => {
+    return value && typeof value === "object" && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : {};
+};
+
+export const ok = (id: number | string | null, result: unknown): JsonRpcResponse => ({
+    jsonrpc: "2.0",
+    id,
+    result,
+});
+
+export const fail = (
+    id: number | string | null,
+    code: number,
+    message: string,
+): JsonRpcResponse => ({
+    jsonrpc: "2.0",
+    id,
+    error: { code, message },
+});
+
+export function isJsonRpcNotification(request: JsonRpcRequest): boolean {
+    return request.id === undefined || request.id === null;
+}
+
+export async function handleMcpRequest(request: JsonRpcRequest): Promise<JsonRpcResponse> {
+    const id = request.id ?? null;
+
+    if (request.jsonrpc !== "2.0" || !request.method) {
+        return fail(id, -32600, "invalid request");
+    }
+
+    if (request.method === "initialize") {
+        return ok(id, {
+            protocolVersion: MCP_PROTOCOL_VERSION,
+            serverInfo: {
+                name: "axiom-mcp-server",
+                version: "0.1.0",
+            },
+            capabilities: {
+                tools: {},
+            },
+        });
+    }
+
+    if (request.method === "tools/list") {
+        return ok(id, {
+            tools: listMcpTools(),
+        });
+    }
+
+    if (request.method === "notifications/initialized" || request.method === "ping") {
+        return ok(id, {});
+    }
+
+    if (request.method === "tools/call") {
+        const params = asObject(request.params);
+        const name = typeof params.name === "string" ? params.name : "";
+        const args = asObject(params.arguments);
+
+        if (!name) {
+            return fail(id, -32602, "name is required");
+        }
+
+        const result = await callMcpTool({
+            name,
+            arguments: args,
+        });
+
+        return ok(id, result);
+    }
+
+    return fail(id, -32601, `method not found: ${request.method}`);
+}

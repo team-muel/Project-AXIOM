@@ -1,0 +1,15 @@
+[Unit]
+Description=AXIOM Safe Unattended Sweep
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=fancy
+WorkingDirectory=/opt/axiom
+EnvironmentFile=-/opt/axiom/.env
+EnvironmentFile=-/opt/axiom/config/env/operator-sweep.gcp.env
+ExecStart=/bin/sh -lc 'npm run ops:sweep -- --url "$AXIOM_BASE_URL" --mcpUrl "$AXIOM_MCP_BASE_URL" --namespace "$AXIOM_NAMESPACE" --source "$AXIOM_OPERATOR_SOURCE" --jobLimit "$AXIOM_OPERATOR_JOB_LIMIT" --windowHours "$AXIOM_OPERATOR_WINDOW_HOURS" --projectionDir "$AXIOM_OPERATOR_PROJECTION_DIR" --dir "$AXIOM_OPERATOR_SWEEP_DIR" --token "$AXIOM_OPERATOR_TOKEN"'
+
+[Install]
+WantedBy=multi-user.target

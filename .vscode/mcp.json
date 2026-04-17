@@ -1,0 +1,33 @@
+{
+    "servers": {
+        "github": {
+            "type": "http",
+            "url": "https://api.githubcopilot.com/mcp/"
+        },
+        "axiomStdio": {
+            "type": "stdio",
+            "command": "node",
+            "args": [
+                "--import",
+                "tsx",
+                "src/mcp/server.ts"
+            ],
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        "gcpCompute": {
+            "type": "stdio",
+            "command": "ssh",
+            "args": [
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                "-o",
+                "LogLevel=ERROR",
+                "-i",
+                "${env:USERPROFILE}/.ssh/google_compute_engine",
+                "fancy@34.56.232.61",
+                "cd /opt/muel/shared-mcp-runtime && set -a && . config/env/unified-mcp.gcp.env && set +a && exec node --import tsx scripts/unified-mcp-stdio.ts"
+            ]
+        }
+    }
+}

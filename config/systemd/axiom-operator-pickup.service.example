@@ -1,0 +1,15 @@
+[Unit]
+Description=AXIOM Shared Operator Pickup Projection
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=fancy
+WorkingDirectory=/opt/axiom
+EnvironmentFile=-/opt/axiom/.env
+EnvironmentFile=-/opt/axiom/config/env/operator-pickup.gcp.env
+ExecStart=/bin/sh -lc 'npm run ops:pickup -- --projectionDir "$AXIOM_OPERATOR_PROJECTION_DIR" --sweepDir "$AXIOM_OPERATOR_SWEEP_DIR" --dir "$AXIOM_OPERATOR_PICKUP_DIR"'
+
+[Install]
+WantedBy=multi-user.target

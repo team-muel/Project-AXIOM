@@ -1,0 +1,6 @@
+-r requirements.txt
+numpy>=1.26
+scipy>=1.13
+accelerate>=0.29
+transformers>=4.40
+torch>=2.2

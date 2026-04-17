@@ -1,0 +1,15 @@
+[Unit]
+Description=AXIOM Operator Summary Projection
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=fancy
+WorkingDirectory=/opt/axiom
+EnvironmentFile=-/opt/axiom/.env
+EnvironmentFile=-/opt/axiom/config/env/operator-projection.gcp.env
+ExecStart=/bin/sh -lc 'npm run ops:project -- --url "$AXIOM_BASE_URL" --namespace "$AXIOM_NAMESPACE" --source "$AXIOM_OPERATOR_SOURCE" --jobLimit "$AXIOM_OPERATOR_JOB_LIMIT" --windowHours "$AXIOM_OPERATOR_WINDOW_HOURS" --dir "$AXIOM_OPERATOR_PROJECTION_DIR"'
+
+[Install]
+WantedBy=multi-user.target

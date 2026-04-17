@@ -1,0 +1,45 @@
+{
+    "name": "axiom",
+    "version": "0.1.0",
+    "description": "Autonomous classical music production pipeline",
+    "type": "module",
+    "scripts": {
+        "dev": "tsx watch src/index.ts",
+        "start": "tsx src/index.ts",
+        "start:mcp": "tsx src/mcp/server.ts",
+        "start:mcp:http": "tsx src/mcp/httpServer.ts",
+        "benchmark:soundfont:metrics": "node scripts/generate-soundfont-benchmark-metrics.mjs",
+        "benchmark:soundfont:playlist": "node scripts/generate-soundfont-benchmark-playlist.mjs",
+        "mcp:bridge:config": "node scripts/print-discord-upstream-config.mjs",
+        "mcp:bridge:verify": "node scripts/verify-mcp-http-bridge.mjs",
+        "ops:summary": "node scripts/print-operator-summary.mjs",
+        "ops:project": "node scripts/project-operator-summary.mjs",
+        "ops:pickup": "node scripts/project-operator-pickup.mjs",
+        "ops:sweep": "node scripts/run-safe-unattended-sweep.mjs",
+        "ops:shadow:init": "node scripts/scaffold-shadow-review.mjs",
+        "ops:shadow:capture": "node scripts/capture-shadow-review-evidence.mjs",
+        "ml:export:structure-rank": "node scripts/export-structure-reranker-dataset.mjs",
+        "ml:shadow:structure-rank": "node scripts/evaluate-structure-reranker-shadow.mjs",
+        "ml:shadow:structure-rank:runtime-summary": "node scripts/summarize-structure-shadow-runtime.mjs",
+        "build": "tsc",
+        "pretest": "npm run build",
+        "test": "node --test test/all.test.mjs",
+        "start:dist": "node dist/index.js",
+        "start:mcp:dist": "node dist/mcp/server.js",
+        "start:mcp:http:dist": "node dist/mcp/httpServer.js",
+        "typecheck": "tsc --noEmit",
+        "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\""
+    },
+    "dependencies": {
+        "dotenv": "^16.4.7",
+        "express": "^5.1.0",
+        "uuid": "^11.1.0"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.2",
+        "@types/node": "^22.15.2",
+        "@types/uuid": "^10.0.0",
+        "tsx": "^4.19.4",
+        "typescript": "^5.8.3"
+    }
+}
