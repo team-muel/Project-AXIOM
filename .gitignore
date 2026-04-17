@@ -7,6 +7,8 @@ outputs/
 .tmp/
 .tmp-*
 tmp/
+__pycache__/
+*.pyc
 .count-*
 .echo-test.js
 .transport*
