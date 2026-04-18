@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { critique } from "../dist/critic/index.js";
 
@@ -18,40 +18,22 @@ async function runComposeWorker(payload) {
         throw new Error("No local Python binary found for compose-worker test.");
     }
 
-    return await new Promise((resolve, reject) => {
-        const child = spawn(pythonBin, ["workers/composer/compose.py"], {
-            cwd: repoRoot,
-            stdio: ["pipe", "pipe", "pipe"],
-        });
-
-        let stdout = "";
-        let stderr = "";
-
-        child.stdout.on("data", (chunk) => {
-            stdout += String(chunk);
-        });
-
-        child.stderr.on("data", (chunk) => {
-            stderr += String(chunk);
-        });
-
-        child.on("error", reject);
-        child.on("close", (code) => {
-            if (code !== 0) {
-                reject(new Error(stderr.trim() || `compose worker exited with code ${code}`));
-                return;
-            }
-
-            try {
-                resolve(JSON.parse(stdout.trim()));
-            } catch (error) {
-                reject(error);
-            }
-        });
-
-        child.stdin.write(JSON.stringify(payload));
-        child.stdin.end();
+    const result = spawnSync(pythonBin, ["workers/composer/compose.py"], {
+        cwd: repoRoot,
+        stdio: ["pipe", "pipe", "pipe"],
+        input: JSON.stringify(payload),
+        encoding: "utf8",
     });
+
+    if (result.error) {
+        throw result.error;
+    }
+
+    if (result.status !== 0) {
+        throw new Error(result.stderr.trim() || `compose worker exited with code ${result.status}`);
+    }
+
+    return JSON.parse(result.stdout.trim());
 }
 
 function extractUpperStrandShape(events, limit = 6) {

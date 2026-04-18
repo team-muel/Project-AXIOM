@@ -58,6 +58,11 @@ import { loadManifest, saveManifest } from "../memory/manifest.js";
 import { logger } from "../logging/logger.js";
 import { config } from "../config.js";
 
+export {
+    compareStructureEvaluationsForCandidateSelection,
+    scoreStructureEvaluationForCandidateSelection,
+};
+
 export interface RunPipelineOptions {
     onManifestUpdate?: (manifest: JobManifest) => void;
 }

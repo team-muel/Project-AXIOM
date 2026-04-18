@@ -74,6 +74,37 @@ def as_list(value: Any) -> list[Any]:
     return cast(list[Any], value) if isinstance(value, list) else []
 
 
+def get_prompt_pack(payload: dict[str, Any]) -> dict[str, Any]:
+    packed = as_record(payload.get("promptPack"))
+    return packed if packed is not None else {}
+
+
+def get_prompt_pack_style(payload: dict[str, Any]) -> dict[str, Any]:
+    return as_record(get_prompt_pack(payload).get("styleCue")) or {}
+
+
+def get_prompt_pack_sections(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    sections: list[dict[str, Any]] = []
+    for raw_entry in as_list(get_prompt_pack(payload).get("sections")):
+        entry = as_record(raw_entry)
+        if entry is None:
+            continue
+        sections.append(entry)
+    return sections
+
+
+def get_prompt_pack_instrument_names(payload: dict[str, Any]) -> list[str]:
+    names: list[str] = []
+    for raw_entry in as_list(get_prompt_pack(payload).get("instrumentation")):
+        entry = as_record(raw_entry)
+        if entry is None:
+            continue
+        name = str(entry.get("name") or "").strip()
+        if name:
+            names.append(name)
+    return names
+
+
 def normalize_role(value: Any, fallback: str) -> str:
     normalized = normalize_name(value).replace(" ", "_")
     if normalized in {"lead", "counterline", "bass", "inner_voice"}:
@@ -271,7 +302,10 @@ def build_material_from_seed(
 
 
 def resolve_form(payload: dict[str, Any], plan: dict[str, Any]) -> str:
-    form = str(payload.get("form") or plan.get("form") or "miniature").strip()
+    style = get_prompt_pack_style(payload)
+    form = str(
+        payload.get("form") or style.get("form") or plan.get("form") or "miniature"
+    ).strip()
     return form or "miniature"
 
 
@@ -279,6 +313,9 @@ def resolve_tempo(payload: dict[str, Any], plan: dict[str, Any]) -> int:
     tempo = payload.get("tempo")
     if isinstance(tempo, (int, float)) and tempo > 0:
         return int(round(float(tempo)))
+    packed_tempo = get_prompt_pack_style(payload).get("tempo")
+    if isinstance(packed_tempo, (int, float)) and packed_tempo > 0:
+        return int(round(float(packed_tempo)))
     plan_tempo = plan.get("tempo")
     if isinstance(plan_tempo, (int, float)) and plan_tempo > 0:
         return int(round(float(plan_tempo)))
@@ -286,7 +323,10 @@ def resolve_tempo(payload: dict[str, Any], plan: dict[str, Any]) -> int:
 
 
 def resolve_key_label(payload: dict[str, Any], plan: dict[str, Any]) -> str:
-    key_label = str(payload.get("key") or plan.get("key") or "C major").strip()
+    style = get_prompt_pack_style(payload)
+    key_label = str(
+        payload.get("key") or style.get("key") or plan.get("key") or "C major"
+    ).strip()
     return key_label or "C major"
 
 
@@ -299,7 +339,29 @@ def resolve_section_measure_count(section: dict[str, Any]) -> int:
     return 4
 
 
-def resolve_sections(plan: dict[str, Any]) -> list[dict[str, Any]]:
+def resolve_sections(
+    payload: dict[str, Any], plan: dict[str, Any]
+) -> list[dict[str, Any]]:
+    prompt_pack_sections = get_prompt_pack_sections(payload)
+    if prompt_pack_sections:
+        normalized: list[dict[str, Any]] = []
+        for index, entry in enumerate(prompt_pack_sections):
+            normalized.append(
+                {
+                    "id": str(entry.get("sectionId") or f"section-{index + 1}"),
+                    "role": str(entry.get("role") or "theme_a"),
+                    "phraseFunction": entry.get("phraseFunction"),
+                    "measures": resolve_section_measure_count(
+                        {"measures": entry.get("measures")}
+                    ),
+                    "harmonicPlan": entry.get("harmonicPlan")
+                    if isinstance(entry.get("harmonicPlan"), dict)
+                    else {},
+                }
+            )
+        if normalized:
+            return normalized
+
     sections = plan.get("sections")
     if isinstance(sections, list) and sections:
         normalized: list[dict[str, Any]] = []
@@ -342,6 +404,10 @@ def resolve_sections(plan: dict[str, Any]) -> list[dict[str, Any]]:
 def resolve_instrument_names(
     payload: dict[str, Any], plan: dict[str, Any]
 ) -> list[str]:
+    packed_names = get_prompt_pack_instrument_names(payload)
+    if packed_names:
+        return packed_names
+
     names: list[str] = []
     instrumentation = plan.get("instrumentation")
     if isinstance(instrumentation, list):
@@ -683,7 +749,7 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     tempo = resolve_tempo(payload, plan)
     key_label = resolve_key_label(payload, plan)
     tonic_key = parse_key_signature(key_label)
-    sections = resolve_sections(plan)
+    sections = resolve_sections(payload, plan)
     attempt_index = payload.get("attemptIndex")
     normalized_attempt_index = (
         int(round(float(attempt_index)))

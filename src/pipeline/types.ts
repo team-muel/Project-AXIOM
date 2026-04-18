@@ -1024,6 +1024,8 @@ export interface ComposeProposalEvidence {
     lane?: string;
     provider?: string;
     model?: string;
+    promptPackVersion?: string;
+    planSignature?: string;
     generationMode?: string;
     confidence?: number;
     normalizationWarnings?: string[];

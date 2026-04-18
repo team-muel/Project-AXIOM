@@ -21,6 +21,10 @@ import { coerceComposeWorkflowForForm, isAudioFirstForm, requiresSymbolicFirstWo
 import { defaultModelBindings } from "../pipeline/modelBindings.js";
 import { config } from "../config.js";
 import { logger } from "../logging/logger.js";
+import {
+    buildLearnedSymbolicWorkerPayload,
+    type LearnedSymbolicPromptPack,
+} from "./learnedAdapter.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const WORKER_SCRIPT = path.join(__dirname, "../../workers/composer/compose.py");
@@ -332,6 +336,7 @@ function normalizeLearnedSymbolicResponse(
     request: ComposeRequest,
     songId: string,
     executionPlan: ComposeExecutionPlan,
+    promptPack: LearnedSymbolicPromptPack,
 ): ComposeResult {
     const midiPath = response.proposalMidiPath;
     const structureBinding = resolveStructureBinding(executionPlan.selectedModels);
@@ -401,6 +406,8 @@ function normalizeLearnedSymbolicResponse(
         ...(typeof response.proposalMetadata?.model === "string" && response.proposalMetadata.model.trim()
             ? { model: response.proposalMetadata.model.trim() }
             : (structureBinding?.model ? { model: structureBinding.model } : {})),
+        promptPackVersion: promptPack.version,
+        planSignature: promptPack.planSignature,
         ...(typeof response.proposalMetadata?.generationMode === "string" && response.proposalMetadata.generationMode.trim()
             ? { generationMode: response.proposalMetadata.generationMode.trim() }
             : {}),
@@ -416,9 +423,9 @@ function normalizeLearnedSymbolicResponse(
         meta: {
             songId,
             prompt: request.prompt,
-            key: response.proposalSummary?.key ?? request.key ?? "C major",
-            tempo: response.proposalSummary?.tempo ?? request.tempo ?? 96,
-            form: response.proposalSummary?.form ?? request.form ?? request.compositionPlan?.form ?? "miniature",
+            key: response.proposalSummary?.key ?? request.key ?? request.compositionPlan?.key ?? promptPack.styleCue.key,
+            tempo: response.proposalSummary?.tempo ?? request.tempo ?? request.compositionPlan?.tempo ?? promptPack.styleCue.tempo ?? 96,
+            form: response.proposalSummary?.form ?? request.form ?? request.compositionPlan?.form ?? promptPack.styleCue.form,
             workflow: executionPlan.workflow,
             plannerVersion: request.plannerVersion ?? request.compositionPlan?.version,
             plannedSectionCount: request.compositionPlan?.sections.length,
@@ -678,11 +685,14 @@ async function composeWithLearnedSymbolic(
 ): Promise<ComposeResult> {
     const songDir = ensureSongDir(songId);
     const midiOutputPath = path.join(songDir, "composition.mid");
+    const workerPayload = buildLearnedSymbolicWorkerPayload(request, songId, midiOutputPath, executionPlan);
 
     logger.info("Composing via learned symbolic proposal worker", {
         songId,
         prompt: request.prompt,
         workflow: executionPlan.workflow,
+        promptPackVersion: workerPayload.promptPack.version,
+        planSignature: workerPayload.promptPack.planSignature,
     });
 
     writeComposeProgress(songId, {
@@ -697,18 +707,7 @@ async function composeWithLearnedSymbolic(
     try {
         result = await runWorker<LearnedSymbolicProposalResponse>(
             LEARNED_SYMBOLIC_WORKER_SCRIPT,
-            JSON.stringify({
-                prompt: request.prompt,
-                ...(request.key ? { key: request.key } : {}),
-                ...(request.tempo !== undefined ? { tempo: request.tempo } : {}),
-                ...(request.form ? { form: request.form } : {}),
-                ...(request.attemptIndex !== undefined ? { attemptIndex: request.attemptIndex } : {}),
-                ...(request.revisionDirectives?.length ? { revisionDirectives: request.revisionDirectives } : {}),
-                ...(request.sectionArtifacts?.length ? { sectionArtifacts: request.sectionArtifacts } : {}),
-                ...(request.compositionPlan ? { compositionPlan: request.compositionPlan } : {}),
-                ...(request.targetInstrumentation?.length ? { targetInstrumentation: request.targetInstrumentation } : {}),
-                outputPath: midiOutputPath,
-            }),
+            JSON.stringify(workerPayload),
             config.composeWorkerTimeoutMs,
         );
     } catch (error) {
@@ -741,7 +740,7 @@ async function composeWithLearnedSymbolic(
         outputPath: midiOutputPath,
     });
 
-    return normalizeLearnedSymbolicResponse(result, request, songId, executionPlan);
+    return normalizeLearnedSymbolicResponse(result, request, songId, executionPlan, workerPayload.promptPack);
 }
 
 // ── 공개 API ─────────────────────────────────────────
