@@ -68,6 +68,7 @@ import type {
     VoicingProfile,
 } from "../pipeline/types.js";
 import { buildFallbackSectionsForForm, buildFormGuidance, coerceComposeWorkflowForForm, validateFormSectionFit } from "../pipeline/formTemplates.js";
+import { APPROVAL_REVIEW_RUBRIC_VERSION } from "../pipeline/learnedSymbolicContract.js";
 import { summarizeLongSpanDivergence } from "../pipeline/longSpan.js";
 import { defaultModelBindings } from "../pipeline/modelBindings.js";
 import { ensureCompositionPlanOrchestration, summarizeOrchestrationPlan } from "../pipeline/orchestrationPlan.js";
@@ -508,6 +509,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function finiteNumber(value: unknown): number | undefined {
     return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function finiteCandidateCount(value: unknown): number | undefined {
+    const parsed = finiteNumber(value);
+    if (parsed === undefined || !Number.isInteger(parsed) || parsed < 1 || parsed > 8) {
+        return undefined;
+    }
+
+    return parsed;
+}
+
+function finiteLocalizedRewriteBranches(value: unknown): number | undefined {
+    const parsed = finiteNumber(value);
+    if (parsed === undefined || !Number.isInteger(parsed) || parsed < 1 || parsed > 4) {
+        return undefined;
+    }
+
+    return parsed;
 }
 
 function positiveMeasureNumber(value: unknown): number | undefined {
@@ -2639,6 +2658,8 @@ function parsePlannerResponse(raw: string, preferences: AutonomyPreferences): Pa
         tempo: finiteNumber(requestSource.tempo),
         form: compact(requestSource.form) || preferences.preferredForms[0] || undefined,
         durationSec: finiteNumber(requestSource.durationSec),
+        candidateCount: finiteCandidateCount(requestSource.candidateCount),
+        localizedRewriteBranches: finiteLocalizedRewriteBranches(requestSource.localizedRewriteBranches),
         workflow: rawWorkflow,
         source: "autonomy",
         plannerVersion: compact(requestSource.plannerVersion) || DEFAULT_PLANNER_VERSION,
@@ -4039,21 +4060,22 @@ function updateApprovalState(
     }
 
     const normalizedReviewFeedback = typeof reviewFeedback === "string"
-        ? (compact(reviewFeedback) ? { note: compact(reviewFeedback) } : undefined)
+        ? {
+            reviewRubricVersion: APPROVAL_REVIEW_RUBRIC_VERSION,
+            ...(compact(reviewFeedback) ? { note: compact(reviewFeedback) } : {}),
+        }
         : (() => {
-            if (!reviewFeedback) {
-                return undefined;
-            }
-
-            const note = compact(reviewFeedback.note) || undefined;
-            const strongestDimension = compact(reviewFeedback.strongestDimension) || undefined;
-            const weakestDimension = compact(reviewFeedback.weakestDimension) || undefined;
-            const comparisonReference = compact(reviewFeedback.comparisonReference) || undefined;
-            const appealScore = typeof reviewFeedback.appealScore === "number" && Number.isFinite(reviewFeedback.appealScore)
+            const note = compact(reviewFeedback?.note) || undefined;
+            const strongestDimension = compact(reviewFeedback?.strongestDimension) || undefined;
+            const weakestDimension = compact(reviewFeedback?.weakestDimension) || undefined;
+            const comparisonReference = compact(reviewFeedback?.comparisonReference) || undefined;
+            const appealScore = typeof reviewFeedback?.appealScore === "number" && Number.isFinite(reviewFeedback.appealScore)
                 ? reviewFeedback.appealScore
                 : undefined;
+            const reviewRubricVersion = compact(reviewFeedback?.reviewRubricVersion) || APPROVAL_REVIEW_RUBRIC_VERSION;
 
             const normalized: AutonomyReviewFeedbackInput = {
+                reviewRubricVersion,
                 ...(note ? { note } : {}),
                 ...(appealScore !== undefined ? { appealScore } : {}),
                 ...(strongestDimension ? { strongestDimension } : {}),
@@ -4061,7 +4083,7 @@ function updateApprovalState(
                 ...(comparisonReference ? { comparisonReference } : {}),
             };
 
-            return Object.keys(normalized).length > 0 ? normalized : undefined;
+            return normalized;
         })();
     const beforeManifest = summarizeApprovalState(manifest);
     const currentPreferences = loadAutonomyPreferences();

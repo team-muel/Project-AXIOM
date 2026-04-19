@@ -272,6 +272,9 @@ summary 생성 규칙:
 - `summary.manifestAudioRetry.recentManifestTracking[]`가 `orchestration` snapshot을 담을 때, 이 값은 SoundFont나 render timbre 품질이 아니라 instrument-distribution competence를 뜻한다.
 - `summary.manifestAudioRetry.orchestrationTrends.familyRows[]`는 최근 성공 manifest 기준 family-level average range/balance/conversation fit과 weak-manifest pressure를 담고, 역시 timbre upgrade가 아니라 ensemble writing competence trend를 뜻한다.
 - canonical operator summary `artifacts[]`는 같은 aggregate를 `orchestrationTrend family=... manifests=... rng=... bal=... conv=... weakManifests=... avgWeakSections=... instruments=...` compact line으로도 재노출할 수 있다.
+- `overseer.learnedBackboneBenchmark`는 blind-review backlog가 있을 때 `reviewPackActions[]`, active worksheet pack이 있을 때 `reviewPackRecordActions[]`를 함께 들고 갈 수 있다. 전자는 새 pack generation command, 후자는 existing `review-sheet.csv` ingest command를 뜻하므로 둘을 같은 상태에서 동시에 우선 action으로 읽지 않는다.
+- 같은 `overseer.learnedBackboneBenchmark.reviewSampleStatus`에는 reviewed floor minimum과 함께 `remainingReviewedRunCountForScreening`, `remainingReviewedRunCountForPromotion`, `remainingReviewedDisagreementCountForPromotion`도 포함된다. upstream consumer는 C-stage evidence gap을 현재 reviewed count와 minimum으로 다시 계산하지 말고 이 canonical remaining counters를 그대로 읽는다.
+- 같은 `overseer.learnedBackboneBenchmark`에는 `pairedSelectionOutcomes`, `selectedWorkerOutcomes`, benchmark-level `coverageRows[]`도 포함된다. upstream consumer는 raw benchmark export를 다시 열지 않고도 reviewed promoted-vs-heuristic cohort balance, worker별 outcome skew, benchmark별 pending review pressure, selected worker mix를 canonical summary에서 바로 읽는다.
 - `ops:project`와 `ops:sweep`는 이 stale evidence를 그대로 projection/recommendation에 반영한다.
 - `ops:sweep`는 bridge verify 결과를 triage에 합쳐 `bridge_degraded`와 `incident_candidate`를 구분한다.
 

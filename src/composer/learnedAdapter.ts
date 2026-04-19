@@ -11,8 +11,22 @@ import type {
     TempoMotionPlan,
     TextureGuidance,
 } from "../pipeline/types.js";
+import {
+    FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK,
+    LEARNED_SYMBOLIC_PROMPT_PACK_VERSION,
+    STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION,
+    STRING_TRIO_SYMBOLIC_LANE,
+} from "../pipeline/learnedSymbolicContract.js";
+import { materializeCompositionSketch } from "../pipeline/sketch.js";
+import {
+    buildLearnedNotagenProviderRequest,
+    type LearnedNotagenProviderRequest,
+} from "./learnedNotagenAdapter.js";
 
-export const LEARNED_SYMBOLIC_PROMPT_PACK_VERSION = "learned_symbolic_prompt_pack_v1";
+export {
+    LEARNED_SYMBOLIC_PROMPT_PACK_VERSION,
+    STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION,
+};
 
 export interface LearnedSymbolicPromptPackStyleCue {
     brief: string;
@@ -89,6 +103,7 @@ export interface LearnedSymbolicWorkerPayload {
     selectedModels: ModelBinding[];
     stableSeed: number;
     promptPack: LearnedSymbolicPromptPack;
+    providerRequest: LearnedNotagenProviderRequest;
     key?: string;
     tempo?: number;
     form?: string;
@@ -98,6 +113,14 @@ export interface LearnedSymbolicWorkerPayload {
     compositionPlan?: ComposeRequest["compositionPlan"];
     targetInstrumentation?: ComposeRequest["targetInstrumentation"];
 }
+
+interface LearnedBenchmarkLookupEntry {
+    benchmarkId: string;
+    coverageTags: string[];
+}
+
+const FIXED_STRING_TRIO_BENCHMARK_LOOKUP = new Map<string, LearnedBenchmarkLookupEntry>();
+let fixedStringTrioBenchmarkPlanSignaturesInitialized = false;
 
 function stableStringify(value: unknown): string {
     if (value === null || value === undefined) {
@@ -167,9 +190,54 @@ function resolveLane(request: ComposeRequest, instrumentation: InstrumentAssignm
     const canonicalTrio = ["cello", "viola", "violin"];
 
     if (form.includes("miniature") && (orchestrationFamily === "string_trio" || stableStringify(instrumentNames) === stableStringify(canonicalTrio))) {
-        return "string_trio_symbolic";
+        return STRING_TRIO_SYMBOLIC_LANE;
     }
     return "generic_symbolic";
+}
+
+function initializeFixedStringTrioBenchmarkPlanSignatures(): void {
+    if (fixedStringTrioBenchmarkPlanSignaturesInitialized) {
+        return;
+    }
+
+    fixedStringTrioBenchmarkPlanSignaturesInitialized = true;
+    for (const entry of FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK.entries) {
+        FIXED_STRING_TRIO_BENCHMARK_LOOKUP.set(buildLearnedSymbolicPromptPack(entry.request).planSignature, {
+            benchmarkId: entry.benchmarkId,
+            coverageTags: [...entry.coverageTags],
+        });
+    }
+}
+
+export function resolveLearnedBenchmarkEntry(
+    promptPack: Pick<LearnedSymbolicPromptPack, "lane" | "planSignature">,
+): LearnedBenchmarkLookupEntry | undefined {
+    if (promptPack.lane !== STRING_TRIO_SYMBOLIC_LANE) {
+        return undefined;
+    }
+
+    initializeFixedStringTrioBenchmarkPlanSignatures();
+    const entry = FIXED_STRING_TRIO_BENCHMARK_LOOKUP.get(promptPack.planSignature);
+    return entry
+        ? {
+            benchmarkId: entry.benchmarkId,
+            coverageTags: [...entry.coverageTags],
+        }
+        : undefined;
+}
+
+export function resolveLearnedBenchmarkId(
+    promptPack: Pick<LearnedSymbolicPromptPack, "lane" | "planSignature">,
+): string | undefined {
+    return resolveLearnedBenchmarkEntry(promptPack)?.benchmarkId;
+}
+
+export function resolveLearnedBenchmarkPackVersion(
+    promptPack: Pick<LearnedSymbolicPromptPack, "lane" | "planSignature">,
+): string | undefined {
+    return resolveLearnedBenchmarkEntry(promptPack)
+        ? STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION
+        : undefined;
 }
 
 function buildStyleCue(request: ComposeRequest, instrumentation: InstrumentAssignment[]): LearnedSymbolicPromptPackStyleCue {
@@ -283,22 +351,39 @@ function buildPlanSignature(
     ].join("|");
 }
 
-export function buildLearnedSymbolicPromptPack(request: ComposeRequest): LearnedSymbolicPromptPack {
-    const instrumentation = resolveInstrumentation(request);
-    const lane = resolveLane(request, instrumentation);
-    const styleCue = buildStyleCue(request, instrumentation);
-    const sections = buildPromptPackSections(request);
-    const expressionDefaults = cloneJsonValue(request.compositionPlan?.expressionDefaults);
-    const sectionExpressionCues = buildSectionExpressionCues(request);
-    const sketchSummary = request.compositionPlan?.sketch
+function normalizePromptPackRequest(request: ComposeRequest): ComposeRequest {
+    const plan = request.compositionPlan;
+    const synchronizedRequest = plan
         ? {
-            motifDraftCount: request.compositionPlan.sketch.motifDrafts.length,
-            cadenceOptionCount: request.compositionPlan.sketch.cadenceOptions.length,
+            ...request,
+            key: request.key ?? plan.key,
+            tempo: request.tempo ?? plan.tempo,
+            form: request.form ?? plan.form,
+            workflow: request.workflow ?? plan.workflow,
+            targetInstrumentation: request.targetInstrumentation ?? plan.instrumentation,
+        }
+        : request;
+
+    return materializeCompositionSketch(synchronizedRequest);
+}
+
+export function buildLearnedSymbolicPromptPack(request: ComposeRequest): LearnedSymbolicPromptPack {
+    const normalizedRequest = normalizePromptPackRequest(request);
+    const instrumentation = resolveInstrumentation(normalizedRequest);
+    const lane = resolveLane(normalizedRequest, instrumentation);
+    const styleCue = buildStyleCue(normalizedRequest, instrumentation);
+    const sections = buildPromptPackSections(normalizedRequest);
+    const expressionDefaults = cloneJsonValue(normalizedRequest.compositionPlan?.expressionDefaults);
+    const sectionExpressionCues = buildSectionExpressionCues(normalizedRequest);
+    const sketchSummary = normalizedRequest.compositionPlan?.sketch
+        ? {
+            motifDraftCount: normalizedRequest.compositionPlan.sketch.motifDrafts.length,
+            cadenceOptionCount: normalizedRequest.compositionPlan.sketch.cadenceOptions.length,
         }
         : undefined;
     const narrativeNotes = dedupeSorted([
-        ...normalizeStringList(request.compositionPlan?.rationale),
-        ...(request.compositionPlan?.longSpanForm?.notes ?? []),
+        ...normalizeStringList(normalizedRequest.compositionPlan?.rationale),
+        ...(normalizedRequest.compositionPlan?.longSpanForm?.notes ?? []),
     ]);
 
     const baseSignatureInput = {
@@ -307,7 +392,9 @@ export function buildLearnedSymbolicPromptPack(request: ComposeRequest): Learned
         styleCue,
         instrumentation,
         sections,
-        ...(request.compositionPlan?.motifPolicy ? { motifPolicy: cloneJsonValue(request.compositionPlan.motifPolicy) } : {}),
+        ...(normalizedRequest.compositionPlan?.motifPolicy
+            ? { motifPolicy: cloneJsonValue(normalizedRequest.compositionPlan.motifPolicy) }
+            : {}),
         ...(sketchSummary ? { sketchSummary } : {}),
         ...(expressionDefaults ? { expressionDefaults } : {}),
         ...(sectionExpressionCues ? { sectionExpressionCues } : {}),
@@ -321,11 +408,13 @@ export function buildLearnedSymbolicPromptPack(request: ComposeRequest): Learned
         version: LEARNED_SYMBOLIC_PROMPT_PACK_VERSION,
         lane,
         planSignature,
-        promptText: request.prompt,
+        promptText: normalizedRequest.prompt,
         styleCue,
         instrumentation,
         sections,
-        ...(request.compositionPlan?.motifPolicy ? { motifPolicy: cloneJsonValue(request.compositionPlan.motifPolicy) } : {}),
+        ...(normalizedRequest.compositionPlan?.motifPolicy
+            ? { motifPolicy: cloneJsonValue(normalizedRequest.compositionPlan.motifPolicy) }
+            : {}),
         ...(sketchSummary ? { sketchSummary } : {}),
         ...(narrativeNotes.length ? { narrativeNotes } : {}),
         ...(expressionDefaults ? { expressionDefaults } : {}),
@@ -341,13 +430,15 @@ export function buildLearnedSymbolicWorkerPayload(
     executionPlan: ComposeExecutionPlan,
 ): LearnedSymbolicWorkerPayload {
     const promptPack = buildLearnedSymbolicPromptPack(request);
+    const stableSeedPayload = {
+        prompt: request.prompt,
+        planSignature: promptPack.planSignature,
+        revisionSummary: promptPack.revisionSummary,
+        ...(request.candidateVariantKey ? { candidateVariantKey: request.candidateVariantKey } : {}),
+    };
     const stableSeed = Number.parseInt(
         createHash("sha256")
-            .update(stableStringify({
-                prompt: request.prompt,
-                planSignature: promptPack.planSignature,
-                revisionSummary: promptPack.revisionSummary,
-            }))
+            .update(stableStringify(stableSeedPayload))
             .digest("hex")
             .slice(0, 8),
         16,
@@ -360,6 +451,7 @@ export function buildLearnedSymbolicWorkerPayload(
         selectedModels: executionPlan.selectedModels.map((binding) => ({ ...binding })),
         stableSeed,
         promptPack,
+        providerRequest: buildLearnedNotagenProviderRequest(promptPack, executionPlan.selectedModels),
         ...(request.key ? { key: request.key } : {}),
         ...(request.tempo !== undefined ? { tempo: request.tempo } : {}),
         ...(request.form ? { form: request.form } : {}),

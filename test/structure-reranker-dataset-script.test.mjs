@@ -25,6 +25,12 @@ function readJsonl(filePath) {
         .map((line) => JSON.parse(line));
 }
 
+function writeJsonl(filePath, rows) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    const content = rows.map((row) => JSON.stringify(row)).join("\n");
+    fs.writeFileSync(filePath, content ? `${content}\n` : "", "utf8");
+}
+
 function seedStructureRankManifest(outputDir, options) {
     const songDir = path.join(outputDir, options.songId);
     writeJson(path.join(songDir, "manifest.json"), options.manifest);
@@ -43,6 +49,9 @@ function seedStructureCandidateEvidence(outputDir, options) {
         writeJson(path.join(songDir, candidate.candidateId, "candidate-manifest.json"), candidate.manifest);
         if (candidate.sectionArtifacts) {
             writeJson(path.join(songDir, candidate.candidateId, "section-artifacts.json"), candidate.sectionArtifacts);
+        }
+        if (candidate.rerankerScore) {
+            writeJson(path.join(songDir, candidate.candidateId, "reranker-score.json"), candidate.rerankerScore);
         }
     }
 }
@@ -83,6 +92,7 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
                 },
                 approvalStatus: "approved",
                 reviewFeedback: {
+                    reviewRubricVersion: "approval_review_rubric_v1",
                     note: "Middle cadence improved, but compare against the previous chamber pass.",
                     appealScore: 8.7,
                     strongestDimension: "phrase_breath",
@@ -217,6 +227,18 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
                 updatedAt: "2026-04-17T01:06:00.000Z",
                 selectedCandidateId: "structure-a2-python-music21-symbolic-v1-2",
                 selectedAttempt: 2,
+                selectionStopReason: "selected after narrow-lane reranker promotion",
+                rerankerPromotion: {
+                    appliedAt: "2026-04-17T01:06:00.000Z",
+                    lane: "string_trio_symbolic",
+                    snapshotId: "shadow-live",
+                    confidence: 0.81,
+                    heuristicTopCandidateId: "structure-a1-python-music21-symbolic-v1-1",
+                    learnedTopCandidateId: "structure-a2-python-music21-symbolic-v1-2",
+                    heuristicAttempt: 1,
+                    learnedAttempt: 2,
+                    reason: "learned favored phraseBreathCueDensity and harmonicColorCueDensity",
+                },
                 entries: [
                     {
                         candidateId: "structure-a1-python-music21-symbolic-v1-1",
@@ -243,13 +265,22 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
                         passed: true,
                         score: 88,
                         evaluatedAt: "2026-04-17T01:05:00.000Z",
+                        rerankerScorePath: path.join(outputDir, "song-a", "candidates", "structure-a2-python-music21-symbolic-v1-2", "reranker-score.json"),
                         proposalEvidence: {
                             worker: "learned_symbolic",
                             lane: "string_trio_symbolic",
                             provider: "learned",
                             model: "learned-symbolic-trio-v1",
+                            benchmarkPackVersion: "string_trio_symbolic_benchmark_pack_v1",
+                            benchmarkId: "cadence_clarity_reference",
+                            promptPackVersion: "learned_symbolic_prompt_pack_v1",
+                            planSignature: "lane=string_trio_symbolic|form=miniature|key=c major|inst=violin,viola,cello|roles=theme_a>cadence|sig=testpack001",
                             generationMode: "targeted_section_rewrite",
                             confidence: 0.61,
+                            normalizationWarnings: [
+                                "section s2 role collapse: expected lead,counterline,bass got lead,bass",
+                                "selected rewrite reused prior cadence material to preserve continuity",
+                            ],
                             summary: {
                                 measureCount: 12,
                                 noteCount: 36,
@@ -322,6 +353,17 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
                             metrics: {
                                 phrasePressureFit: 0.61,
                             },
+                        },
+                        shadowReranker: {
+                            snapshotId: "shadow-live",
+                            evaluatedAt: "2026-04-17T01:06:00.000Z",
+                            heuristicRank: 1,
+                            heuristicScore: 0.91,
+                            learnedRank: 2,
+                            learnedScore: 0.18,
+                            learnedConfidence: 0.81,
+                            disagreesWithHeuristic: true,
+                            disagreementReason: "heuristic preferred higher raw structure score",
                         },
                         artifacts: {},
                     },
@@ -419,8 +461,16 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
                             lane: "string_trio_symbolic",
                             provider: "learned",
                             model: "learned-symbolic-trio-v1",
+                            benchmarkPackVersion: "string_trio_symbolic_benchmark_pack_v1",
+                            benchmarkId: "cadence_clarity_reference",
+                            promptPackVersion: "learned_symbolic_prompt_pack_v1",
+                            planSignature: "lane=string_trio_symbolic|form=miniature|key=c major|inst=violin,viola,cello|roles=theme_a>cadence|sig=testpack001",
                             generationMode: "targeted_section_rewrite",
                             confidence: 0.61,
+                            normalizationWarnings: [
+                                "section s2 role collapse: expected lead,counterline,bass got lead,bass",
+                                "selected rewrite reused prior cadence material to preserve continuity",
+                            ],
                             summary: {
                                 measureCount: 12,
                                 noteCount: 36,
@@ -438,6 +488,28 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
                                 sourceSectionId: "s2",
                             },
                         ],
+                        shadowReranker: {
+                            snapshotId: "shadow-live",
+                            evaluatedAt: "2026-04-17T01:06:00.000Z",
+                            heuristicRank: 2,
+                            heuristicScore: 0.74,
+                            learnedRank: 1,
+                            learnedScore: 0.89,
+                            learnedConfidence: 0.81,
+                            disagreesWithHeuristic: true,
+                            disagreementReason: "learned favored phraseBreathCueDensity and harmonicColorCueDensity",
+                        },
+                        rerankerPromotion: {
+                            appliedAt: "2026-04-17T01:06:00.000Z",
+                            lane: "string_trio_symbolic",
+                            snapshotId: "shadow-live",
+                            confidence: 0.81,
+                            heuristicTopCandidateId: "structure-a1-python-music21-symbolic-v1-1",
+                            learnedTopCandidateId: "structure-a2-python-music21-symbolic-v1-2",
+                            heuristicAttempt: 1,
+                            learnedAttempt: 2,
+                            reason: "learned favored phraseBreathCueDensity and harmonicColorCueDensity",
+                        },
                         structureEvaluation: {
                             passed: true,
                             score: 88,
@@ -490,9 +562,114 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
                             harmonicColorCues: [{ tag: "applied_dominant", startMeasure: 10, endMeasure: 11 }],
                         },
                     ],
+                    rerankerScore: {
+                        version: 1,
+                        type: "structure_shadow_reranker",
+                        songId: "song-a",
+                        candidateId: "structure-a2-python-music21-symbolic-v1-2",
+                        evaluatedAt: "2026-04-17T01:06:00.000Z",
+                        scorer: {
+                            snapshotId: "shadow-live",
+                            modelPath: path.join(outputDir, "_system", "ml", "evaluations", "structure-rank-v1", "shadow-live", "shadow-reranker-model.json"),
+                            calibratedTemperature: 1,
+                            featureCount: 24,
+                        },
+                        heuristic: {
+                            score: 0.74,
+                            rank: 2,
+                            topCandidateId: "structure-a1-python-music21-symbolic-v1-1",
+                            topMargin: 0.17,
+                        },
+                        learned: {
+                            score: 0.89,
+                            rank: 1,
+                            topCandidateId: "structure-a2-python-music21-symbolic-v1-2",
+                            topMargin: 0.11,
+                            confidence: 0.81,
+                        },
+                        disagreement: {
+                            disagrees: true,
+                            heuristicTopCandidateId: "structure-a1-python-music21-symbolic-v1-1",
+                            learnedTopCandidateId: "structure-a2-python-music21-symbolic-v1-2",
+                            reason: "learned favored phraseBreathCueDensity and harmonicColorCueDensity",
+                            topFeatures: [
+                                {
+                                    feature: "phraseBreathCueDensity",
+                                    contribution: 0.44,
+                                    learnedValue: 1.2,
+                                    heuristicValue: 0,
+                                },
+                                {
+                                    feature: "harmonicColorCueDensity",
+                                    contribution: 0.27,
+                                    learnedValue: 1,
+                                    heuristicValue: 0,
+                                },
+                            ],
+                        },
+                    },
                 },
             ],
         });
+
+        writeJson(path.join(outputDir, "_system", "operator-actions", "latest.json"), {
+            actor: "operator:test",
+            surface: "dashboard",
+            action: "approve",
+            reason: "reviewed narrow-lane reranker promotion output",
+            input: {
+                songId: "song-a",
+            },
+            before: {
+                songId: "song-a",
+                approvalStatus: "pending",
+            },
+            after: {
+                songId: "song-a",
+                approvalStatus: "approved",
+            },
+            artifactLinks: ["outputs/song-a/manifest.json"],
+            approvedBy: "operator:test",
+            observedAt: "2026-04-17T01:07:00.000Z",
+        });
+        writeJsonl(path.join(outputDir, "_system", "operator-actions", "history", "2026-04-17.jsonl"), [
+            {
+                actor: "operator:test",
+                surface: "dashboard",
+                action: "approve",
+                reason: "reviewed narrow-lane reranker promotion output",
+                input: {
+                    songId: "song-a",
+                },
+                before: {
+                    songId: "song-a",
+                    approvalStatus: "pending",
+                },
+                after: {
+                    songId: "song-a",
+                    approvalStatus: "approved",
+                },
+                artifactLinks: ["outputs/song-a/manifest.json"],
+                approvedBy: "operator:test",
+                observedAt: "2026-04-17T01:07:00.000Z",
+            },
+        ]);
+        writeJsonl(path.join(outputDir, "_system", "ml", "runtime", "structure-rank-v1-shadow-history", "2026-04-17.jsonl"), [
+            {
+                kind: "structure_shadow",
+                generatedAt: "2026-04-17T01:06:00.000Z",
+                songId: "song-a",
+                snapshotId: "shadow-live",
+                candidateCount: 2,
+                selectedCandidateId: "structure-a2-python-music21-symbolic-v1-2",
+                heuristicTopCandidateId: "structure-a1-python-music21-symbolic-v1-1",
+                learnedTopCandidateId: "structure-a2-python-music21-symbolic-v1-2",
+                confidence: 0.81,
+                disagreement: true,
+                reason: "learned favored phraseBreathCueDensity and harmonicColorCueDensity",
+                scorePaths: [path.join(outputDir, "song-a", "candidates", "structure-a2-python-music21-symbolic-v1-2", "reranker-score.json")],
+            },
+        ]);
 
         seedStructureRankManifest(outputDir, {
             songId: "song-b",
@@ -504,7 +681,7 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
                     prompt: "fallback synthetic attempt export",
                     form: "miniature",
                     source: "api",
-                    promptHash: "hash-b",
+                    promptHash: "hash-a",
                     workflow: "symbolic_plus_audio",
                     plannerVersion: "planner-v1",
                     plannerTelemetry: {
@@ -551,16 +728,56 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
         assert.equal(payload.groupCount, 2);
         assert.equal(payload.exampleCount, 3);
         assert.equal(payload.labelDistribution.selectedExamples, 2);
+        assert.equal(payload.reviewTierCounts.reviewed_approved, 1);
+        assert.equal(payload.reviewTierCounts.runtime_selected_unreviewed, 1);
+        assert.equal(payload.sourceDateRange.earliestCreatedAt, "2026-04-17T01:03:00.000Z");
+        assert.equal(payload.sourceDateRange.latestCreatedAt, "2026-04-17T02:05:00.000Z");
         assert.equal(payload.featureAvailability.derivedFromSyntheticAttempt, 1);
         assert.equal(payload.featureAvailability.hasProposalEvidence, 1);
         assert.equal(payload.featureAvailability.hasLearnedProposalEvidence, 1);
         assert.equal(payload.featureAvailability.hasProposalLane, 1);
         assert.equal(payload.featureAvailability.hasProposalSummary, 1);
+        assert.equal(payload.featureAvailability.hasProposalNormalizationWarnings, 1);
+        assert.equal(payload.featureAvailability.hasProposalRoleCollapseWarnings, 1);
         assert.equal(payload.featureAvailability.hasReviewFeedback, 1);
         assert.equal(payload.featureAvailability.hasReviewFeedbackNote, 1);
         assert.equal(payload.featureAvailability.hasComparisonReference, 1);
         assert.equal(payload.featureAvailability.hasInputDirectiveContext, 1);
         assert.equal(payload.featureAvailability.hasTargetedRewriteContext, 1);
+        assert.equal(payload.additionalDatasets.axiom_backbone_piece_v1.rowCount, 2);
+        assert.equal(payload.additionalDatasets.axiom_localized_rewrite_v1.rowCount, 1);
+        assert.equal(payload.additionalDatasets.axiom_search_reranker_v1.groupCount, 1);
+        assert.equal(payload.additionalDatasets.axiom_search_reranker_v1.pairwiseCount, 1);
+        assert.equal(payload.additionalDatasets.axiom_search_reranker_v1.shortlistCount, 1);
+
+        const snapshotSummaryStdout = execFileSync(
+            process.execPath,
+            [
+                "scripts/summarize-truth-plane-dataset-snapshot.mjs",
+                "--root",
+                outputDir,
+                "--snapshot",
+                "test-snapshot",
+            ],
+            {
+                cwd: repoRoot,
+                encoding: "utf8",
+            },
+        );
+        const snapshotSummary = JSON.parse(snapshotSummaryStdout.trim());
+        assert.equal(snapshotSummary.ok, true);
+        assert.equal(snapshotSummary.datasets.structure_rank_v1.reviewTierCounts.reviewed_approved, 1);
+        assert.equal(snapshotSummary.datasets.axiom_backbone_piece_v1.reviewTierCounts.runtime_selected_unreviewed, 1);
+        assert.equal(snapshotSummary.datasets.axiom_search_reranker_v1.reviewTierCounts.groups.reviewed_approved, 1);
+        assert.equal(snapshotSummary.datasets.structure_rank_v1.sourceDateRange.earliestCreatedAt, "2026-04-17T01:03:00.000Z");
+        assert.equal(snapshotSummary.datasets.axiom_backbone_piece_v1.sourceDateRange.latestCreatedAt, "2026-04-17T02:05:00.000Z");
+        assert.equal(snapshotSummary.promotionCounts.appliedGroupCount, 1);
+        assert.equal(snapshotSummary.promotionCounts.laneCounts.string_trio_symbolic, 1);
+        assert.equal(snapshotSummary.splitLeakageChecks.structure_rank_v1.promptHash.collisionCount, 1);
+        assert.equal(snapshotSummary.splitLeakageChecks.structure_rank_v1.promptHash.leakedValues[0].value, "hash-a");
+        assert.equal(snapshotSummary.splitLeakageChecks.axiom_backbone_piece_v1.ok, true);
+        assert.equal(snapshotSummary.splitLeakageChecks.axiom_backbone_piece_v1.promptHash.collisionCount, 0);
+        assert.equal(snapshotSummary.splitLeakageChecks.axiom_search_reranker_v1.ok, true);
 
         const datasetRoot = path.join(outputDir, "_system", "ml", "datasets", "structure-rank-v1", "test-snapshot");
         assert.equal(fs.existsSync(path.join(datasetRoot, "manifest.json")), true);
@@ -568,16 +785,52 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
         assert.equal(fs.existsSync(path.join(datasetRoot, "val.jsonl")), true);
         assert.equal(fs.existsSync(path.join(datasetRoot, "test.jsonl")), true);
 
+        const backboneDatasetRoot = path.join(outputDir, "_system", "ml", "datasets", "axiom_backbone_piece_v1", "test-snapshot");
+        assert.equal(fs.existsSync(path.join(backboneDatasetRoot, "manifest.json")), true);
+        assert.equal(fs.existsSync(path.join(backboneDatasetRoot, "rows.jsonl")), true);
+        assert.equal(fs.existsSync(path.join(backboneDatasetRoot, "splits.json")), true);
+
+        const rewriteDatasetRoot = path.join(outputDir, "_system", "ml", "datasets", "axiom_localized_rewrite_v1", "test-snapshot");
+        assert.equal(fs.existsSync(path.join(rewriteDatasetRoot, "manifest.json")), true);
+        assert.equal(fs.existsSync(path.join(rewriteDatasetRoot, "rows.jsonl")), true);
+        assert.equal(fs.existsSync(path.join(rewriteDatasetRoot, "splits.json")), true);
+
+        const searchDatasetRoot = path.join(outputDir, "_system", "ml", "datasets", "axiom_search_reranker_v1", "test-snapshot");
+        assert.equal(fs.existsSync(path.join(searchDatasetRoot, "manifest.json")), true);
+        assert.equal(fs.existsSync(path.join(searchDatasetRoot, "groups.jsonl")), true);
+        assert.equal(fs.existsSync(path.join(searchDatasetRoot, "pairwise.jsonl")), true);
+        assert.equal(fs.existsSync(path.join(searchDatasetRoot, "shortlists.jsonl")), true);
+        assert.equal(fs.existsSync(path.join(searchDatasetRoot, "splits.json")), true);
+
         const allExamples = [
             ...readJsonl(path.join(datasetRoot, "train.jsonl")),
             ...readJsonl(path.join(datasetRoot, "val.jsonl")),
             ...readJsonl(path.join(datasetRoot, "test.jsonl")),
         ];
+        const backboneRows = readJsonl(path.join(backboneDatasetRoot, "rows.jsonl"));
+        const rewriteRows = readJsonl(path.join(rewriteDatasetRoot, "rows.jsonl"));
+        const searchGroupRows = readJsonl(path.join(searchDatasetRoot, "groups.jsonl"));
+        const searchPairwiseRows = readJsonl(path.join(searchDatasetRoot, "pairwise.jsonl"));
+        const searchShortlistRows = readJsonl(path.join(searchDatasetRoot, "shortlists.jsonl"));
+        const searchManifest = JSON.parse(fs.readFileSync(path.join(searchDatasetRoot, "manifest.json"), "utf8"));
+        const backboneSplits = JSON.parse(fs.readFileSync(path.join(backboneDatasetRoot, "splits.json"), "utf8"));
         assert.equal(allExamples.length, 3);
+        assert.equal(backboneRows.length, 2);
+        assert.equal(rewriteRows.length, 1);
+        assert.equal(searchGroupRows.length, 1);
+        assert.equal(searchPairwiseRows.length, 1);
+        assert.equal(searchShortlistRows.length, 1);
+        assert.equal(searchManifest.exclusions.no_candidate_groups, 1);
 
         const rejectedCandidate = allExamples.find((entry) => entry.songId === "song-a" && entry.attempt === 1);
         const selectedCandidate = allExamples.find((entry) => entry.songId === "song-a" && entry.attempt === 2);
         const syntheticCandidate = allExamples.find((entry) => entry.songId === "song-b");
+        const selectedPiece = backboneRows.find((entry) => entry.songId === "song-a");
+        const syntheticPiece = backboneRows.find((entry) => entry.songId === "song-b");
+        const rewriteRow = rewriteRows.find((entry) => entry.songId === "song-a");
+        const searchGroupRow = searchGroupRows[0];
+        const searchPairwiseRow = searchPairwiseRows[0];
+        const searchShortlistRow = searchShortlistRows[0];
 
         assert.equal(rejectedCandidate.labels.selectedWithinGroup, false);
         assert.equal(rejectedCandidate.labels.pairwiseLosses, 1);
@@ -609,11 +862,24 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
         assert.equal(selectedCandidate.featureAvailability.hasSectionArtifacts, true);
         assert.equal(selectedCandidate.featureAvailability.hasProposalEvidence, true);
         assert.equal(selectedCandidate.featureAvailability.hasLearnedProposalEvidence, true);
+        assert.equal(selectedCandidate.featureAvailability.hasProposalNormalizationWarnings, true);
+        assert.equal(selectedCandidate.featureAvailability.hasProposalRoleCollapseWarnings, true);
         assert.equal(selectedCandidate.featureAvailability.hasReviewFeedback, true);
         assert.equal(selectedCandidate.featureAvailability.hasInputDirectiveContext, true);
         assert.equal(selectedCandidate.featureAvailability.hasTargetedRewriteContext, true);
         assert.equal(selectedCandidate.proposalEvidence.lane, "string_trio_symbolic");
+        assert.equal(selectedCandidate.proposalEvidence.benchmarkPackVersion, "string_trio_symbolic_benchmark_pack_v1");
+        assert.equal(selectedCandidate.proposalEvidence.benchmarkId, "cadence_clarity_reference");
+        assert.equal(selectedCandidate.proposalEvidence.promptPackVersion, "learned_symbolic_prompt_pack_v1");
+        assert.equal(selectedCandidate.proposalEvidence.planSignature, "lane=string_trio_symbolic|form=miniature|key=c major|inst=violin,viola,cello|roles=theme_a>cadence|sig=testpack001");
         assert.equal(selectedCandidate.proposalEvidence.generationMode, "targeted_section_rewrite");
+        assert.equal(selectedCandidate.proposalEvidence.normalizationWarningCount, 2);
+        assert.deepEqual(selectedCandidate.proposalEvidence.normalizationWarnings, [
+            "section s2 role collapse: expected lead,counterline,bass got lead,bass",
+            "selected rewrite reused prior cadence material to preserve continuity",
+        ]);
+        assert.equal(selectedCandidate.proposalWarningSignals.normalizationWarningCount, 2);
+        assert.equal(selectedCandidate.proposalWarningSignals.roleCollapseWarningCount, 1);
         assert.equal(selectedCandidate.proposalEvidence.summary.partCount, 3);
         assert.deepEqual(selectedCandidate.proposalEvidence.summary.partInstrumentNames, ["Cello", "Viola", "Violin"]);
         assert.deepEqual(selectedCandidate.lineage.priorDirectiveKinds, []);
@@ -622,6 +888,7 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
         assert.equal(selectedCandidate.lineage.retryLocalization, "section_targeted");
         assert.equal(selectedCandidate.lineage.retriedFromAttempt, 1);
         assert.equal(selectedCandidate.reviewSignals.approvalStatus, "approved");
+        assert.equal(selectedCandidate.reviewSignals.reviewRubricVersion, "approval_review_rubric_v1");
         assert.equal(selectedCandidate.reviewSignals.comparisonReference, "run-2026-04-16-chamber-baseline");
         assert.equal(selectedCandidate.reviewSignals.selectedAttemptWasRetry, true);
         assert.equal(selectedCandidate.reviewSignals.selectedGenerationMode, "targeted_section_rewrite");
@@ -643,6 +910,71 @@ test("export-structure-reranker-dataset writes grouped structure_rank_v1 snapsho
         assert.deepEqual(syntheticCandidate.reviewSignals.selectedRewriteDirectiveKinds, []);
         assert.deepEqual(syntheticCandidate.reviewSignals.selectedRewriteSectionIds, []);
         assert.deepEqual(syntheticCandidate.reviewSignals.selectedTransformModes, []);
+
+        assert.equal(selectedPiece.reviewTier, "reviewed_approved");
+        assert.equal(selectedPiece.selectedCandidateId, "structure-a2-python-music21-symbolic-v1-2");
+        assert.equal(selectedPiece.qualityLabels.retryCount, 1);
+        assert.equal(selectedPiece.directiveContext.retryLocalization, "section_targeted");
+        assert.equal(selectedPiece.proposalEvidence.benchmarkPackVersion, "string_trio_symbolic_benchmark_pack_v1");
+        assert.equal(selectedPiece.proposalEvidence.benchmarkId, "cadence_clarity_reference");
+        assert.deepEqual(selectedPiece.directiveContext.inputDirectiveKinds, ["clarify_phrase_rhetoric"]);
+        assert.equal(selectedPiece.proposalEvidence.promptPackVersion, "learned_symbolic_prompt_pack_v1");
+        assert.equal(selectedPiece.proposalEvidence.planSignature, "lane=string_trio_symbolic|form=miniature|key=c major|inst=violin,viola,cello|roles=theme_a>cadence|sig=testpack001");
+        assert.equal(selectedPiece.proposalWarningSignals.normalizationWarningCount, 2);
+        assert.equal(selectedPiece.proposalWarningSignals.roleCollapseWarningCount, 1);
+        assert.equal(selectedPiece.splitFamilyKey, "promptHash:hash-a");
+        assert.equal(selectedPiece.conditioning.compositionPlan.sections.length, 2);
+        assert.equal(syntheticPiece.reviewTier, "runtime_selected_unreviewed");
+        assert.equal(syntheticPiece.splitFamilyKey, "promptHash:hash-a");
+        assert.equal(backboneSplits.splitKey, "splitFamilyKey");
+        assert.deepEqual(backboneSplits.train, ["promptHash:hash-a"]);
+        assert.deepEqual(backboneSplits.val, []);
+        assert.deepEqual(backboneSplits.test, []);
+
+        assert.equal(rewriteRow.reviewTier, "reviewed_approved");
+        assert.equal(rewriteRow.candidateId, "structure-a2-python-music21-symbolic-v1-2");
+        assert.equal(rewriteRow.rewriteContext.targetSectionId, "s2");
+        assert.equal(rewriteRow.rewriteContext.directiveKind, "clarify_phrase_rhetoric");
+        assert.equal(rewriteRow.rewriteContext.retryLocalization, "section_targeted");
+        assert.deepEqual(rewriteRow.rewriteContext.inputDirectiveSectionIds, ["s2"]);
+        assert.equal(rewriteRow.targetSection.role, "cadence");
+        assert.equal(rewriteRow.labels.selectedAfterRetry, true);
+        assert.equal(rewriteRow.proposalEvidence.planSignature, "lane=string_trio_symbolic|form=miniature|key=c major|inst=violin,viola,cello|roles=theme_a>cadence|sig=testpack001");
+        assert.equal(rewriteRow.proposalWarningSignals.normalizationWarningCount, 2);
+        assert.equal(rewriteRow.proposalWarningSignals.roleCollapseWarningCount, 1);
+
+        assert.equal(searchGroupRow.reviewTier, "reviewed_approved");
+        assert.equal(searchGroupRow.selectedCandidateId, "structure-a2-python-music21-symbolic-v1-2");
+        assert.equal(searchGroupRow.heuristicTopCandidateId, "structure-a1-python-music21-symbolic-v1-1");
+        assert.equal(searchGroupRow.learnedTopCandidateId, "structure-a2-python-music21-symbolic-v1-2");
+        assert.equal(searchGroupRow.reviewedWinnerCandidateId, "structure-a2-python-music21-symbolic-v1-2");
+        assert.equal(searchGroupRow.promotion.applied, true);
+        assert.equal(searchGroupRow.promotion.snapshotId, "shadow-live");
+        assert.equal(searchGroupRow.reviewAudit.latestAction, "approve");
+        assert.equal(searchGroupRow.reviewAudit.historyCount, 1);
+        assert.equal(searchGroupRow.runtimeShadow.entryCount, 1);
+        assert.equal(searchGroupRow.runtimeShadow.disagreementCount, 1);
+        assert.equal(searchGroupRow.candidates.length, 2);
+        const learnedSearchCandidate = searchGroupRow.candidates.find((entry) => entry.candidateId === "structure-a2-python-music21-symbolic-v1-2");
+        assert.equal(learnedSearchCandidate.proposalWarningSignals.normalizationWarningCount, 2);
+        assert.equal(learnedSearchCandidate.proposalWarningSignals.roleCollapseWarningCount, 1);
+
+        assert.equal(searchPairwiseRow.winnerCandidateId, "structure-a2-python-music21-symbolic-v1-2");
+        assert.equal(searchPairwiseRow.loserCandidateId, "structure-a1-python-music21-symbolic-v1-1");
+        assert.equal(searchPairwiseRow.labelSource, "reviewed_approved_selection");
+        assert.equal(searchPairwiseRow.trainingWeight > 1, true);
+        assert.equal(searchPairwiseRow.deltas.structureScoreDelta, 15);
+        assert.equal(searchPairwiseRow.deltas.proposalConfidenceDelta, 0.61);
+        assert.equal(searchPairwiseRow.deltas.proposalWarningCountDelta, 2);
+        assert.equal(searchPairwiseRow.deltas.roleCollapseWarningCountDelta, 1);
+
+        assert.equal(searchShortlistRow.topK, 2);
+        assert.deepEqual(searchShortlistRow.orderedCandidateIds, [
+            "structure-a2-python-music21-symbolic-v1-2",
+            "structure-a1-python-music21-symbolic-v1-1",
+        ]);
+        assert.equal(searchShortlistRow.reviewedWinnerCandidateId, "structure-a2-python-music21-symbolic-v1-2");
+        assert.equal(searchShortlistRow.promotionApplied, true);
     } finally {
         fs.rmSync(tempRoot, { recursive: true, force: true });
     }
@@ -677,6 +1009,7 @@ test("export-structure-reranker-dataset falls back to winning manifest reviewSig
                 },
                 approvalStatus: "approved",
                 reviewFeedback: {
+                    reviewRubricVersion: "approval_review_rubric_v1",
                     note: "Localized rewrite fixed the closing rhetoric.",
                     appealScore: 8.9,
                     strongestDimension: "phrase_breath",
@@ -688,6 +1021,8 @@ test("export-structure-reranker-dataset falls back to winning manifest reviewSig
                     lane: "string_trio_symbolic",
                     provider: "learned",
                     model: "learned-symbolic-trio-v1",
+                    benchmarkPackVersion: "string_trio_symbolic_benchmark_pack_v1",
+                    benchmarkId: "cadence_clarity_reference",
                     generationMode: "targeted_section_rewrite",
                     confidence: 0.67,
                 },
@@ -814,6 +1149,7 @@ test("export-structure-reranker-dataset preserves retry lineage for legacy candi
                 },
                 approvalStatus: "approved",
                 reviewFeedback: {
+                    reviewRubricVersion: "approval_review_rubric_v1",
                     note: "Retry landed the cadence more clearly.",
                     appealScore: 8.2,
                 },

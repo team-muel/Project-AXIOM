@@ -1,16 +1,28 @@
 import { config } from "../config.js";
+import { listStoredManifests } from "../memory/manifest.js";
+import {
+    summarizeLearnedBackboneBenchmark,
+    type ManifestLearnedBackbonePromotionGateSummary,
+} from "../memory/manifestAnalytics.js";
+import { logger } from "../logging/logger.js";
 import { STRUCTURE_SHADOW_HIGH_CONFIDENCE } from "./structureShadowHistory.js";
 import { inspectStructureRerankerShadow } from "./structureShadowReranker.js";
+import {
+    STRUCTURE_RERANKER_PROMOTION_LANE,
+    detectStructureRerankerPromotionLane,
+} from "./structureRerankerPromotionLane.js";
 import type {
     ComposeExecutionPlan,
     ComposeQualityPolicy,
     ComposeRequest,
     CompositionPlan,
-    InstrumentAssignment,
     StructureEvaluationReport,
 } from "./types.js";
 
-export const STRUCTURE_RERANKER_PROMOTION_LANE = "string_trio_symbolic";
+export {
+    STRUCTURE_RERANKER_PROMOTION_LANE,
+    detectStructureRerankerPromotionLane,
+} from "./structureRerankerPromotionLane.js";
 
 export interface StructureRerankerPromotionCandidate {
     candidateId: string;
@@ -39,61 +51,6 @@ export interface StructureRerankerPromotionDecision {
     heuristicTopCandidateId: string;
     learnedTopCandidateId: string;
     reason?: string;
-}
-
-function normalizeInstrumentName(name: unknown): string {
-    const normalized = String(name ?? "").trim().toLowerCase();
-    if (!normalized) {
-        return "";
-    }
-
-    if (normalized.includes("violoncello") || normalized.includes("cello")) {
-        return "cello";
-    }
-
-    if (normalized.includes("viola")) {
-        return "viola";
-    }
-
-    if (normalized.includes("violin")) {
-        return "violin";
-    }
-
-    return normalized;
-}
-
-function isCanonicalStringTrio(instrumentation: InstrumentAssignment[] | undefined): boolean {
-    const instruments = instrumentation ?? [];
-    if (instruments.length !== 3) {
-        return false;
-    }
-
-    const normalized = instruments
-        .map((instrument) => normalizeInstrumentName(instrument?.name))
-        .filter(Boolean);
-
-    return normalized.length === 3
-        && new Set(normalized).size === 3
-        && ["violin", "viola", "cello"].every((name) => normalized.includes(name));
-}
-
-export function detectStructureRerankerPromotionLane(
-    executionPlan: ComposeExecutionPlan,
-    compositionPlan?: CompositionPlan,
-    targetInstrumentation?: InstrumentAssignment[],
-): string | null {
-    if (executionPlan.workflow !== "symbolic_only") {
-        return null;
-    }
-
-    if (compositionPlan?.orchestration?.family === "string_trio") {
-        return STRUCTURE_RERANKER_PROMOTION_LANE;
-    }
-
-    const instrumentation = compositionPlan?.instrumentation ?? targetInstrumentation;
-    return isCanonicalStringTrio(instrumentation)
-        ? STRUCTURE_RERANKER_PROMOTION_LANE
-        : null;
 }
 
 export function isStructureRerankerPromotionLane(
@@ -131,10 +88,40 @@ function meetsStructurePromotionGuards(
     return true;
 }
 
+interface StructureRerankerPromotionGateReadiness {
+    ready: boolean;
+    status: ManifestLearnedBackbonePromotionGateSummary["status"];
+    signal: ManifestLearnedBackbonePromotionGateSummary["signal"];
+    rationale: string | null;
+}
+
+function inspectStructureRerankerPromotionGate(): StructureRerankerPromotionGateReadiness {
+    const manifests = listStoredManifests();
+    const promotionGate = summarizeLearnedBackboneBenchmark(manifests).promotionGate;
+    return {
+        ready: promotionGate.status === "ready_for_guarded_promotion",
+        status: promotionGate.status,
+        signal: promotionGate.signal,
+        rationale: promotionGate.rationale,
+    };
+}
+
 export function resolveStructureRerankerPromotion(
     input: StructureRerankerPromotionInput,
 ): StructureRerankerPromotionDecision | null {
     if (!isStructureRerankerPromotionLane(input.request, input.executionPlan, input.compositionPlan)) {
+        return null;
+    }
+
+    const promotionGate = inspectStructureRerankerPromotionGate();
+    if (!promotionGate.ready) {
+        logger.info("Skipped learned reranker promotion because the narrow-lane promotion gate is not ready", {
+            songId: input.songId,
+            lane: STRUCTURE_RERANKER_PROMOTION_LANE,
+            promotionGateStatus: promotionGate.status,
+            promotionGateSignal: promotionGate.signal,
+            promotionGateRationale: promotionGate.rationale,
+        });
         return null;
     }
 

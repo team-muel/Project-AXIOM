@@ -1,0 +1,258 @@
+{"timestamp":"2026-04-19T06:39:03.409Z","level":"warn","message":"Learned symbolic proposal normalization warning","songId":"learned-normalizer-probe","warning":"section_alignment=approximate"}
+{"timestamp":"2026-04-19T06:39:03.411Z","level":"info","message":"Resolved compose execution plan","songId":"learned-string-trio","workflow":"symbolic_only","composeWorker":"learned_symbolic","selectedModels":["structure:learned:learned-symbolic-trio-v1"]}
+{"timestamp":"2026-04-19T06:39:03.413Z","level":"info","message":"Composing via learned symbolic proposal worker","songId":"learned-string-trio","prompt":"Compose a compact string trio miniature with a calm opening and a clear cadence.","workflow":"symbolic_only","promptPackVersion":"learned_symbolic_prompt_pack_v1","planSignature":"lane=string_trio_symbolic|form=miniature|key=d minor|inst=violin,viola,cello|roles=theme_a>cadence|sig=572a4a95fc55"}
+✔ normalizeComposeRequestInput accepts multimodel compose payload (4.2025ms)
+✔ normalizeComposeRequestInput infers Stage B S4 base candidate count when localized rewrite branches are requested (0.2321ms)
+✔ normalizeComposeRequestInput accepts a custom mixed search budget with three whole-piece candidates and one rewrite branch (0.2566ms)
+✔ normalizeComposeRequestInput rejects out-of-range candidateCount (0.5351ms)
+✔ normalizeComposeRequestInput rejects localized rewrite branches when the whole-piece candidate budget is too small (0.2279ms)
+✔ normalizeComposeRequestInput rejects deprecated sonification input and points callers to compositionProfile (0.3935ms)
+✔ normalizeComposeRequestInput coerces sonata requests to symbolic-first workflow (0.4789ms)
+✔ normalizeComposeRequestInput preserves long-span form guidance for sonata plans (0.5231ms)
+✔ normalizeComposeRequestInput derives string-trio orchestration guidance from instrumentation and texture (0.5621ms)
+✔ normalizeComposeRequestInput rejects malformed sonata plans (0.283ms)
+✔ buildExecutionPlan forces sonata audio requests onto a symbolic-first worker (0.2764ms)
+✔ buildExecutionPlan selects learned_symbolic for learned structure bindings on symbolic workflows (0.1104ms)
+✔ learned symbolic prompt pack freezes plan signature while keeping retry context explicit (13.1654ms)
+✔ notagen provider request keeps backbone conditioning stable while surfacing retry control lines (0.5207ms)
+✖ learned_symbolic worker rejects malformed providerRequest before generation (577.0742ms)
+✖ learned_symbolic worker rejects providerRequest lane mismatches before generation (568.2882ms)
+✖ learned_symbolic worker records role collapse warnings for seeded trio artifacts (550.5395ms)
+✖ learned_symbolic worker accepts hyphenated flat tonal centers in the fixed counterline benchmark (553.4468ms)
+✖ learned_symbolic worker shapes cadential closures with varied durations in the fixed cadence benchmark (551.9009ms)
+✖ learned_symbolic worker materializes trio handoffs and wider dialogue spacing in the fixed counterline benchmark (546.9659ms)
+✔ fixed string trio benchmark pack keeps stable plan-signature coverage for retry probes (2.5336ms)
+✔ learned normalizer maps proposal responses into AXIOM compose results (2.9639ms)
+✔ learned contract validator rejects malformed provider responses before normalization (0.5233ms)
+{"timestamp":"2026-04-19T06:39:03.960Z","level":"warn","message":"Composer worker stderr","stderr":"Traceback (most recent call last):\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\", line 24, in <module>\r\n    from learned_symbolic.symbolic_projection import (\r\n    ...<2 lines>...\r\n    )\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\learned_symbolic\\symbolic_projection.py\", line 209\r\n    return 72 if conversation_mode == \"conversational\" else 70\r\nIndentationError: unexpected indent"}
+{"timestamp":"2026-04-19T06:39:03.962Z","level":"warn","message":"Worker failed: Command failed: c:\\Users\\User\\axiom\\.venv\\Scripts\\python.exe c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\nTraceback (most recent call last):\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\", line 24, in <module>\r\n    from learned_symbolic.symbolic_projection import (\r\n    ...<2 lines>...\r\n    )\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\learned_symbolic\\symbolic_projection.py\", line 209\r\n    return 72 if conversation_mode == \"conversational\" else 70\r\nIndentationError: unexpected indent\r\n","songId":"learned-string-trio"}
+{"timestamp":"2026-04-19T06:39:03.962Z","level":"info","message":"Composing via music21 worker","songId":"learned-string-trio","prompt":"Compose a compact string trio miniature with a calm opening and a clear cadence.","workflow":"symbolic_only"}
+{"timestamp":"2026-04-19T06:39:04.594Z","level":"info","message":"Composition complete (music21)","songId":"learned-string-trio","measures":8,"notes":42}
+{"timestamp":"2026-04-19T06:39:04.597Z","level":"info","message":"Resolved compose execution plan","songId":"learned-fallback-probe","workflow":"symbolic_only","composeWorker":"learned_symbolic","selectedModels":["structure:learned:learned-symbolic-trio-v1"]}
+{"timestamp":"2026-04-19T06:39:04.598Z","level":"info","message":"Composing via learned symbolic proposal worker","songId":"learned-fallback-probe","prompt":"Compose a compact piano miniature with a clear cadence.","workflow":"symbolic_only","promptPackVersion":"learned_symbolic_prompt_pack_v1","planSignature":"lane=generic_symbolic|form=miniature|key=c major|inst=piano|roles=theme_a>cadence|sig=6ecd9d5e0de2"}
+✖ learned_symbolic worker produces a normalized string trio miniature candidate (1185.9587ms)
+{"timestamp":"2026-04-19T06:39:05.141Z","level":"warn","message":"Composer worker stderr","stderr":"Traceback (most recent call last):\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\", line 24, in <module>\r\n    from learned_symbolic.symbolic_projection import (\r\n    ...<2 lines>...\r\n    )\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\learned_symbolic\\symbolic_projection.py\", line 209\r\n    return 72 if conversation_mode == \"conversational\" else 70\r\nIndentationError: unexpected indent"}
+{"timestamp":"2026-04-19T06:39:05.142Z","level":"warn","message":"Worker failed: Command failed: c:\\Users\\User\\axiom\\.venv\\Scripts\\python.exe c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\nTraceback (most recent call last):\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\", line 24, in <module>\r\n    from learned_symbolic.symbolic_projection import (\r\n    ...<2 lines>...\r\n    )\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\learned_symbolic\\symbolic_projection.py\", line 209\r\n    return 72 if conversation_mode == \"conversational\" else 70\r\nIndentationError: unexpected indent\r\n","songId":"learned-fallback-probe"}
+{"timestamp":"2026-04-19T06:39:05.143Z","level":"info","message":"Composing via music21 worker","songId":"learned-fallback-probe","prompt":"Compose a compact piano miniature with a clear cadence.","workflow":"symbolic_only"}
+{"timestamp":"2026-04-19T06:39:05.769Z","level":"info","message":"Composition complete (music21)","songId":"learned-fallback-probe","measures":8,"notes":44}
+{"timestamp":"2026-04-19T06:39:05.773Z","level":"info","message":"Resolved compose execution plan","songId":"learned-string-trio-rewrite-base","workflow":"symbolic_only","composeWorker":"learned_symbolic","selectedModels":["structure:learned:learned-symbolic-trio-v1"]}
+{"timestamp":"2026-04-19T06:39:05.773Z","level":"info","message":"Composing via learned symbolic proposal worker","songId":"learned-string-trio-rewrite-base","prompt":"Compose a compact string trio miniature and intensify only the middle section on retry.","workflow":"symbolic_only","promptPackVersion":"learned_symbolic_prompt_pack_v1","planSignature":"lane=string_trio_symbolic|form=miniature|key=d minor|inst=violin,viola,cello|roles=theme_a>development>closing|sig=edd3047a4335"}
+✔ learned_symbolic falls back to music21 when the narrow lane rejects the request (1174.8829ms)
+{"timestamp":"2026-04-19T06:39:06.325Z","level":"warn","message":"Composer worker stderr","stderr":"Traceback (most recent call last):\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\", line 24, in <module>\r\n    from learned_symbolic.symbolic_projection import (\r\n    ...<2 lines>...\r\n    )\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\learned_symbolic\\symbolic_projection.py\", line 209\r\n    return 72 if conversation_mode == \"conversational\" else 70\r\nIndentationError: unexpected indent"}
+{"timestamp":"2026-04-19T06:39:06.326Z","level":"warn","message":"Worker failed: Command failed: c:\\Users\\User\\axiom\\.venv\\Scripts\\python.exe c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\nTraceback (most recent call last):\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\", line 24, in <module>\r\n    from learned_symbolic.symbolic_projection import (\r\n    ...<2 lines>...\r\n    )\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\learned_symbolic\\symbolic_projection.py\", line 209\r\n    return 72 if conversation_mode == \"conversational\" else 70\r\nIndentationError: unexpected indent\r\n","songId":"learned-string-trio-rewrite-base"}
+{"timestamp":"2026-04-19T06:39:06.327Z","level":"info","message":"Composing via music21 worker","songId":"learned-string-trio-rewrite-base","prompt":"Compose a compact string trio miniature and intensify only the middle section on retry.","workflow":"symbolic_only"}
+{"timestamp":"2026-04-19T06:39:06.977Z","level":"info","message":"Composition complete (music21)","songId":"learned-string-trio-rewrite-base","measures":12,"notes":87}
+{"timestamp":"2026-04-19T06:39:06.979Z","level":"info","message":"Resolved compose execution plan","songId":"learned-string-trio-rewrite-attempt-2","workflow":"symbolic_only","composeWorker":"learned_symbolic","selectedModels":["structure:learned:learned-symbolic-trio-v1"]}
+{"timestamp":"2026-04-19T06:39:06.980Z","level":"info","message":"Composing via learned symbolic proposal worker","songId":"learned-string-trio-rewrite-attempt-2","prompt":"Compose a compact string trio miniature and intensify only the middle section on retry.","workflow":"symbolic_only","promptPackVersion":"learned_symbolic_prompt_pack_v1","planSignature":"lane=string_trio_symbolic|form=miniature|key=d minor|inst=violin,viola,cello|roles=theme_a>development>closing|sig=edd3047a4335"}
+{"timestamp":"2026-04-19T06:39:07.568Z","level":"warn","message":"Composer worker stderr","stderr":"Traceback (most recent call last):\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\", line 24, in <module>\r\n    from learned_symbolic.symbolic_projection import (\r\n    ...<2 lines>...\r\n    )\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\learned_symbolic\\symbolic_projection.py\", line 209\r\n    return 72 if conversation_mode == \"conversational\" else 70\r\nIndentationError: unexpected indent"}
+{"timestamp":"2026-04-19T06:39:07.569Z","level":"warn","message":"Worker failed: Command failed: c:\\Users\\User\\axiom\\.venv\\Scripts\\python.exe c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\nTraceback (most recent call last):\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\", line 24, in <module>\r\n    from learned_symbolic.symbolic_projection import (\r\n    ...<2 lines>...\r\n    )\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\learned_symbolic\\symbolic_projection.py\", line 209\r\n    return 72 if conversation_mode == \"conversational\" else 70\r\nIndentationError: unexpected indent\r\n","songId":"learned-string-trio-rewrite-attempt-2"}
+{"timestamp":"2026-04-19T06:39:07.570Z","level":"info","message":"Composing via music21 worker","songId":"learned-string-trio-rewrite-attempt-2","prompt":"Compose a compact string trio miniature and intensify only the middle section on retry.","workflow":"symbolic_only"}
+{"timestamp":"2026-04-19T06:39:08.253Z","level":"info","message":"Composition complete (music21)","songId":"learned-string-trio-rewrite-attempt-2","measures":12,"notes":89}
+{"timestamp":"2026-04-19T06:39:08.257Z","level":"info","message":"Resolved compose execution plan","songId":"fallback-music21","workflow":"symbolic_only","composeWorker":"learned_symbolic","selectedModels":["structure:learned:learned-symbolic-trio-v1"]}
+{"timestamp":"2026-04-19T06:39:08.258Z","level":"info","message":"Composing via learned symbolic proposal worker","songId":"fallback-music21","prompt":"Compose a short keyboard study with a clear opening sentence.","workflow":"symbolic_only","promptPackVersion":"learned_symbolic_prompt_pack_v1","planSignature":"lane=generic_symbolic|form=short|key=c major|inst=piano|roles=theme_a|sig=d1170b811886"}
+✖ learned_symbolic worker localizes targeted rewrite to the requested weak section (2484.6856ms)
+{"timestamp":"2026-04-19T06:39:08.797Z","level":"warn","message":"Composer worker stderr","stderr":"Traceback (most recent call last):\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\", line 24, in <module>\r\n    from learned_symbolic.symbolic_projection import (\r\n    ...<2 lines>...\r\n    )\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\learned_symbolic\\symbolic_projection.py\", line 209\r\n    return 72 if conversation_mode == \"conversational\" else 70\r\nIndentationError: unexpected indent"}
+{"timestamp":"2026-04-19T06:39:08.799Z","level":"warn","message":"Worker failed: Command failed: c:\\Users\\User\\axiom\\.venv\\Scripts\\python.exe c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\nTraceback (most recent call last):\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\compose_learned_symbolic.py\", line 24, in <module>\r\n    from learned_symbolic.symbolic_projection import (\r\n    ...<2 lines>...\r\n    )\r\n  File \"c:\\Users\\User\\axiom\\workers\\composer\\learned_symbolic\\symbolic_projection.py\", line 209\r\n    return 72 if conversation_mode == \"conversational\" else 70\r\nIndentationError: unexpected indent\r\n","songId":"fallback-music21"}
+{"timestamp":"2026-04-19T06:39:08.799Z","level":"info","message":"Composing via music21 worker","songId":"fallback-music21","prompt":"Compose a short keyboard study with a clear opening sentence.","workflow":"symbolic_only"}
+{"timestamp":"2026-04-19T06:39:09.405Z","level":"info","message":"Composition complete (music21)","songId":"fallback-music21","measures":4,"notes":50}
+✔ learned_symbolic worker degrades cleanly to music21 outside the narrow lane (1151.069ms)
+✔ mergeRenderedAndStyledArtifacts preserves score-aligned audio and stores styled audio separately (0.2027ms)
+✔ buildHumanizeWorkerInput threads expression guidance to the worker (0.2035ms)
+✔ humanizer applies extended expression vocabulary to timing and velocity shaping (2974.3587ms)
+✔ humanizer compounds phrase-breath and harmonic arrival cues when they overlap in the late window (5589.6842ms)
+✔ humanizer applies section-local tempo-motion cues to late-section durations (2994.3646ms)
+✔ humanizer realizes phrase-breath arrival and release shaping inside section windows (2977.192ms)
+✔ humanizer realizes fermata as a local hold near the targeted cadence beat (2871.914ms)
+✔ humanizer realizes target-beat arpeggio sweeps on chordal accompaniment and reports spread evidence (2888.6317ms)
+✔ humanizer realizes target-beat grace notes on note-bearing lines and reports lead-in evidence (2826.3524ms)
+✔ humanizer realizes target-beat trill oscillations on note-bearing lines and reports oscillation evidence (3082.0181ms)
+✔ buildExpressionPlanSidecar annotates section measure ranges for downstream humanization (0.6932ms)
+✔ buildAudioEvaluation scores weak tempo-motion evidence from section artifacts (4.4403ms)
+✔ buildAudioEvaluation scores weak phrase-breath evidence from section artifacts (1.9217ms)
+✔ buildAudioEvaluation scores strong phrase-breath evidence from section artifacts (1.7872ms)
+✔ buildAudioEvaluation scores weak harmonic-realization evidence from section artifacts (1.8088ms)
+✔ buildAudioEvaluation scores strong harmonic-realization evidence from section artifacts (1.6132ms)
+✔ buildAudioEvaluation scores weak ornament hold evidence from section artifacts (1.7817ms)
+✔ buildAudioEvaluation reports metadata-only unsupported ornament tags without failing them (1.6231ms)
+✔ buildAudioEvaluation scores realized arpeggio spread evidence from section artifacts (1.6415ms)
+✔ buildAudioEvaluation scores realized grace-note lead-in evidence from section artifacts (1.7555ms)
+✔ buildAudioEvaluation scores realized trill oscillation evidence from section artifacts (1.547ms)
+✔ humanizer differentiates lead and secondary-voice shaping across section texture windows (1937.5756ms)
+✔ humanizer splits bass and upper-strand shaping inside a single accompaniment part (1750.8795ms)
+✔ humanizer differentiates simultaneous chord-internal subvoices inside shared accompaniment chords (1813.8607ms)
+✔ buildStyledAudioPrompt includes expression defaults and section cues (0.8771ms)
+✔ resolveRequestedAudioDurationSec derives symbolic duration from sections and tempo when explicit duration is absent (0.3333ms)
+✔ buildRenderExpressionSummaryLines combines defaults, section cues, and realized velocity ranges (1.0994ms)
+✔ render worker embeds expression summary lines into the score preview (600.4499ms)
+✔ buildAudioEvaluation requires both rendered and styled audio for symbolic_plus_audio (2.3933ms)
+✔ buildAudioEvaluation scores development and recap narrative fit from rendered audio sections (73.663ms)
+✔ buildAudioEvaluation flags audio renders that flatten development and overstate recap (52.8168ms)
+✔ buildAudioEvaluation distinguishes same-tonic major and minor returns with key-profile matching (46.6586ms)
+✔ buildAudioEvaluation localizes render-consistency drift to the affected narrative section (43.8932ms)
+✔ serializeQueuedJob exposes qualityControl history at top level (1.5757ms)
+✔ pipeline allows render to render-audio transition (0.0768ms)
+✔ humanizer applies harmonic prolongation and tonicization cues to late-section sustain (3040.4502ms)
+ℹ tests 63
+ℹ suites 0
+ℹ pass 55
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45080.1061
+
+✖ failing tests:
+
+test at test\multimodel-execution.test.mjs:1651:1
+✖ learned_symbolic worker rejects malformed providerRequest before generation (577.0742ms)
+  Error: Traceback (most recent call last):
+    File "c:\Users\User\axiom\workers\composer\compose_learned_symbolic.py", line 24, in <module>
+      from learned_symbolic.symbolic_projection import (
+      ...<2 lines>...
+      )
+    File "c:\Users\User\axiom\workers\composer\learned_symbolic\symbolic_projection.py", line 209
+      return 72 if conversation_mode == "conversational" else 70
+  IndentationError: unexpected indent
+      at runLearnedSymbolicWorker (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:256:15)
+      at TestContext.<anonymous> (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:1665:28)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at test\multimodel-execution.test.mjs:1677:1
+✖ learned_symbolic worker rejects providerRequest lane mismatches before generation (568.2882ms)
+  Error: Traceback (most recent call last):
+    File "c:\Users\User\axiom\workers\composer\compose_learned_symbolic.py", line 24, in <module>
+      from learned_symbolic.symbolic_projection import (
+      ...<2 lines>...
+      )
+    File "c:\Users\User\axiom\workers\composer\learned_symbolic\symbolic_projection.py", line 209
+      return 72 if conversation_mode == "conversational" else 70
+  IndentationError: unexpected indent
+      at runLearnedSymbolicWorker (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:256:15)
+      at TestContext.<anonymous> (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:1691:28)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at test\multimodel-execution.test.mjs:1705:1
+✖ learned_symbolic worker records role collapse warnings for seeded trio artifacts (550.5395ms)
+  Error: Traceback (most recent call last):
+    File "c:\Users\User\axiom\workers\composer\compose_learned_symbolic.py", line 24, in <module>
+      from learned_symbolic.symbolic_projection import (
+      ...<2 lines>...
+      )
+    File "c:\Users\User\axiom\workers\composer\learned_symbolic\symbolic_projection.py", line 209
+      return 72 if conversation_mode == "conversational" else 70
+  IndentationError: unexpected indent
+      at runLearnedSymbolicWorker (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:256:15)
+      at TestContext.<anonymous> (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:1719:28)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at test\multimodel-execution.test.mjs:1754:1
+✖ learned_symbolic worker accepts hyphenated flat tonal centers in the fixed counterline benchmark (553.4468ms)
+  Error: Traceback (most recent call last):
+    File "c:\Users\User\axiom\workers\composer\compose_learned_symbolic.py", line 24, in <module>
+      from learned_symbolic.symbolic_projection import (
+      ...<2 lines>...
+      )
+    File "c:\Users\User\axiom\workers\composer\learned_symbolic\symbolic_projection.py", line 209
+      return 72 if conversation_mode == "conversational" else 70
+  IndentationError: unexpected indent
+      at runLearnedSymbolicWorker (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:256:15)
+      at TestContext.<anonymous> (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:1775:28)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at test\multimodel-execution.test.mjs:1783:1
+✖ learned_symbolic worker shapes cadential closures with varied durations in the fixed cadence benchmark (551.9009ms)
+  Error: Traceback (most recent call last):
+    File "c:\Users\User\axiom\workers\composer\compose_learned_symbolic.py", line 24, in <module>
+      from learned_symbolic.symbolic_projection import (
+      ...<2 lines>...
+      )
+    File "c:\Users\User\axiom\workers\composer\learned_symbolic\symbolic_projection.py", line 209
+      return 72 if conversation_mode == "conversational" else 70
+  IndentationError: unexpected indent
+      at runLearnedSymbolicWorker (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:256:15)
+      at TestContext.<anonymous> (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:1802:28)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at test\multimodel-execution.test.mjs:1824:1
+✖ learned_symbolic worker materializes trio handoffs and wider dialogue spacing in the fixed counterline benchmark (546.9659ms)
+  Error: Traceback (most recent call last):
+    File "c:\Users\User\axiom\workers\composer\compose_learned_symbolic.py", line 24, in <module>
+      from learned_symbolic.symbolic_projection import (
+      ...<2 lines>...
+      )
+    File "c:\Users\User\axiom\workers\composer\learned_symbolic\symbolic_projection.py", line 209
+      return 72 if conversation_mode == "conversational" else 70
+  IndentationError: unexpected indent
+      at runLearnedSymbolicWorker (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:256:15)
+      at TestContext.<anonymous> (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:1843:28)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at test\multimodel-execution.test.mjs:2064:1
+✖ learned_symbolic worker produces a normalized string trio miniature candidate (1185.9587ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'music21'
+  - 'learned_symbolic'
+  
+      at TestContext.<anonymous> (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:2147:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'music21',
+    expected: 'learned_symbolic',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\multimodel-execution.test.mjs:2261:1
+✖ learned_symbolic worker localizes targeted rewrite to the requested weak section (2484.6856ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'music21'
+  - 'learned_symbolic'
+  
+      at TestContext.<anonymous> (file:///c:/Users/User/axiom/test/multimodel-execution.test.mjs:2374:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'music21',
+    expected: 'learned_symbolic',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

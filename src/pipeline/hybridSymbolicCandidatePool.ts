@@ -1,4 +1,4 @@
-import { STRUCTURE_RERANKER_PROMOTION_LANE, detectStructureRerankerPromotionLane } from "./structureRerankerPromotion.js";
+import { STRUCTURE_RERANKER_PROMOTION_LANE, detectStructureRerankerPromotionLane } from "./structureRerankerPromotionLane.js";
 import type {
     ComposeExecutionPlan,
     ComposeRequest,
@@ -10,6 +10,7 @@ import type {
 export interface HybridSymbolicCandidateRequestVariant {
     variant: "requested" | "baseline" | "learned";
     lane: string | null;
+    candidateVariantKey?: string;
     request: ComposeRequest;
 }
 
@@ -61,6 +62,7 @@ function normalizeVariantRequest(
     request: ComposeRequest,
     selectedModels: ModelBinding[],
     compositionPlan?: CompositionPlan,
+    candidateVariantKey?: string,
 ): ComposeRequest {
     return {
         ...request,
@@ -70,7 +72,39 @@ function normalizeVariantRequest(
         ...(request.plannerVersion ?? compositionPlan?.version
             ? { plannerVersion: request.plannerVersion ?? compositionPlan?.version }
             : {}),
+        ...(candidateVariantKey !== undefined ? { candidateVariantKey } : {}),
     };
+}
+
+function normalizeHybridCandidateCount(candidateCount: number | undefined): number {
+    if (!Number.isFinite(candidateCount)) {
+        return 2;
+    }
+
+    return Math.max(Math.floor(candidateCount ?? 2), 2);
+}
+
+function buildHybridCandidateVariantKey(
+    variant: HybridSymbolicCandidateRequestVariant["variant"],
+    ordinal: number,
+): string | undefined {
+    if (variant === "requested" || ordinal <= 1) {
+        return undefined;
+    }
+
+    return `${variant}-${ordinal}`;
+}
+
+function sortCandidateSummaries(
+    candidates: HybridSymbolicSelectionCandidateSummary[],
+): HybridSymbolicSelectionCandidateSummary[] {
+    return [...candidates].sort((left, right) => {
+        const scoreDelta = (right.structureScore ?? 0) - (left.structureScore ?? 0);
+        if (Math.abs(scoreDelta) > 0.0001) {
+            return scoreDelta > 0 ? 1 : -1;
+        }
+        return left.candidateId.localeCompare(right.candidateId);
+    });
 }
 
 export function resolveHybridSymbolicCandidateLane(
@@ -100,6 +134,7 @@ export function buildHybridSymbolicCandidateRequests(
         return [{
             variant: "requested",
             lane: null,
+            candidateVariantKey: request.candidateVariantKey,
             request: normalizeVariantRequest(request, executionPlan.selectedModels, compositionPlan),
         }];
     }
@@ -109,6 +144,7 @@ export function buildHybridSymbolicCandidateRequests(
         return [{
             variant: "requested",
             lane: null,
+            candidateVariantKey: request.candidateVariantKey,
             request: normalizeVariantRequest(request, executionPlan.selectedModels, compositionPlan),
         }];
     }
@@ -116,6 +152,7 @@ export function buildHybridSymbolicCandidateRequests(
         return [{
             variant: "requested",
             lane: null,
+            candidateVariantKey: request.candidateVariantKey,
             request: normalizeVariantRequest(request, executionPlan.selectedModels, compositionPlan),
         }];
     }
@@ -123,19 +160,36 @@ export function buildHybridSymbolicCandidateRequests(
     const baseBindings = request.selectedModels?.length ? request.selectedModels : executionPlan.selectedModels;
     const baselineSelectedModels = replaceStructureBinding(baseBindings, BASELINE_STRUCTURE_BINDING);
     const learnedSelectedModels = replaceStructureBinding(baseBindings, learnedBinding);
+    const candidateCount = normalizeHybridCandidateCount(request.candidateCount);
+    const variants: HybridSymbolicCandidateRequestVariant[] = [];
+    let baselineOrdinal = 0;
+    let learnedOrdinal = 0;
 
-    return [
-        {
-            variant: "baseline",
-            lane,
-            request: normalizeVariantRequest(request, baselineSelectedModels, compositionPlan),
-        },
-        {
+    for (let index = 0; index < candidateCount; index += 1) {
+        const isBaselineSlot = index % 2 === 0;
+        if (isBaselineSlot) {
+            baselineOrdinal += 1;
+            const candidateVariantKey = buildHybridCandidateVariantKey("baseline", baselineOrdinal);
+            variants.push({
+                variant: "baseline",
+                lane,
+                candidateVariantKey,
+                request: normalizeVariantRequest(request, baselineSelectedModels, compositionPlan, candidateVariantKey),
+            });
+            continue;
+        }
+
+        learnedOrdinal += 1;
+        const candidateVariantKey = buildHybridCandidateVariantKey("learned", learnedOrdinal);
+        variants.push({
             variant: "learned",
             lane,
-            request: normalizeVariantRequest(request, learnedSelectedModels, compositionPlan),
-        },
-    ];
+            candidateVariantKey,
+            request: normalizeVariantRequest(request, learnedSelectedModels, compositionPlan, candidateVariantKey),
+        });
+    }
+
+    return variants;
 }
 
 export function resolveHybridSymbolicPreferredSelectedModels(
@@ -157,13 +211,9 @@ function bestAlternativeCandidate(
         return null;
     }
 
-    return alternatives.sort((left, right) => {
-        const scoreDelta = (right.structureScore ?? 0) - (left.structureScore ?? 0);
-        if (Math.abs(scoreDelta) > 0.0001) {
-            return scoreDelta > 0 ? 1 : -1;
-        }
-        return left.candidateId.localeCompare(right.candidateId);
-    })[0] ?? null;
+    const crossWorkerAlternatives = alternatives.filter((candidate) => candidate.composeWorker !== winner.composeWorker);
+    const rankedAlternatives = sortCandidateSummaries(crossWorkerAlternatives.length ? crossWorkerAlternatives : alternatives);
+    return rankedAlternatives[0] ?? null;
 }
 
 export function buildHybridSymbolicSelectionReason(

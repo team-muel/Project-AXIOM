@@ -288,7 +288,7 @@ function summarizeCompositionPlan(request: Pick<ComposeRequest, "compositionPlan
 }
 
 export function computePromptHash(
-    request: Pick<ComposeRequest, "prompt" | "key" | "tempo" | "form" | "durationSec" | "workflow" | "plannerVersion" | "selectedModels" | "compositionPlan" | "qualityPolicy" | "revisionDirectives" | "attemptIndex">,
+    request: Pick<ComposeRequest, "prompt" | "key" | "tempo" | "form" | "durationSec" | "workflow" | "plannerVersion" | "selectedModels" | "compositionPlan" | "qualityPolicy" | "revisionDirectives" | "candidateCount" | "localizedRewriteBranches" | "attemptIndex">,
 ): string {
     const payload = {
         prompt: compact(request.prompt),
@@ -298,6 +298,8 @@ export function computePromptHash(
         durationSec: request.durationSec ?? null,
         workflow: compact(request.workflow),
         plannerVersion: compact(request.plannerVersion),
+        candidateCount: request.candidateCount ?? null,
+        localizedRewriteBranches: request.localizedRewriteBranches ?? null,
         selectedModels: summarizeSelectedModels(request),
         compositionPlan: summarizeCompositionPlan(request),
         qualityPolicy: summarizeQualityPolicy(request),

@@ -7,6 +7,128 @@ import { fileURLToPath } from "node:url";
 import { parseLastJsonLine, runNodeEval } from "./helpers/subprocess.mjs";
 
 const repoRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
+const readyPromotionGateSeedScript = String.raw`
+function writePromotionGateJson(filePath, value) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+}
+
+function seedReadyPromotionGate(outputDir) {
+    const benchmarkPackVersion = "string_trio_symbolic_benchmark_pack_v1";
+    const promptPackVersion = "learned_symbolic_prompt_pack_v1";
+
+    for (let index = 0; index < 30; index += 1) {
+        const songNumber = String(index + 1).padStart(2, "0");
+        const songId = "gate-ready-" + songNumber;
+        const songDir = path.join(outputDir, songId);
+        const updatedAt = new Date(Date.UTC(2026, 3, 10, 0, index, 0)).toISOString();
+        const learnedCandidateId = songId + "-learned";
+        const baselineCandidateId = songId + "-baseline";
+        const learnedSelected = index < 20;
+        const disagreement = index < 10;
+        const benchmarkId = index % 2 === 0 ? "cadence_clarity_reference" : "localized_rewrite_probe";
+        const generationMode = index % 2 === 0 ? "plan_conditioned_trio_template" : "targeted_section_rewrite";
+        const proposalEvidence = {
+            worker: "learned_symbolic",
+            lane: "string_trio_symbolic",
+            provider: "learned",
+            model: "learned-symbolic-trio-v1",
+            benchmarkPackVersion,
+            benchmarkId,
+            promptPackVersion,
+            planSignature: "lane=string_trio_symbolic|sig=gate-ready-" + songNumber,
+            generationMode,
+            confidence: 0.78,
+        };
+
+        writePromotionGateJson(path.join(songDir, "manifest.json"), {
+            songId,
+            approvalStatus: learnedSelected ? "approved" : "rejected",
+            reviewFeedback: {
+                reviewRubricVersion: "approval_review_rubric_v1",
+                appealScore: learnedSelected ? 0.93 : 0.31,
+            },
+            meta: {
+                workflow: "symbolic_only",
+            },
+            updatedAt,
+        });
+
+        const learnedManifestPath = path.join(songDir, "candidates", learnedCandidateId, "candidate-manifest.json");
+        const baselineManifestPath = path.join(songDir, "candidates", baselineCandidateId, "candidate-manifest.json");
+        writePromotionGateJson(learnedManifestPath, {
+            version: 1,
+            stage: "structure",
+            songId,
+            candidateId: learnedCandidateId,
+            attempt: 1,
+            selected: learnedSelected,
+            evaluatedAt: updatedAt,
+            workflow: "symbolic_only",
+            worker: "learned_symbolic",
+            provider: "learned",
+            model: "learned-symbolic-trio-v1",
+            revisionDirectives: [],
+            proposalEvidence,
+            ...(disagreement ? { shadowReranker: { disagreesWithHeuristic: true } } : {}),
+            artifacts: {},
+        });
+        writePromotionGateJson(baselineManifestPath, {
+            version: 1,
+            stage: "structure",
+            songId,
+            candidateId: baselineCandidateId,
+            attempt: 1,
+            selected: !learnedSelected,
+            evaluatedAt: updatedAt,
+            workflow: "symbolic_only",
+            worker: "music21",
+            provider: "python",
+            model: "music21-symbolic-v1",
+            revisionDirectives: [],
+            ...(disagreement ? { shadowReranker: { disagreesWithHeuristic: true } } : {}),
+            artifacts: {},
+        });
+        writePromotionGateJson(path.join(songDir, "candidates", "index.json"), {
+            version: 1,
+            songId,
+            updatedAt,
+            selectedCandidateId: learnedSelected ? learnedCandidateId : baselineCandidateId,
+            selectedAttempt: 1,
+            selectionStopReason: learnedSelected ? "selected learned benchmark fixture" : "baseline benchmark fixture",
+            entries: [
+                {
+                    candidateId: baselineCandidateId,
+                    attempt: 1,
+                    stage: "structure",
+                    selected: !learnedSelected,
+                    workflow: "symbolic_only",
+                    worker: "music21",
+                    passed: true,
+                    score: learnedSelected ? 79 : 88,
+                    evaluatedAt: updatedAt,
+                    manifestPath: baselineManifestPath,
+                    ...(disagreement ? { shadowReranker: { disagreesWithHeuristic: true } } : {}),
+                },
+                {
+                    candidateId: learnedCandidateId,
+                    attempt: 1,
+                    stage: "structure",
+                    selected: learnedSelected,
+                    workflow: "symbolic_only",
+                    worker: "learned_symbolic",
+                    passed: true,
+                    score: learnedSelected ? 84 : 74,
+                    evaluatedAt: updatedAt,
+                    manifestPath: learnedManifestPath,
+                    proposalEvidence,
+                    ...(disagreement ? { shadowReranker: { disagreesWithHeuristic: true } } : {}),
+                },
+            ],
+        });
+    }
+}
+`;
 
 test("runtime structure shadow reranker writes candidate disagreement sidecars without changing heuristic authority", async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-shadow-runtime-"));
@@ -198,7 +320,7 @@ test("runtime structure shadow reranker writes candidate disagreement sidecars w
     }
 });
 
-test("runtime structure shadow reranker consumes proposal-evidence features from candidate sidecars", async () => {
+test("runtime structure shadow reranker consumes proposal warning features from candidate sidecars", async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-shadow-runtime-proposal-"));
 
     try {
@@ -227,17 +349,17 @@ test("runtime structure shadow reranker consumes proposal-evidence features from
                     "bias",
                     "structureScore",
                     "proposalWorker:learned_symbolic",
-                    "proposalLane:string_trio_symbolic",
-                    "proposalGenerationMode:plan_conditioned_trio_template",
-                    "proposalConfidence"
+                    "proposalNormalizationWarningCount",
+                    "proposalRoleCollapseWarningCount",
+                    "hasProposalRoleCollapseWarnings"
                 ],
                 weights: [
                     { feature: "bias", weight: 0 },
                     { feature: "structureScore", weight: 0.2 },
-                    { feature: "proposalWorker:learned_symbolic", weight: 1.5 },
-                    { feature: "proposalLane:string_trio_symbolic", weight: 0.8 },
-                    { feature: "proposalGenerationMode:plan_conditioned_trio_template", weight: 0.5 },
-                    { feature: "proposalConfidence", weight: 0.9 }
+                    { feature: "proposalWorker:learned_symbolic", weight: 0.35 },
+                    { feature: "proposalNormalizationWarningCount", weight: 0.7 },
+                    { feature: "proposalRoleCollapseWarningCount", weight: 1.4 },
+                    { feature: "hasProposalRoleCollapseWarnings", weight: 0.9 }
                 ],
                 calibratedTemperature: 1,
             }, null, 2));
@@ -302,6 +424,10 @@ test("runtime structure shadow reranker consumes proposal-evidence features from
                     model: "learned-symbolic-trio-v1",
                     generationMode: "plan_conditioned_trio_template",
                     confidence: 0.63,
+                    normalizationWarnings: [
+                        "section s1 role collapse: expected lead,counterline,bass got lead,bass",
+                        "projection reused prior cadence gesture to stabilize the retry",
+                    ],
                     summary: {
                         partCount: 3,
                         measureCount: 12,
@@ -360,17 +486,18 @@ test("runtime structure shadow reranker consumes proposal-evidence features from
         assert.equal(payload.learnedScore.learned.rank, 1);
         assert.equal(payload.heuristicScore.learned.rank, 2);
         assert.equal(payload.learnedManifest.proposalEvidence.worker, "learned_symbolic");
+        assert.equal(payload.learnedManifest.proposalEvidence.normalizationWarnings.length, 2);
         assert.equal(
-            payload.learnedScore.disagreement.topFeatures.some((entry) => entry.feature === "proposalWorker:learned_symbolic" || entry.feature === "proposalLane:string_trio_symbolic"),
+            payload.learnedScore.disagreement.topFeatures.some((entry) => entry.feature === "proposalRoleCollapseWarningCount" || entry.feature === "hasProposalRoleCollapseWarnings"),
             true,
         );
-        assert.match(payload.learnedScore.disagreement.reason ?? "", /proposalWorker:learned_symbolic|proposalLane:string_trio_symbolic/);
+        assert.match(payload.learnedScore.disagreement.reason ?? "", /proposalRoleCollapseWarningCount|hasProposalRoleCollapseWarnings/);
     } finally {
         fs.rmSync(tempRoot, { recursive: true, force: true });
     }
 });
 
-test("structure reranker promotion selects the learned top candidate only inside the narrow string trio symbolic lane", async () => {
+test("structure reranker promotion holds until the narrow-lane gate is ready and then promotes the learned top candidate", async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-shadow-promotion-"));
 
     try {
@@ -383,6 +510,8 @@ test("structure reranker promotion selects the learned top candidate only inside
             } from "./dist/memory/candidates.js";
             import { resolveStructureRerankerPromotion } from "./dist/pipeline/structureRerankerPromotion.js";
             import { config } from "./dist/config.js";
+
+            ${readyPromotionGateSeedScript}
 
             config.outputDir = ${JSON.stringify(tempRoot)};
             config.structureRerankerShadowEnabled = true;
@@ -504,7 +633,7 @@ test("structure reranker promotion selects the learned top candidate only inside
                 evaluatedAt: "2026-04-17T08:11:00.000Z",
             });
 
-            const decision = resolveStructureRerankerPromotion({
+            const blockedDecision = resolveStructureRerankerPromotion({
                 songId: "song-promotion",
                 currentCandidateId: heuristicCandidate,
                 candidates: [
@@ -549,15 +678,63 @@ test("structure reranker promotion selects the learned top candidate only inside
                 explicitStructureTarget: true,
             });
 
-            console.log(JSON.stringify({ decision, learnedCandidate, heuristicCandidate }));
+            seedReadyPromotionGate(config.outputDir);
+
+            const readyDecision = resolveStructureRerankerPromotion({
+                songId: "song-promotion",
+                currentCandidateId: heuristicCandidate,
+                candidates: [
+                    {
+                        candidateId: learnedCandidate,
+                        attempt: 1,
+                        structureEvaluation: {
+                            passed: true,
+                            score: 72,
+                            issues: ["lower raw score but richer local evidence"],
+                            strengths: ["phrase and section evidence survived"],
+                            metrics: {},
+                        },
+                    },
+                    {
+                        candidateId: heuristicCandidate,
+                        attempt: 2,
+                        structureEvaluation: {
+                            passed: true,
+                            score: 91,
+                            issues: [],
+                            strengths: ["high aggregate structure score"],
+                            metrics: {},
+                        },
+                    },
+                ],
+                request: {
+                    prompt: "promote learned trio candidate",
+                    workflow: "symbolic_only",
+                    compositionPlan: trioPlan,
+                    targetInstrumentation: trioPlan.instrumentation,
+                    qualityPolicy: {
+                        targetStructureScore: 70,
+                    },
+                },
+                executionPlan,
+                compositionPlan: trioPlan,
+                qualityPolicy: {
+                    targetStructureScore: 70,
+                },
+                requireStructurePass: true,
+                explicitStructureTarget: true,
+            });
+
+            console.log(JSON.stringify({ blockedDecision, readyDecision, learnedCandidate, heuristicCandidate }));
         `, { cwd: repoRoot });
 
         const payload = parseLastJsonLine(stdout);
-        assert.equal(payload.decision.candidateId, payload.learnedCandidate);
-        assert.equal(payload.decision.learnedTopCandidateId, payload.learnedCandidate);
-        assert.equal(payload.decision.heuristicTopCandidateId, payload.heuristicCandidate);
-        assert.equal(payload.decision.lane, "string_trio_symbolic");
-        assert.equal(payload.decision.confidence >= 0.7, true);
+        assert.equal(payload.blockedDecision, null);
+        assert.equal(payload.readyDecision.candidateId, payload.learnedCandidate);
+        assert.equal(payload.readyDecision.learnedTopCandidateId, payload.learnedCandidate);
+        assert.equal(payload.readyDecision.heuristicTopCandidateId, payload.heuristicCandidate);
+        assert.equal(payload.readyDecision.lane, "string_trio_symbolic");
+        assert.equal(payload.readyDecision.confidence >= 0.7, true);
     } finally {
         fs.rmSync(tempRoot, { recursive: true, force: true });
     }
@@ -577,10 +754,13 @@ test("structure reranker promotion can promote the learned trio candidate from p
             import { resolveStructureRerankerPromotion } from "./dist/pipeline/structureRerankerPromotion.js";
             import { config } from "./dist/config.js";
 
+            ${readyPromotionGateSeedScript}
+
             config.outputDir = ${JSON.stringify(tempRoot)};
             config.structureRerankerShadowEnabled = true;
             config.structureRerankerShadowSnapshot = "shadow-live";
             config.structureRerankerPromotionEnabled = true;
+            seedReadyPromotionGate(config.outputDir);
 
             const modelPath = path.join(config.outputDir, "_system", "ml", "evaluations", "structure-rank-v1", "shadow-live", "shadow-reranker-model.json");
             fs.mkdirSync(path.dirname(modelPath), { recursive: true });
@@ -774,10 +954,13 @@ test("structure reranker promotion falls back to heuristic selection when the le
             import { resolveStructureRerankerPromotion } from "./dist/pipeline/structureRerankerPromotion.js";
             import { config } from "./dist/config.js";
 
+            ${readyPromotionGateSeedScript}
+
             config.outputDir = ${JSON.stringify(tempRoot)};
             config.structureRerankerShadowEnabled = true;
             config.structureRerankerShadowSnapshot = "shadow-live";
             config.structureRerankerPromotionEnabled = true;
+            seedReadyPromotionGate(config.outputDir);
 
             const modelPath = path.join(config.outputDir, "_system", "ml", "evaluations", "structure-rank-v1", "shadow-live", "shadow-reranker-model.json");
             fs.mkdirSync(path.dirname(modelPath), { recursive: true });

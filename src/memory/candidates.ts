@@ -231,8 +231,13 @@ function saveStructureCandidateIndex(index: StructureCandidateIndex): void {
     writeJsonFile(structureCandidateIndexPath(index.songId), index);
 }
 
-export function buildStructureCandidateId(attempt: number, executionPlan: ComposeExecutionPlan): string {
+export function buildStructureCandidateId(
+    attempt: number,
+    executionPlan: ComposeExecutionPlan,
+    candidateVariantKey?: string,
+): string {
     const structureBinding = resolveStructureBinding(executionPlan);
+    const normalizedVariantKey = String(candidateVariantKey ?? "").trim();
     const digest = createHash("sha1")
         .update(JSON.stringify([
             attempt,
@@ -240,6 +245,7 @@ export function buildStructureCandidateId(attempt: number, executionPlan: Compos
             executionPlan.composeWorker,
             structureBinding?.provider ?? "unknown",
             structureBinding?.model ?? "unknown",
+            normalizedVariantKey || null,
         ]))
         .digest("hex")
         .slice(0, 12);
@@ -249,8 +255,13 @@ export function buildStructureCandidateId(attempt: number, executionPlan: Compos
         `a${attempt}`,
         sanitizeToken(structureBinding?.provider ?? executionPlan.composeWorker),
         sanitizeToken(structureBinding?.model ?? executionPlan.composeWorker),
+        ...(normalizedVariantKey ? [sanitizeToken(normalizedVariantKey)] : []),
         digest,
     ].join("-");
+}
+
+export function readStructureCandidateIndex(songId: string): StructureCandidateIndex | null {
+    return readJsonFile<StructureCandidateIndex>(structureCandidateIndexPath(songId)) ?? null;
 }
 
 export function saveStructureCandidateSnapshot(input: SaveStructureCandidateSnapshotInput): void {

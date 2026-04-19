@@ -772,6 +772,12 @@ test("mcp tool schemas define items for every array node", async () => {
 
         const composeTool = tools.find((tool) => tool.name === "axiom_compose");
         assert.equal(composeTool?.inputSchema?.properties?.prompt?.description?.startsWith("필수."), true);
+        assert.equal(composeTool?.inputSchema?.properties?.candidateCount?.type, "number");
+        assert.match(composeTool?.inputSchema?.properties?.candidateCount?.description ?? "", /2=S1, 4=S2, 8=S3/);
+        assert.match(composeTool?.inputSchema?.properties?.candidateCount?.description ?? "", /3 enables a custom mixed search budget/);
+        assert.equal(composeTool?.inputSchema?.properties?.localizedRewriteBranches?.type, "number");
+        assert.match(composeTool?.inputSchema?.properties?.localizedRewriteBranches?.description ?? "", /Stage B S4/);
+        assert.match(composeTool?.inputSchema?.properties?.localizedRewriteBranches?.description ?? "", /candidateCount=3 plus 1 branch/);
         assert.equal(composeTool?.inputSchema?.properties?.selectedModels?.type, "string");
         assert.match(composeTool?.inputSchema?.properties?.selectedModels?.description ?? "", /JSON array/i);
         assert.equal(composeTool?.inputSchema?.properties?.targetInstrumentation?.type, "string");
@@ -792,6 +798,8 @@ test("mcp compose accepts JSON-string structured inputs for model bindings and i
                 name: "axiom.compose",
                 arguments: {
                     prompt: "string-driven chamber prelude",
+                    candidateCount: 8,
+                    localizedRewriteBranches: 2,
                     selectedModels: JSON.stringify([
                         { role: "planner", provider: "ollama", model: "gemma3" },
                     ]),
@@ -816,6 +824,8 @@ test("mcp compose accepts JSON-string structured inputs for model bindings and i
 
         const result = parseLastJsonLine(stdout);
         assert.equal(result.isError, false);
+        assert.equal(result.payload.request.candidateCount, 8);
+        assert.equal(result.payload.request.localizedRewriteBranches, 2);
         assert.equal(result.payload.request.selectedModels.length, 1);
         assert.equal(result.payload.request.selectedModels[0].role, "planner");
         assert.equal(result.payload.request.targetInstrumentation.length, 1);
@@ -1179,6 +1189,11 @@ test("mcp operator summary tool is exposed and returns canonical operator summar
         assert.equal(result.payload.overseer.shadowReranker.recentDisagreements[0].learnedTopWorker, "learned_symbolic");
         assert.match(result.payload.overseer.shadowReranker.recentDisagreements[0].reason ?? "", /hybrid candidate pool kept music21 over learned_symbolic/);
         assert.equal(result.payload.overseer.shadowReranker.recentPromotions[0].lane, "string_trio_symbolic");
+        assert.equal(result.payload.overseer.shadowReranker.shortlist.topKCounts["2"], 1);
+        assert.equal(result.payload.overseer.shadowReranker.shortlist.selectedInShortlistRate, 1);
+        assert.equal(result.payload.overseer.shadowReranker.shortlist.selectedTop1Rate, 0);
+        assert.equal(result.payload.overseer.shadowReranker.recentShortlists[0].topK, 2);
+        assert.equal(result.payload.overseer.shadowReranker.recentShortlists[0].selectedRank, 2);
         assert.equal(Array.isArray(result.payload.overseer.orchestrationTrends), true);
         assert.equal(result.payload.overseer.orchestrationTrends[0].family, "string_trio");
         assert.equal(result.payload.overseer.orchestrationTrends[0].manifestCount, 1);
@@ -1216,9 +1231,11 @@ test("mcp operator summary tool is exposed and returns canonical operator summar
         assert.match(JSON.stringify(result.payload.artifacts), /phraseBreathTrend manifests=1 plan=0\.48 cov=0\.50 pickup=0\.44 arr=0\.34 rel=0\.38 weakManifests=1/);
         assert.match(JSON.stringify(result.payload.artifacts), /harmonicColorTrend manifests=1 plan=0\.48 cov=0\.50 target=0\.42 time=0\.44 tonic=0\.41 prolong=0\.45 weakManifests=1/);
         assert.match(JSON.stringify(result.payload.artifacts), /shadowReranker manifests=\d+ scored=1 disagreements=1 highConfidence=1 promotions=1 agreementRate=0\.00 avgConfidence=0\.81 snapshot=shadow-live/);
+        assert.match(JSON.stringify(result.payload.artifacts), /shadowReranker shortlist lane=string_trio_symbolic scored=1 reviewed=0 topK=2:1 selectedInTopK=1\.00 outsideTopK=0 top1=0\.00 reviewedInTopK=\? reviewedTop1=\?/);
         assert.match(JSON.stringify(result.payload.artifacts), /shadowReranker disagreement song=pending-song lane=string_trio_symbolic selected=structure-a2-selected selectedWorker=music21 learnedTop=structure-a1-learned learnedTopWorker=learned_symbolic confidence=0\.81 snapshot=shadow-live/);
         assert.match(JSON.stringify(result.payload.artifacts), /reason=structure evaluation accepted the symbolic draft; hybrid candidate pool kept music21 over learned_symbolic/);
         assert.match(JSON.stringify(result.payload.artifacts), /shadowReranker promotion song=pending-song lane=string_trio_symbolic selected=structure-a2-selected selectedWorker=music21 heuristicCounterfactual=structure-a2-selected heuristicCounterfactualWorker=music21 confidence=0\.81 snapshot=shadow-live/);
+        assert.match(JSON.stringify(result.payload.artifacts), /shadowReranker shortlist song=pending-song lane=string_trio_symbolic topK=2 selected=structure-a2-selected selectedWorker=music21 selectedRank=2 inTopK=yes learnedTop=structure-a1-learned heuristicTop=structure-a2-selected shortlisted=structure-a1-learned,structure-a2-selected/);
         assert.match(JSON.stringify(result.payload.artifacts), /orchestration=trio:rng=0\.91,bal=0\.88,conv=0\.84,dbl=0\.79,rot=0\.74,weak=s1/);
         assert.match(JSON.stringify(result.payload.artifacts), /orchestrationTrend family=trio manifests=1 rng=0\.91 bal=0\.88 conv=0\.84 dbl=0\.79 rot=0\.74 weakManifests=1 avgWeakSections=1\.00 instruments=violin\/viola\/cello/);
     } finally {

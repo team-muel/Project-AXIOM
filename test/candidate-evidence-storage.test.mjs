@@ -11,6 +11,128 @@ const pythonBin = [
     path.join(repoRoot, ".venv", "Scripts", "python.exe"),
     path.join(repoRoot, ".venv", "bin", "python"),
 ].find((candidate) => fs.existsSync(candidate));
+const readyPromotionGateSeedScript = String.raw`
+function writePromotionGateJson(filePath, value) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+}
+
+function seedReadyPromotionGate(outputDir) {
+    const benchmarkPackVersion = "string_trio_symbolic_benchmark_pack_v1";
+    const promptPackVersion = "learned_symbolic_prompt_pack_v1";
+
+    for (let index = 0; index < 30; index += 1) {
+        const songNumber = String(index + 1).padStart(2, "0");
+        const songId = "gate-ready-" + songNumber;
+        const songDir = path.join(outputDir, songId);
+        const updatedAt = new Date(Date.UTC(2026, 3, 10, 0, index, 0)).toISOString();
+        const learnedCandidateId = songId + "-learned";
+        const baselineCandidateId = songId + "-baseline";
+        const learnedSelected = index < 20;
+        const disagreement = index < 10;
+        const benchmarkId = index % 2 === 0 ? "cadence_clarity_reference" : "localized_rewrite_probe";
+        const generationMode = index % 2 === 0 ? "plan_conditioned_trio_template" : "targeted_section_rewrite";
+        const proposalEvidence = {
+            worker: "learned_symbolic",
+            lane: "string_trio_symbolic",
+            provider: "learned",
+            model: "learned-symbolic-trio-v1",
+            benchmarkPackVersion,
+            benchmarkId,
+            promptPackVersion,
+            planSignature: "lane=string_trio_symbolic|sig=gate-ready-" + songNumber,
+            generationMode,
+            confidence: 0.78,
+        };
+
+        writePromotionGateJson(path.join(songDir, "manifest.json"), {
+            songId,
+            approvalStatus: learnedSelected ? "approved" : "rejected",
+            reviewFeedback: {
+                reviewRubricVersion: "approval_review_rubric_v1",
+                appealScore: learnedSelected ? 0.93 : 0.31,
+            },
+            meta: {
+                workflow: "symbolic_only",
+            },
+            updatedAt,
+        });
+
+        const learnedManifestPath = path.join(songDir, "candidates", learnedCandidateId, "candidate-manifest.json");
+        const baselineManifestPath = path.join(songDir, "candidates", baselineCandidateId, "candidate-manifest.json");
+        writePromotionGateJson(learnedManifestPath, {
+            version: 1,
+            stage: "structure",
+            songId,
+            candidateId: learnedCandidateId,
+            attempt: 1,
+            selected: learnedSelected,
+            evaluatedAt: updatedAt,
+            workflow: "symbolic_only",
+            worker: "learned_symbolic",
+            provider: "learned",
+            model: "learned-symbolic-trio-v1",
+            revisionDirectives: [],
+            proposalEvidence,
+            ...(disagreement ? { shadowReranker: { disagreesWithHeuristic: true } } : {}),
+            artifacts: {},
+        });
+        writePromotionGateJson(baselineManifestPath, {
+            version: 1,
+            stage: "structure",
+            songId,
+            candidateId: baselineCandidateId,
+            attempt: 1,
+            selected: !learnedSelected,
+            evaluatedAt: updatedAt,
+            workflow: "symbolic_only",
+            worker: "music21",
+            provider: "python",
+            model: "music21-symbolic-v1",
+            revisionDirectives: [],
+            ...(disagreement ? { shadowReranker: { disagreesWithHeuristic: true } } : {}),
+            artifacts: {},
+        });
+        writePromotionGateJson(path.join(songDir, "candidates", "index.json"), {
+            version: 1,
+            songId,
+            updatedAt,
+            selectedCandidateId: learnedSelected ? learnedCandidateId : baselineCandidateId,
+            selectedAttempt: 1,
+            selectionStopReason: learnedSelected ? "selected learned benchmark fixture" : "baseline benchmark fixture",
+            entries: [
+                {
+                    candidateId: baselineCandidateId,
+                    attempt: 1,
+                    stage: "structure",
+                    selected: !learnedSelected,
+                    workflow: "symbolic_only",
+                    worker: "music21",
+                    passed: true,
+                    score: learnedSelected ? 79 : 88,
+                    evaluatedAt: updatedAt,
+                    manifestPath: baselineManifestPath,
+                    ...(disagreement ? { shadowReranker: { disagreesWithHeuristic: true } } : {}),
+                },
+                {
+                    candidateId: learnedCandidateId,
+                    attempt: 1,
+                    stage: "structure",
+                    selected: learnedSelected,
+                    workflow: "symbolic_only",
+                    worker: "learned_symbolic",
+                    passed: true,
+                    score: learnedSelected ? 84 : 74,
+                    evaluatedAt: updatedAt,
+                    manifestPath: learnedManifestPath,
+                    proposalEvidence,
+                    ...(disagreement ? { shadowReranker: { disagreesWithHeuristic: true } } : {}),
+                },
+            ],
+        });
+    }
+}
+`;
 
 test("structure candidate sidecars persist snapshots and selected pointer", async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-candidate-sidecars-"));
@@ -306,8 +428,10 @@ test("structure candidate sidecars persist learned proposal evidence for candida
                 proposalEvidence: {
                     worker: "learned_symbolic",
                     lane: "string_trio_symbolic",
-                    provider: "learned_symbolic",
+                    provider: "learned",
                     model: "learned-symbolic-trio-v1",
+                    benchmarkPackVersion: "string_trio_symbolic_benchmark_pack_v1",
+                    benchmarkId: "cadence_clarity_reference",
                     generationMode: "plan_conditioned_trio_template",
                     confidence: 0.61,
                     normalizationWarnings: [],
@@ -332,7 +456,11 @@ test("structure candidate sidecars persist learned proposal evidence for candida
         const payload = parseLastJsonLine(stdout);
         assert.equal(payload.index.entries[0].proposalEvidence.worker, "learned_symbolic");
         assert.equal(payload.index.entries[0].proposalEvidence.lane, "string_trio_symbolic");
+        assert.equal(payload.index.entries[0].proposalEvidence.benchmarkPackVersion, "string_trio_symbolic_benchmark_pack_v1");
+        assert.equal(payload.index.entries[0].proposalEvidence.benchmarkId, "cadence_clarity_reference");
         assert.equal(payload.manifest.proposalEvidence.generationMode, "plan_conditioned_trio_template");
+        assert.equal(payload.manifest.proposalEvidence.benchmarkPackVersion, "string_trio_symbolic_benchmark_pack_v1");
+        assert.equal(payload.manifest.proposalEvidence.benchmarkId, "cadence_clarity_reference");
         assert.equal(payload.manifest.proposalEvidence.summary.partCount, 3);
         assert.equal(payload.manifest.proposalEvidence.summary.key, "D minor");
     } finally {
@@ -548,6 +676,7 @@ test("runPipeline persists same-attempt hybrid symbolic candidates and records t
                 tempo: 88,
                 form: "miniature",
                 workflow: "symbolic_only",
+                candidateCount: 4,
                 selectedModels: [
                     { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
                 ],
@@ -632,17 +761,18 @@ test("runPipeline persists same-attempt hybrid symbolic candidates and records t
         assert.equal(payload.manifest.qualityControl.selectedAttempt, 1);
         assert.match(payload.manifest.qualityControl.stopReason ?? "", /hybrid candidate pool/);
         assert.equal(payload.index.selectedAttempt, 1);
-        assert.equal(payload.index.entries.length, 2);
+        assert.equal(payload.index.entries.length, 4);
         assert.match(payload.index.selectionStopReason ?? "", /string_trio_symbolic lane/);
         assert.match(payload.index.selectionStopReason ?? "", /heuristic structure score/);
         assert.deepEqual(
             payload.index.entries.map((entry) => entry.attempt),
-            [1, 1],
+            [1, 1, 1, 1],
         );
-        assert.deepEqual(
-            [...payload.index.entries.map((entry) => entry.worker)].sort(),
-            ["learned_symbolic", "music21"],
-        );
+        assert.equal(new Set(payload.index.entries.map((entry) => entry.candidateId)).size, 4);
+        assert.equal(payload.index.entries.filter((entry) => entry.worker === "music21").length, 2);
+        assert.equal(payload.index.entries.filter((entry) => entry.worker === "learned_symbolic").length, 2);
+        assert.ok(payload.index.entries.some((entry) => /baseline-2/.test(entry.candidateId)));
+        assert.ok(payload.index.entries.some((entry) => /learned-2/.test(entry.candidateId)));
 
         const learnedEntry = payload.index.entries.find((entry) => entry.worker === "learned_symbolic");
         const baselineEntry = payload.index.entries.find((entry) => entry.worker === "music21");
@@ -653,16 +783,301 @@ test("runPipeline persists same-attempt hybrid symbolic candidates and records t
         const selectedManifest = payload.manifests.find((entry) => entry.candidateId === payload.index.selectedCandidateId);
         assert.equal(selectedManifest?.selected, true);
         assert.equal(selectedManifest?.attempt, 1);
-        assert.deepEqual(
-            [...payload.manifests.map((entry) => entry.worker)].sort(),
-            ["learned_symbolic", "music21"],
-        );
+        assert.equal(payload.manifests.length, 4);
+        assert.equal(payload.manifests.filter((entry) => entry.worker === "music21").length, 2);
+        assert.equal(payload.manifests.filter((entry) => entry.worker === "learned_symbolic").length, 2);
     } catch (error) {
         if (String(error?.message ?? error).includes("No module named 'music21'")) {
             t.skip("music21 is not installed in the local test environment");
             return;
         }
         throw error;
+    } finally {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+});
+
+test("runPipeline persists same-attempt localized rewrite branch candidates for Stage B S4 search budgets", { skip: !pythonBin }, async (t) => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-localized-rewrite-sidecars-"));
+
+    try {
+        const { stdout } = await runNodeEval(`
+            import fs from "node:fs";
+            import {
+                structureCandidateIndexPath,
+                structureCandidateManifestPath,
+            } from "./dist/memory/candidates.js";
+            import { runPipeline } from "./dist/pipeline/orchestrator.js";
+            import { config } from "./dist/config.js";
+
+            config.outputDir = ${JSON.stringify(tempRoot)};
+            config.pythonBin = ${JSON.stringify(pythonBin)};
+
+            const manifest = await runPipeline({
+                songId: "localized-rewrite-runtime-sidecars",
+                prompt: "Compose a compact string trio miniature with a weak middle section that still resolves clearly.",
+                key: "D minor",
+                tempo: 88,
+                form: "miniature",
+                workflow: "symbolic_only",
+                candidateCount: 4,
+                localizedRewriteBranches: 2,
+                selectedModels: [
+                    { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
+                ],
+                evaluationPolicy: {
+                    requireStructurePass: false,
+                    requireAudioPass: false,
+                },
+                qualityPolicy: {
+                    enableAutoRevision: false,
+                    maxStructureAttempts: 1,
+                    targetStructureScore: 100,
+                },
+                compositionPlan: {
+                    version: "plan-v1",
+                    brief: "string trio miniature",
+                    form: "miniature",
+                    workflow: "symbolic_only",
+                    instrumentation: [
+                        { name: "Violin", family: "strings", roles: ["lead"] },
+                        { name: "Viola", family: "strings", roles: ["support"] },
+                        { name: "Cello", family: "strings", roles: ["bass"] },
+                    ],
+                    orchestration: {
+                        family: "string_trio",
+                        instrumentNames: ["Violin", "Viola", "Cello"],
+                        sections: [],
+                    },
+                    motifPolicy: {
+                        reuseRequired: true,
+                        inversionAllowed: false,
+                        augmentationAllowed: false,
+                        diminutionAllowed: false,
+                        sequenceAllowed: false,
+                    },
+                    sections: [
+                        {
+                            id: "s1",
+                            role: "theme_a",
+                            label: "Opening",
+                            measures: 4,
+                            energy: 0.34,
+                            density: 0.3,
+                            phraseFunction: "presentation",
+                            harmonicPlan: {
+                                tonalCenter: "D minor",
+                                harmonicRhythm: "medium",
+                                cadence: "half",
+                                allowModulation: false,
+                            },
+                        },
+                        {
+                            id: "s2",
+                            role: "development",
+                            label: "Middle",
+                            measures: 4,
+                            energy: 0.46,
+                            density: 0.36,
+                            phraseFunction: "continuation",
+                            harmonicPlan: {
+                                tonalCenter: "A minor",
+                                harmonicRhythm: "medium",
+                                cadence: "deceptive",
+                                allowModulation: true,
+                            },
+                        },
+                        {
+                            id: "s3",
+                            role: "closing",
+                            label: "Cadence",
+                            measures: 4,
+                            energy: 0.42,
+                            density: 0.32,
+                            phraseFunction: "cadential",
+                            harmonicPlan: {
+                                tonalCenter: "D minor",
+                                harmonicRhythm: "medium",
+                                cadence: "authentic",
+                                allowModulation: false,
+                            },
+                        },
+                    ],
+                    rationale: ["localized rewrite runtime regression"],
+                },
+            });
+
+            const index = JSON.parse(fs.readFileSync(structureCandidateIndexPath("localized-rewrite-runtime-sidecars"), "utf8"));
+            const manifests = index.entries.map((entry) => JSON.parse(
+                fs.readFileSync(structureCandidateManifestPath("localized-rewrite-runtime-sidecars", entry.candidateId), "utf8"),
+            ));
+
+            console.log(JSON.stringify({ manifest, index, manifests }));
+        `, { cwd: repoRoot });
+
+        const payload = parseLastJsonLine(stdout);
+        assert.equal(payload.manifest.qualityControl.selectedAttempt, 1);
+        assert.equal(payload.index.selectedAttempt, 1);
+        assert.ok(payload.index.entries.length >= 5);
+        assert.deepEqual(
+            payload.index.entries.map((entry) => entry.attempt),
+            payload.index.entries.map(() => 1),
+        );
+        assert.ok(payload.index.entries.some((entry) => /rewrite/.test(entry.candidateId)));
+
+        const branchManifests = payload.manifests.filter((entry) => Array.isArray(entry.revisionDirectives) && entry.revisionDirectives.length > 0);
+        assert.ok(branchManifests.length >= 1);
+        assert.ok(branchManifests.every((entry) => entry.attempt === 1));
+        assert.ok(branchManifests.some((entry) => /rewrite/.test(entry.candidateId)));
+    } catch (error) {
+        if (String(error?.message ?? error).includes("No module named 'music21'")) {
+            t.skip("music21 is not installed in the local test environment");
+            return;
+        }
+        throw error;
+    } finally {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+});
+
+test("runPipeline persists same-attempt localized rewrite branch candidates for a custom three-candidate search budget", { skip: !pythonBin }, async (t) => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-localized-rewrite-sidecars-custom-"));
+
+    try {
+        const { stdout } = await runNodeEval(`
+            import fs from "node:fs";
+            import {
+                structureCandidateIndexPath,
+                structureCandidateManifestPath,
+            } from "./dist/memory/candidates.js";
+            import { runPipeline } from "./dist/pipeline/orchestrator.js";
+            import { config } from "./dist/config.js";
+
+            config.outputDir = ${JSON.stringify(tempRoot)};
+            config.pythonBin = ${JSON.stringify(pythonBin)};
+
+            const manifest = await runPipeline({
+                songId: "localized-rewrite-runtime-sidecars-custom",
+                prompt: "Compose a compact string trio miniature with a repairable middle section and a controlled closing cadence.",
+                key: "D minor",
+                tempo: 88,
+                form: "miniature",
+                workflow: "symbolic_only",
+                candidateCount: 3,
+                localizedRewriteBranches: 1,
+                selectedModels: [
+                    { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
+                ],
+                evaluationPolicy: {
+                    requireStructurePass: false,
+                    requireAudioPass: false,
+                },
+                qualityPolicy: {
+                    enableAutoRevision: false,
+                    maxStructureAttempts: 1,
+                    targetStructureScore: 100,
+                },
+                compositionPlan: {
+                    version: "plan-v1",
+                    brief: "string trio miniature",
+                    form: "miniature",
+                    workflow: "symbolic_only",
+                    instrumentation: [
+                        { name: "Violin", family: "strings", roles: ["lead"] },
+                        { name: "Viola", family: "strings", roles: ["support"] },
+                        { name: "Cello", family: "strings", roles: ["bass"] },
+                    ],
+                    orchestration: {
+                        family: "string_trio",
+                        instrumentNames: ["Violin", "Viola", "Cello"],
+                        sections: [],
+                    },
+                    motifPolicy: {
+                        reuseRequired: true,
+                        inversionAllowed: false,
+                        augmentationAllowed: false,
+                        diminutionAllowed: false,
+                        sequenceAllowed: false,
+                    },
+                    sections: [
+                        {
+                            id: "s1",
+                            role: "theme_a",
+                            label: "Opening",
+                            measures: 4,
+                            energy: 0.34,
+                            density: 0.3,
+                            phraseFunction: "presentation",
+                            harmonicPlan: {
+                                tonalCenter: "D minor",
+                                harmonicRhythm: "medium",
+                                cadence: "half",
+                                allowModulation: false,
+                            },
+                        },
+                        {
+                            id: "s2",
+                            role: "development",
+                            label: "Middle",
+                            measures: 4,
+                            energy: 0.46,
+                            density: 0.36,
+                            phraseFunction: "continuation",
+                            harmonicPlan: {
+                                tonalCenter: "A minor",
+                                harmonicRhythm: "medium",
+                                cadence: "deceptive",
+                                allowModulation: true,
+                            },
+                        },
+                        {
+                            id: "s3",
+                            role: "closing",
+                            label: "Cadence",
+                            measures: 4,
+                            energy: 0.42,
+                            density: 0.32,
+                            phraseFunction: "cadential",
+                            harmonicPlan: {
+                                tonalCenter: "D minor",
+                                harmonicRhythm: "medium",
+                                cadence: "authentic",
+                                allowModulation: false,
+                            },
+                        },
+                    ],
+                    rationale: ["localized rewrite custom search regression"],
+                },
+            });
+
+            const index = JSON.parse(fs.readFileSync(structureCandidateIndexPath("localized-rewrite-runtime-sidecars-custom"), "utf8"));
+            const manifests = index.entries.map((entry) => JSON.parse(
+                fs.readFileSync(structureCandidateManifestPath("localized-rewrite-runtime-sidecars-custom", entry.candidateId), "utf8"),
+            ));
+
+            console.log(JSON.stringify({ manifest, index, manifests }));
+        `, { cwd: repoRoot });
+
+        const payload = parseLastJsonLine(stdout);
+        assert.equal(payload.manifest.qualityControl.selectedAttempt, 1);
+        assert.equal(payload.index.selectedAttempt, 1);
+        assert.ok(payload.index.entries.length >= 4);
+        assert.deepEqual(
+            payload.index.entries.map((entry) => entry.attempt),
+            payload.index.entries.map(() => 1),
+        );
+        const wholePieceEntries = payload.index.entries.filter((entry) => !/rewrite/.test(entry.candidateId));
+        assert.equal(wholePieceEntries.length, 3);
+        assert.equal(new Set(payload.index.entries.map((entry) => entry.candidateId)).size, payload.index.entries.length);
+        assert.ok(wholePieceEntries.some((entry) => /baseline-2/.test(entry.candidateId)));
+        assert.equal(wholePieceEntries.filter((entry) => entry.worker === "music21").length, 2);
+        assert.equal(wholePieceEntries.filter((entry) => entry.worker === "learned_symbolic").length, 1);
+        assert.ok(payload.index.entries.some((entry) => /rewrite/.test(entry.candidateId)));
+
+        const branchManifests = payload.manifests.filter((entry) => Array.isArray(entry.revisionDirectives) && entry.revisionDirectives.length > 0);
+        assert.equal(branchManifests.length, 1);
+        assert.ok(branchManifests.every((entry) => entry.attempt === 1));
+        assert.ok(branchManifests.some((entry) => /rewrite/.test(entry.candidateId)));
     } finally {
         fs.rmSync(tempRoot, { recursive: true, force: true });
     }
@@ -682,11 +1097,14 @@ test("runPipeline persists proposal-driven reranker promotion on the selected le
             import { runPipeline } from "./dist/pipeline/orchestrator.js";
             import { config } from "./dist/config.js";
 
+            ${readyPromotionGateSeedScript}
+
             config.outputDir = ${JSON.stringify(tempRoot)};
             config.pythonBin = ${JSON.stringify(pythonBin)};
             config.structureRerankerShadowEnabled = true;
             config.structureRerankerShadowSnapshot = "shadow-live";
             config.structureRerankerPromotionEnabled = true;
+            seedReadyPromotionGate(config.outputDir);
 
             const modelPath = path.join(config.outputDir, "_system", "ml", "evaluations", "structure-rank-v1", "shadow-live", "shadow-reranker-model.json");
             fs.mkdirSync(path.dirname(modelPath), { recursive: true });

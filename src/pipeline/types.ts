@@ -49,6 +49,7 @@ export type ComposeSource = "api" | "autonomy";
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "not_required";
 
 export interface ReviewFeedback {
+    reviewRubricVersion?: string;
     note?: string;
     appealScore?: number;
     strongestDimension?: string;
@@ -1006,6 +1007,9 @@ export interface ComposeRequest {
     qualityPolicy?: ComposeQualityPolicy;
     revisionDirectives?: RevisionDirective[];
     sectionArtifacts?: SectionArtifactSummary[];
+    candidateCount?: number;
+    localizedRewriteBranches?: number;
+    candidateVariantKey?: string;
     attemptIndex?: number;
 }
 
@@ -1024,6 +1028,8 @@ export interface ComposeProposalEvidence {
     lane?: string;
     provider?: string;
     model?: string;
+    benchmarkPackVersion?: string;
+    benchmarkId?: string;
     promptPackVersion?: string;
     planSignature?: string;
     generationMode?: string;

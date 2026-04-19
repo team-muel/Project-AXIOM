@@ -5,7 +5,7 @@ AXIOM 작곡 파이프라인의 상태 정의와 전이 규칙.
 중요: `approval`은 `PipelineState`가 아니라 manifest metadata(`approvalStatus`)로 관리된다.  
 즉, 파이프라인은 `DONE`으로 끝나더라도 autonomy run은 별도로 `pending approval` 상태일 수 있다.
 
-승인 또는 반려가 확정되면 manifest에는 `reviewFeedback`가 추가될 수 있고, 같은 정보가 `outputs/_system/preferences.json`의 `humanFeedbackSummary` 집계로도 반영된다. 같은 preferences 파일에는 성공한 autonomy run에서 추출한 harmonic behavior memory도 누적되며, 여기에는 `prolongationMode`와 measure 범위를 제거한 `tonicizationWindows` 요약이 포함될 수 있다.
+승인 또는 반려가 확정되면 manifest에는 `reviewFeedback`가 추가될 수 있고, 같은 정보가 `outputs/_system/preferences.json`의 `humanFeedbackSummary` 집계로도 반영된다. 현재 runtime은 approve/reject 시 `reviewFeedback.reviewRubricVersion=approval_review_rubric_v1`도 함께 저장한다. 같은 preferences 파일에는 성공한 autonomy run에서 추출한 harmonic behavior memory도 누적되며, 여기에는 `prolongationMode`와 measure 범위를 제거한 `tonicizationWindows` 요약이 포함될 수 있다.
 
 ## 상태 목록
 
@@ -249,7 +249,7 @@ previewed
 - Gemma self-assessment가 가능하면 `selfAssessment`와 `evaluationSummary`를 채운다.
 - self-assessment가 실패해도 autonomy preferences memory는 갱신된다.
 - 성공한 run의 경우 motif return, tension arc, register center, cadence approach, bass motion, section style, phrase function, texture/counterpoint, harmonic behavior memory가 갱신될 수 있다. harmonic behavior memory는 pacing/voicing뿐 아니라 `prolongationMode`와 measureless `tonicizationWindows` 요약도 함께 보존할 수 있다.
-- 사람이 `approve` 또는 `reject`를 호출하면 `reviewFeedback`와 `evaluationSummary`가 갱신되고, `humanFeedbackSummary`가 planner memory용으로 다시 집계된다.
+- 사람이 `approve` 또는 `reject`를 호출하면 `reviewFeedback`와 `evaluationSummary`가 갱신되고, `humanFeedbackSummary`가 planner memory용으로 다시 집계된다. 이때 `reviewFeedback.reviewRubricVersion`도 현재 고정 review contract 버전으로 함께 기록된다.
 - 사람이 승인 또는 반려하기 전까지 새 autonomy trigger는 차단될 수 있다.
 
 ## 실패 처리

@@ -731,6 +731,616 @@ function summarizeHarmonicColorTrend(value) {
     };
 }
 
+function summarizeLearnedProposalWarningRow(row) {
+    const record = toRecord(row) || {};
+    return {
+        warning: toTrimmed(record.warning),
+        count: toNumber(record.count) ?? 0,
+        proposalCount: toNumber(record.proposalCount) ?? 0,
+        lastSeenAt: toTrimmed(record.lastSeenAt, "") || null,
+        lastSongId: toTrimmed(record.lastSongId, "") || null,
+    };
+}
+
+function summarizeLearnedProposalWarnings(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        sampledManifestCount: toNumber(record.sampledManifestCount) ?? 0,
+        proposalCount: toNumber(record.proposalCount) ?? 0,
+        proposalWithWarningsCount: toNumber(record.proposalWithWarningsCount) ?? 0,
+        totalWarningCount: toNumber(record.totalWarningCount) ?? 0,
+        roleCollapseWarningCount: toNumber(record.roleCollapseWarningCount) ?? 0,
+        lastSeenAt: toTrimmed(record.lastSeenAt, "") || null,
+        lastSongId: toTrimmed(record.lastSongId, "") || null,
+        topWarnings: Array.isArray(record.topWarnings)
+            ? toRecordArray(record.topWarnings).slice(0, 3).map(summarizeLearnedProposalWarningRow)
+            : [],
+    };
+}
+
+function summarizeCountMap(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return {};
+    }
+
+    return Object.fromEntries(
+        Object.entries(record)
+            .map(([key, entry]) => [key, toNumber(entry) ?? 0])
+            .filter(([, entry]) => entry > 0),
+    );
+}
+
+function summarizeLearnedBackboneBenchmarkFailureModeRow(row) {
+    const record = toRecord(row) || {};
+    return {
+        failureMode: toTrimmed(record.failureMode),
+        count: toNumber(record.count) ?? 0,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkStopReasonRow(row) {
+    const record = toRecord(row) || {};
+    return {
+        reason: toTrimmed(record.reason),
+        count: toNumber(record.count) ?? 0,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkCoverageRow(row) {
+    const record = toRecord(row) || {};
+    return {
+        benchmarkKey: toTrimmed(record.benchmarkKey),
+        benchmarkId: toTrimmed(record.benchmarkId, "") || null,
+        planSignature: toTrimmed(record.planSignature, "") || null,
+        lane: toTrimmed(record.lane, "") || null,
+        benchmarkPackVersion: toTrimmed(record.benchmarkPackVersion, "") || null,
+        runCount: toNumber(record.runCount) ?? 0,
+        pairedRunCount: toNumber(record.pairedRunCount) ?? 0,
+        reviewedRunCount: toNumber(record.reviewedRunCount) ?? 0,
+        pendingReviewCount: toNumber(record.pendingReviewCount) ?? 0,
+        approvalRate: toNumber(record.approvalRate) ?? null,
+        averageAppealScore: toNumber(record.averageAppealScore) ?? null,
+        selectedWorkerCounts: summarizeCountMap(record.selectedWorkerCounts),
+        generationModeCounts: summarizeCountMap(record.generationModeCounts),
+        latestObservedAt: toTrimmed(record.latestObservedAt, "") || null,
+        songIds: Array.isArray(record.songIds)
+            ? record.songIds.map((item) => toTrimmed(item)).filter((item) => item !== "-")
+            : [],
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkSearchBudgetRow(row) {
+    const record = toRecord(row) || {};
+    return {
+        searchBudgetLevel: toTrimmed(record.searchBudgetLevel, "") || null,
+        searchBudgetDescriptor: toTrimmed(record.searchBudgetDescriptor, "") || null,
+        wholePieceCandidateCount: toNumber(record.wholePieceCandidateCount) ?? 0,
+        localizedRewriteBranchCount: toNumber(record.localizedRewriteBranchCount) ?? 0,
+        runCount: toNumber(record.runCount) ?? 0,
+        pairedRunCount: toNumber(record.pairedRunCount) ?? 0,
+        reviewedRunCount: toNumber(record.reviewedRunCount) ?? 0,
+        pendingReviewCount: toNumber(record.pendingReviewCount) ?? 0,
+        approvalRate: toNumber(record.approvalRate) ?? null,
+        averageAppealScore: toNumber(record.averageAppealScore) ?? null,
+        blindPreferenceWinRate: toNumber(record.blindPreferenceWinRate) ?? null,
+        reviewedPairCount: toNumber(record.reviewedPairCount) ?? 0,
+        decisivePairCount: toNumber(record.decisivePairCount) ?? 0,
+        selectedTop1Accuracy: toNumber(record.selectedTop1Accuracy) ?? null,
+        decisiveReviewedPairCount: toNumber(record.decisiveReviewedPairCount) ?? 0,
+        correctSelectionCount: toNumber(record.correctSelectionCount) ?? 0,
+        latestObservedAt: toTrimmed(record.latestObservedAt, "") || null,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkRecentRunRow(row) {
+    const record = toRecord(row) || {};
+    return {
+        songId: toTrimmed(record.songId),
+        benchmarkId: toTrimmed(record.benchmarkId, "") || null,
+        planSignature: toTrimmed(record.planSignature, "") || null,
+        selectedWorker: toTrimmed(record.selectedWorker, "") || null,
+        approvalStatus: toTrimmed(record.approvalStatus, "") || null,
+        reviewed: record.reviewed === true,
+        appealScore: toNumber(record.appealScore) ?? null,
+        disagreementObserved: record.disagreementObserved === true,
+        promotionApplied: record.promotionApplied === true,
+        selectionMode: toTrimmed(record.selectionMode, "") || null,
+        counterfactualWorker: toTrimmed(record.counterfactualWorker, "") || null,
+        retryLocalization: toTrimmed(record.retryLocalization, "") || null,
+        benchmarkGenerationMode: toTrimmed(record.benchmarkGenerationMode, "") || null,
+        selectedGenerationMode: toTrimmed(record.selectedGenerationMode, "") || null,
+        selectionStopReason: toTrimmed(record.selectionStopReason, "") || null,
+        reviewWeakestDimension: toTrimmed(record.reviewWeakestDimension, "") || null,
+        observedAt: toTrimmed(record.observedAt, "") || null,
+        wholePieceCandidateCount: toNumber(record.wholePieceCandidateCount) ?? 0,
+        localizedRewriteBranchCount: toNumber(record.localizedRewriteBranchCount) ?? 0,
+        searchBudgetLevel: toTrimmed(record.searchBudgetLevel, "") || null,
+        searchBudgetDescriptor: toTrimmed(record.searchBudgetDescriptor, "") || null,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkConfigSnapshot(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        lane: toTrimmed(record.lane, "") || null,
+        benchmarkPackVersion: toTrimmed(record.benchmarkPackVersion, "") || null,
+        benchmarkIds: Array.isArray(record.benchmarkIds)
+            ? record.benchmarkIds.map((item) => toTrimmed(item)).filter((item) => item !== "-")
+            : [],
+        pairedWorkers: Array.isArray(record.pairedWorkers)
+            ? record.pairedWorkers.map((item) => toTrimmed(item)).filter((item) => item !== "-")
+            : [],
+        workflowCounts: summarizeCountMap(record.workflowCounts),
+        promptPackVersionCounts: summarizeCountMap(record.promptPackVersionCounts),
+        reviewRubricVersionCounts: summarizeCountMap(record.reviewRubricVersionCounts),
+        generationModeCounts: summarizeCountMap(record.generationModeCounts),
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkReviewSampleStatus(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    const reviewedRunCount = toNumber(record.reviewedRunCount) ?? 0;
+    const reviewedDisagreementCount = toNumber(record.reviewedDisagreementCount) ?? 0;
+    const minimumReviewedRunCountForScreening = toNumber(record.minimumReviewedRunCountForScreening) ?? 0;
+    const minimumReviewedRunCountForPromotion = toNumber(record.minimumReviewedRunCountForPromotion) ?? 0;
+    const minimumReviewedDisagreementCountForPromotion = toNumber(record.minimumReviewedDisagreementCountForPromotion) ?? 0;
+
+    return {
+        status: toTrimmed(record.status, "") || null,
+        directionalOnly: record.directionalOnly === true,
+        reviewedRunCount,
+        reviewedDisagreementCount,
+        minimumReviewedRunCountForScreening,
+        minimumReviewedRunCountForPromotion,
+        minimumReviewedDisagreementCountForPromotion,
+        remainingReviewedRunCountForScreening: toNumber(record.remainingReviewedRunCountForScreening) ?? Math.max(0, minimumReviewedRunCountForScreening - reviewedRunCount),
+        remainingReviewedRunCountForPromotion: toNumber(record.remainingReviewedRunCountForPromotion) ?? Math.max(0, minimumReviewedRunCountForPromotion - reviewedRunCount),
+        remainingReviewedDisagreementCountForPromotion: toNumber(record.remainingReviewedDisagreementCountForPromotion) ?? Math.max(0, minimumReviewedDisagreementCountForPromotion - reviewedDisagreementCount),
+        meetsEarlyScreeningMinimum: record.meetsEarlyScreeningMinimum === true,
+        meetsPromotionReviewedMinimum: record.meetsPromotionReviewedMinimum === true,
+        meetsPromotionDisagreementMinimum: record.meetsPromotionDisagreementMinimum === true,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkDisagreementSummary(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        pairedRunCount: toNumber(record.pairedRunCount) ?? 0,
+        disagreementRunCount: toNumber(record.disagreementRunCount) ?? 0,
+        reviewedDisagreementCount: toNumber(record.reviewedDisagreementCount) ?? 0,
+        promotionAppliedCount: toNumber(record.promotionAppliedCount) ?? 0,
+        learnedSelectedWithoutPromotionCount: toNumber(record.learnedSelectedWithoutPromotionCount) ?? 0,
+        baselineSelectedCount: toNumber(record.baselineSelectedCount) ?? 0,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkRetryLocalizationStability(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        retryingRunCount: toNumber(record.retryingRunCount) ?? 0,
+        sectionTargetedOnlyCount: toNumber(record.sectionTargetedOnlyCount) ?? 0,
+        mixedCount: toNumber(record.mixedCount) ?? 0,
+        globalOnlyCount: toNumber(record.globalOnlyCount) ?? 0,
+        sectionTargetedRate: toNumber(record.sectionTargetedRate) ?? null,
+        driftRate: toNumber(record.driftRate) ?? null,
+        status: toTrimmed(record.status, "") || null,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkBlindPreference(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        available: record.available === true,
+        winRate: toNumber(record.winRate) ?? null,
+        reviewedPairCount: toNumber(record.reviewedPairCount) ?? 0,
+        decisivePairCount: toNumber(record.decisivePairCount) ?? 0,
+        learnedWinCount: toNumber(record.learnedWinCount) ?? 0,
+        baselineWinCount: toNumber(record.baselineWinCount) ?? 0,
+        tieCount: toNumber(record.tieCount) ?? 0,
+        latestReviewedAt: toTrimmed(record.latestReviewedAt, "") || null,
+        reason: toTrimmed(record.reason, "") || null,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkReviewedTop1Accuracy(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        available: record.available === true,
+        decisiveReviewedPairCount: toNumber(record.decisiveReviewedPairCount) ?? 0,
+        correctSelectionCount: toNumber(record.correctSelectionCount) ?? 0,
+        selectedTop1Accuracy: toNumber(record.selectedTop1Accuracy) ?? null,
+        learnedSelectedReviewedPairCount: toNumber(record.learnedSelectedReviewedPairCount) ?? 0,
+        learnedCorrectSelectionCount: toNumber(record.learnedCorrectSelectionCount) ?? 0,
+        learnedSelectedTop1Accuracy: toNumber(record.learnedSelectedTop1Accuracy) ?? null,
+        baselineSelectedReviewedPairCount: toNumber(record.baselineSelectedReviewedPairCount) ?? 0,
+        baselineCorrectSelectionCount: toNumber(record.baselineCorrectSelectionCount) ?? 0,
+        baselineSelectedTop1Accuracy: toNumber(record.baselineSelectedTop1Accuracy) ?? null,
+        promotedReviewedPairCount: toNumber(record.promotedReviewedPairCount) ?? 0,
+        promotedCorrectSelectionCount: toNumber(record.promotedCorrectSelectionCount) ?? 0,
+        promotedTop1Accuracy: toNumber(record.promotedTop1Accuracy) ?? null,
+        latestReviewedAt: toTrimmed(record.latestReviewedAt, "") || null,
+        reason: toTrimmed(record.reason, "") || null,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkWorkerOutcomeSummary(value) {
+    const record = toRecord(value);
+    return {
+        runCount: toNumber(record?.runCount) ?? 0,
+        reviewedRunCount: toNumber(record?.reviewedRunCount) ?? 0,
+        pendingReviewCount: toNumber(record?.pendingReviewCount) ?? 0,
+        approvedCount: toNumber(record?.approvedCount) ?? 0,
+        rejectedCount: toNumber(record?.rejectedCount) ?? 0,
+        approvalRate: toNumber(record?.approvalRate) ?? null,
+        averageAppealScore: toNumber(record?.averageAppealScore) ?? null,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkWorkerOutcomes(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return {};
+    }
+
+    return Object.fromEntries(
+        Object.entries(record)
+            .map(([worker, summary]) => [toTrimmed(worker, "unknown") || "unknown", summarizeLearnedBackboneBenchmarkWorkerOutcomeSummary(summary)]),
+    );
+}
+
+function summarizeLearnedBackboneBenchmarkPairedSelectionOutcomes(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        lane: toTrimmed(record.lane, "") || null,
+        benchmarkPackVersion: toTrimmed(record.benchmarkPackVersion, "") || null,
+        reviewedManifestCount: toNumber(record.reviewedManifestCount) ?? 0,
+        promotedReviewedCount: toNumber(record.promotedReviewedCount) ?? 0,
+        promotedApprovalRate: toNumber(record.promotedApprovalRate) ?? null,
+        promotedAverageAppealScore: toNumber(record.promotedAverageAppealScore) ?? null,
+        heuristicReviewedCount: toNumber(record.heuristicReviewedCount) ?? 0,
+        heuristicApprovalRate: toNumber(record.heuristicApprovalRate) ?? null,
+        heuristicAverageAppealScore: toNumber(record.heuristicAverageAppealScore) ?? null,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkReviewQueueRow(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        songId: toTrimmed(record.songId),
+        benchmarkId: toTrimmed(record.benchmarkId, "") || null,
+        planSignature: toTrimmed(record.planSignature, "") || null,
+        reviewTarget: toTrimmed(record.reviewTarget, "") || null,
+        selectedWorker: toTrimmed(record.selectedWorker, "") || null,
+        counterfactualWorker: toTrimmed(record.counterfactualWorker, "") || null,
+        selectionMode: toTrimmed(record.selectionMode, "") || null,
+        observedAt: toTrimmed(record.observedAt, "") || null,
+        wholePieceCandidateCount: toNumber(record.wholePieceCandidateCount) ?? 0,
+        localizedRewriteBranchCount: toNumber(record.localizedRewriteBranchCount) ?? 0,
+        searchBudgetLevel: toTrimmed(record.searchBudgetLevel, "") || null,
+        searchBudgetDescriptor: toTrimmed(record.searchBudgetDescriptor, "") || null,
+        shortlistTopK: toNumber(record.shortlistTopK) ?? null,
+        selectedRank: toNumber(record.selectedRank) ?? null,
+        selectedInShortlist: record.selectedInShortlist === true,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkReviewQueue(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        pendingBlindReviewCount: toNumber(record.pendingBlindReviewCount) ?? 0,
+        pendingShortlistReviewCount: toNumber(record.pendingShortlistReviewCount) ?? 0,
+        latestPendingAt: toTrimmed(record.latestPendingAt, "") || null,
+        recentPendingRows: Array.isArray(record.recentPendingRows)
+            ? toRecordArray(record.recentPendingRows).slice(0, 5).map(summarizeLearnedBackboneBenchmarkReviewQueueRow).filter(Boolean)
+            : [],
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkReviewPackRow(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        packId: toTrimmed(record.packId),
+        generatedAt: toTrimmed(record.generatedAt, "") || null,
+        reviewTarget: toTrimmed(record.reviewTarget, "") || null,
+        searchBudget: toTrimmed(record.searchBudget, "") || null,
+        entryCount: toNumber(record.entryCount) ?? 0,
+        completedDecisionCount: toNumber(record.completedDecisionCount) ?? 0,
+        pendingDecisionCount: toNumber(record.pendingDecisionCount) ?? 0,
+        pendingShortlistDecisionCount: toNumber(record.pendingShortlistDecisionCount) ?? 0,
+        latestReviewedAt: toTrimmed(record.latestReviewedAt, "") || null,
+        reviewSheetPath: toTrimmed(record.reviewSheetPath, "") || null,
+    };
+}
+
+function summarizeLearnedBackboneBenchmarkReviewPacks(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        matchedPackCount: toNumber(record.matchedPackCount) ?? 0,
+        activePackCount: toNumber(record.activePackCount) ?? 0,
+        pendingDecisionCount: toNumber(record.pendingDecisionCount) ?? 0,
+        completedDecisionCount: toNumber(record.completedDecisionCount) ?? 0,
+        latestGeneratedAt: toTrimmed(record.latestGeneratedAt, "") || null,
+        latestReviewedAt: toTrimmed(record.latestReviewedAt, "") || null,
+        recentActivePacks: Array.isArray(record.recentActivePacks)
+            ? toRecordArray(record.recentActivePacks).slice(0, 5).map(summarizeLearnedBackboneBenchmarkReviewPackRow).filter(Boolean)
+            : [],
+    };
+}
+
+function buildLearnedBackboneReviewPackCommand(reviewTarget, pendingOnly, searchBudget = null) {
+    const args = [];
+    if (pendingOnly) {
+        args.push("--pendingOnly");
+    }
+    if (toTrimmed(reviewTarget, "") && reviewTarget !== "all") {
+        args.push(`--reviewTarget=${toTrimmed(reviewTarget)}`);
+    }
+    if (toTrimmed(searchBudget, "")) {
+        args.push(`--searchBudget=\"${toTrimmed(searchBudget)}\"`);
+    }
+    return `npm run ml:review-pack:learned-backbone -- ${args.join(" ")}`.trimEnd();
+}
+
+function buildLearnedBackboneCustomReviewPackActions(reviewQueue, searchBudgetRows, existingActionCount) {
+    const customBudgetRows = searchBudgetRows
+        .filter((row) => toTrimmed(row?.searchBudgetLevel, "") === "custom" && (toNumber(row?.pendingReviewCount) ?? 0) > 0)
+        .sort(
+            (left, right) => (toNumber(left?.wholePieceCandidateCount) ?? 0) - (toNumber(right?.wholePieceCandidateCount) ?? 0)
+                || (toNumber(left?.localizedRewriteBranchCount) ?? 0) - (toNumber(right?.localizedRewriteBranchCount) ?? 0)
+                || toTrimmed(left?.searchBudgetDescriptor).localeCompare(toTrimmed(right?.searchBudgetDescriptor)),
+        );
+    if (customBudgetRows.length > 0) {
+        return customBudgetRows.map((row, index) => ({
+            reviewTarget: "all",
+            searchBudget: toTrimmed(row?.searchBudgetDescriptor, "") || toTrimmed(row?.searchBudgetLevel, "") || null,
+            pendingOnly: true,
+            pendingPairCount: toNumber(row?.pendingReviewCount) ?? 0,
+            priority: index === 0
+                ? (existingActionCount > 0 ? "after_general_queue" : "first")
+                : "after_previous_budget_focus",
+            command: buildLearnedBackboneReviewPackCommand(
+                "all",
+                true,
+                toTrimmed(row?.searchBudgetDescriptor, "") || toTrimmed(row?.searchBudgetLevel, "") || null,
+            ),
+        }));
+    }
+
+    const pendingBudgetCounts = new Map();
+    for (const row of reviewQueue?.recentPendingRows ?? []) {
+        const searchBudgetLevel = toTrimmed(row?.searchBudgetLevel, "");
+        const searchBudget = toTrimmed(row?.searchBudgetDescriptor, "") || searchBudgetLevel;
+        if (searchBudgetLevel !== "custom" || !searchBudget) {
+            continue;
+        }
+        pendingBudgetCounts.set(searchBudget, (pendingBudgetCounts.get(searchBudget) ?? 0) + 1);
+    }
+
+    return [...pendingBudgetCounts.entries()]
+        .sort((left, right) => left[0].localeCompare(right[0]))
+        .map(([searchBudget, pendingPairCount], index) => ({
+            reviewTarget: "all",
+            searchBudget,
+            pendingOnly: true,
+            pendingPairCount,
+            priority: index === 0
+                ? (existingActionCount > 0 ? "after_general_queue" : "first")
+                : "after_previous_budget_focus",
+            command: buildLearnedBackboneReviewPackCommand("all", true, searchBudget),
+        }));
+}
+
+function summarizeActiveLearnedBackboneReviewPackCoverage(reviewPacks) {
+    return (Array.isArray(reviewPacks?.recentActivePacks) ? reviewPacks.recentActivePacks : []).reduce(
+        (summary, item) => {
+            summary.pendingDecisionCount += toNumber(item?.pendingDecisionCount) ?? 0;
+            summary.pendingShortlistDecisionCount += toNumber(item?.pendingShortlistDecisionCount) ?? 0;
+            return summary;
+        },
+        {
+            pendingDecisionCount: 0,
+            pendingShortlistDecisionCount: 0,
+        },
+    );
+}
+
+function buildLearnedBackboneBenchmarkReviewPackActions(reviewQueue, reviewPacks, searchBudgetRows) {
+    if (!reviewQueue) {
+        return [];
+    }
+
+    const activeCoverage = summarizeActiveLearnedBackboneReviewPackCoverage(reviewPacks);
+    const pendingBlind = toNumber(reviewQueue.pendingBlindReviewCount) ?? 0;
+    const pendingShortlist = toNumber(reviewQueue.pendingShortlistReviewCount) ?? 0;
+    const uncoveredBlind = Math.max(0, pendingBlind - activeCoverage.pendingDecisionCount);
+    const uncoveredShortlist = Math.max(0, pendingShortlist - activeCoverage.pendingShortlistDecisionCount);
+    const uncoveredPairwise = Math.max(0, uncoveredBlind - uncoveredShortlist);
+    if (uncoveredBlind <= 0) {
+        return [];
+    }
+
+    const actions = [];
+
+    if (uncoveredShortlist > 0) {
+        actions.push({
+            reviewTarget: "shortlist",
+            searchBudget: null,
+            pendingOnly: true,
+            pendingPairCount: uncoveredShortlist,
+            priority: "first",
+            command: buildLearnedBackboneReviewPackCommand("shortlist", true),
+        });
+    }
+
+    if (uncoveredPairwise > 0) {
+        actions.push({
+            reviewTarget: "pairwise",
+            searchBudget: null,
+            pendingOnly: true,
+            pendingPairCount: uncoveredPairwise,
+            priority: uncoveredShortlist > 0 ? "after_shortlist" : "first",
+            command: buildLearnedBackboneReviewPackCommand("pairwise", true),
+        });
+    }
+
+    if (activeCoverage.pendingDecisionCount === 0) {
+        actions.push(...buildLearnedBackboneCustomReviewPackActions(reviewQueue, searchBudgetRows, actions.length));
+    }
+
+    return actions;
+}
+
+function buildLearnedBackboneBenchmarkReviewPackRecordActions(reviewPacks) {
+    if (!reviewPacks) {
+        return [];
+    }
+
+    return (reviewPacks.recentActivePacks ?? [])
+        .filter((item) => toTrimmed(item.reviewSheetPath, "") !== "")
+        .map((item, index) => ({
+            packId: toTrimmed(item.packId),
+            reviewTarget: toTrimmed(item.reviewTarget, "") || null,
+            searchBudget: toTrimmed(item.searchBudget, "") || null,
+            pendingDecisionCount: toNumber(item.pendingDecisionCount) ?? 0,
+            pendingShortlistDecisionCount: toNumber(item.pendingShortlistDecisionCount) ?? 0,
+            reviewSheetPath: toTrimmed(item.reviewSheetPath, "") || null,
+            priority: index === 0 ? "first" : "after_previous",
+            command: `npm run ml:review-pack:record:learned-backbone -- --resultsFile ${toTrimmed(item.reviewSheetPath)}`,
+        }));
+}
+
+function summarizeLearnedBackboneBenchmarkPromotionGate(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    return {
+        status: toTrimmed(record.status, "") || null,
+        signal: toTrimmed(record.signal, "") || null,
+        minimumReviewedRunCount: toNumber(record.minimumReviewedRunCount) ?? 0,
+        minimumReviewedDisagreementCount: toNumber(record.minimumReviewedDisagreementCount) ?? 0,
+        minimumReviewedSelectedInShortlistRate: toNumber(record.minimumReviewedSelectedInShortlistRate) ?? null,
+        meetsReviewedRunMinimum: record.meetsReviewedRunMinimum === true,
+        meetsReviewedDisagreementMinimum: record.meetsReviewedDisagreementMinimum === true,
+        meetsReviewedSelectedInShortlistMinimum: record.meetsReviewedSelectedInShortlistMinimum === true,
+        retryLocalizationStable: record.retryLocalizationStable === true,
+        blindPreferenceAvailable: record.blindPreferenceAvailable === true,
+        blindPreferenceWinRate: toNumber(record.blindPreferenceWinRate) ?? null,
+        reviewedSelectedInShortlistRate: toNumber(record.reviewedSelectedInShortlistRate) ?? null,
+        reviewedSelectedTop1Rate: toNumber(record.reviewedSelectedTop1Rate) ?? null,
+        approvalRateDelta: toNumber(record.approvalRateDelta) ?? null,
+        appealScoreDelta: toNumber(record.appealScoreDelta) ?? null,
+        positiveSignals: Array.isArray(record.positiveSignals) ? record.positiveSignals.map((item) => toTrimmed(item)).filter((item) => item !== "-") : [],
+        negativeSignals: Array.isArray(record.negativeSignals) ? record.negativeSignals.map((item) => toTrimmed(item)).filter((item) => item !== "-") : [],
+        blockers: Array.isArray(record.blockers) ? record.blockers.map((item) => toTrimmed(item)).filter((item) => item !== "-") : [],
+        rationale: toTrimmed(record.rationale, "") || null,
+    };
+}
+
+function summarizeLearnedBackboneBenchmark(value) {
+    const record = toRecord(value);
+    if (!record) {
+        return null;
+    }
+
+    const reviewQueue = summarizeLearnedBackboneBenchmarkReviewQueue(record.reviewQueue);
+    const reviewPacks = summarizeLearnedBackboneBenchmarkReviewPacks(record.reviewPacks);
+    const searchBudgetRows = Array.isArray(record.searchBudgetRows)
+        ? toRecordArray(record.searchBudgetRows).slice(0, 5).map(summarizeLearnedBackboneBenchmarkSearchBudgetRow)
+        : [];
+
+    return {
+        lane: toTrimmed(record.lane, "") || null,
+        benchmarkPackVersion: toTrimmed(record.benchmarkPackVersion, "") || null,
+        runCount: toNumber(record.runCount) ?? 0,
+        pairedRunCount: toNumber(record.pairedRunCount) ?? 0,
+        reviewedRunCount: toNumber(record.reviewedRunCount) ?? 0,
+        pendingReviewCount: toNumber(record.pendingReviewCount) ?? 0,
+        approvalRate: toNumber(record.approvalRate) ?? null,
+        averageAppealScore: toNumber(record.averageAppealScore) ?? null,
+        configSnapshot: summarizeLearnedBackboneBenchmarkConfigSnapshot(record.configSnapshot),
+        blindPreference: summarizeLearnedBackboneBenchmarkBlindPreference(record.blindPreference),
+        shortlistBlindPreference: summarizeLearnedBackboneBenchmarkBlindPreference(record.shortlistBlindPreference),
+        reviewedTop1Accuracy: summarizeLearnedBackboneBenchmarkReviewedTop1Accuracy(record.reviewedTop1Accuracy),
+        reviewQueue,
+        reviewPacks,
+        reviewPackActions: buildLearnedBackboneBenchmarkReviewPackActions(reviewQueue, reviewPacks, searchBudgetRows),
+        reviewPackRecordActions: buildLearnedBackboneBenchmarkReviewPackRecordActions(reviewPacks),
+        promotionGate: summarizeLearnedBackboneBenchmarkPromotionGate(record.promotionGate),
+        reviewSampleStatus: summarizeLearnedBackboneBenchmarkReviewSampleStatus(record.reviewSampleStatus),
+        disagreementSummary: summarizeLearnedBackboneBenchmarkDisagreementSummary(record.disagreementSummary),
+        retryLocalizationStability: summarizeLearnedBackboneBenchmarkRetryLocalizationStability(record.retryLocalizationStability),
+        selectionModeCounts: summarizeCountMap(record.selectionModeCounts),
+        searchBudgetCounts: summarizeCountMap(record.searchBudgetCounts),
+        selectedWorkerOutcomes: summarizeLearnedBackboneBenchmarkWorkerOutcomes(record.selectedWorkerOutcomes),
+        pairedSelectionOutcomes: summarizeLearnedBackboneBenchmarkPairedSelectionOutcomes(record.pairedSelectionOutcomes),
+        promotionAdvantage: summarizeShadowRerankerPromotionAdvantage(record.promotionAdvantage),
+        coverageRows: Array.isArray(record.coverageRows)
+            ? toRecordArray(record.coverageRows).slice(0, 5).map(summarizeLearnedBackboneBenchmarkCoverageRow)
+            : [],
+        searchBudgetRows,
+        topFailureModes: Array.isArray(record.topFailureModes)
+            ? toRecordArray(record.topFailureModes).slice(0, 5).map(summarizeLearnedBackboneBenchmarkFailureModeRow)
+            : [],
+        topStopReasons: Array.isArray(record.topStopReasons)
+            ? toRecordArray(record.topStopReasons).slice(0, 5).map(summarizeLearnedBackboneBenchmarkStopReasonRow)
+            : [],
+        recentRunRows: Array.isArray(record.recentRunRows)
+            ? toRecordArray(record.recentRunRows).slice(0, 5).map(summarizeLearnedBackboneBenchmarkRecentRunRow)
+            : [],
+    };
+}
+
 function summarizeShadowRerankerRecentDisagreement(row) {
     const record = toRecord(row) || {};
     return {
@@ -987,6 +1597,317 @@ function formatHarmonicColorTrendArtifact(item) {
     ].join(" ");
 }
 
+function formatLearnedProposalWarningArtifact(item) {
+    return [
+        `learnedProposalWarnings manifests=${toNumber(item.sampledManifestCount) ?? 0}`,
+        `proposals=${toNumber(item.proposalCount) ?? 0}`,
+        `warningProposals=${toNumber(item.proposalWithWarningsCount) ?? 0}`,
+        `warnings=${toNumber(item.totalWarningCount) ?? 0}`,
+        `roleCollapse=${toNumber(item.roleCollapseWarningCount) ?? 0}`,
+        `lastSeen=${toTrimmed(item.lastSeenAt)}`,
+    ].join(" ");
+}
+
+function formatLearnedProposalWarningRowArtifact(item) {
+    return [
+        `learnedProposalWarning count=${toNumber(item.count) ?? 0}`,
+        `proposals=${toNumber(item.proposalCount) ?? 0}`,
+        `lastSeen=${toTrimmed(item.lastSeenAt)}`,
+        `song=${toTrimmed(item.lastSongId)}`,
+        `warning=${toTrimmed(item.warning)}`,
+    ].join(" ");
+}
+
+function formatNamedCountSummary(values) {
+    const entries = Object.entries(values ?? {})
+        .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
+    if (entries.length === 0) {
+        return "none";
+    }
+
+    return entries
+        .slice(0, 5)
+        .map(([label, count]) => `${label}:${count}`)
+        .join(",");
+}
+
+function formatLearnedBackboneBenchmarkArtifact(item) {
+    return [
+        `learnedBackboneBenchmark lane=${toTrimmed(item.lane)}`,
+        `pack=${toTrimmed(item.benchmarkPackVersion)}`,
+        `runs=${toNumber(item.runCount) ?? 0}`,
+        `paired=${toNumber(item.pairedRunCount) ?? 0}`,
+        `reviewed=${toNumber(item.reviewedRunCount) ?? 0}`,
+        `pendingReview=${toNumber(item.pendingReviewCount) ?? 0}`,
+        `approvalRate=${formatOrchestrationMetric(item.approvalRate)}`,
+        `avgAppeal=${formatOrchestrationMetric(item.averageAppealScore)}`,
+        `top1Accuracy=${formatOrchestrationMetric(item.reviewedTop1Accuracy?.selectedTop1Accuracy)}`,
+        `budgets=${formatNamedCountSummary(item.searchBudgetCounts ?? {})}`,
+        `sampleStatus=${toTrimmed(item.reviewSampleStatus?.status)}`,
+        `screeningGap=${toNumber(item.reviewSampleStatus?.remainingReviewedRunCountForScreening) ?? 0}`,
+        `promotionReviewedGap=${toNumber(item.reviewSampleStatus?.remainingReviewedRunCountForPromotion) ?? 0}`,
+        `promotionDisagreementGap=${toNumber(item.reviewSampleStatus?.remainingReviewedDisagreementCountForPromotion) ?? 0}`,
+        `disagreements=${toNumber(item.disagreementSummary?.disagreementRunCount) ?? 0}`,
+        `reviewedDisagreements=${toNumber(item.disagreementSummary?.reviewedDisagreementCount) ?? 0}`,
+        `promotionSignal=${toTrimmed(item.promotionAdvantage?.signal)}`,
+        `retryStatus=${toTrimmed(item.retryLocalizationStability?.status)}`,
+        `targetedRate=${formatOrchestrationMetric(item.retryLocalizationStability?.sectionTargetedRate)}`,
+        `driftRate=${formatOrchestrationMetric(item.retryLocalizationStability?.driftRate)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkConfigArtifact(item) {
+    return [
+        `learnedBackboneBenchmark config lane=${toTrimmed(item.configSnapshot?.lane ?? item.lane)}`,
+        `benchmarkIds=${item.configSnapshot?.benchmarkIds?.length ? item.configSnapshot.benchmarkIds.join(",") : "none"}`,
+        `promptPacks=${formatNamedCountSummary(item.configSnapshot?.promptPackVersionCounts)}`,
+        `reviewRubrics=${formatNamedCountSummary(item.configSnapshot?.reviewRubricVersionCounts)}`,
+        `generationModes=${formatNamedCountSummary(item.configSnapshot?.generationModeCounts)}`,
+        `workflows=${formatNamedCountSummary(item.configSnapshot?.workflowCounts)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkBlindPreferenceArtifact(item) {
+    return [
+        "learnedBackboneBenchmark blindPreference",
+        `available=${item.blindPreference?.available === true ? "yes" : "no"}`,
+        `winRate=${formatOrchestrationMetric(item.blindPreference?.winRate)}`,
+        `reviewedPairs=${toNumber(item.blindPreference?.reviewedPairCount) ?? 0}`,
+        `decisivePairs=${toNumber(item.blindPreference?.decisivePairCount) ?? 0}`,
+        `learnedWins=${toNumber(item.blindPreference?.learnedWinCount) ?? 0}`,
+        `baselineWins=${toNumber(item.blindPreference?.baselineWinCount) ?? 0}`,
+        `ties=${toNumber(item.blindPreference?.tieCount) ?? 0}`,
+        `latestReviewedAt=${toTrimmed(item.blindPreference?.latestReviewedAt)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkShortlistBlindPreferenceArtifact(item) {
+    return [
+        "learnedBackboneBenchmark shortlistBlindPreference",
+        `available=${item.shortlistBlindPreference?.available === true ? "yes" : "no"}`,
+        `winRate=${formatOrchestrationMetric(item.shortlistBlindPreference?.winRate)}`,
+        `reviewedPairs=${toNumber(item.shortlistBlindPreference?.reviewedPairCount) ?? 0}`,
+        `decisivePairs=${toNumber(item.shortlistBlindPreference?.decisivePairCount) ?? 0}`,
+        `learnedWins=${toNumber(item.shortlistBlindPreference?.learnedWinCount) ?? 0}`,
+        `baselineWins=${toNumber(item.shortlistBlindPreference?.baselineWinCount) ?? 0}`,
+        `ties=${toNumber(item.shortlistBlindPreference?.tieCount) ?? 0}`,
+        `latestReviewedAt=${toTrimmed(item.shortlistBlindPreference?.latestReviewedAt)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkTop1AccuracyArtifact(item) {
+    return [
+        "learnedBackboneBenchmark top1Accuracy",
+        `available=${boolLabel(item.reviewedTop1Accuracy?.available === true)}`,
+        `selected=${formatOrchestrationMetric(item.reviewedTop1Accuracy?.selectedTop1Accuracy)}`,
+        `decisivePairs=${toNumber(item.reviewedTop1Accuracy?.decisiveReviewedPairCount) ?? 0}`,
+        `correctSelections=${toNumber(item.reviewedTop1Accuracy?.correctSelectionCount) ?? 0}`,
+        `learnedSelected=${formatOrchestrationMetric(item.reviewedTop1Accuracy?.learnedSelectedTop1Accuracy)}`,
+        `baselineSelected=${formatOrchestrationMetric(item.reviewedTop1Accuracy?.baselineSelectedTop1Accuracy)}`,
+        `promoted=${formatOrchestrationMetric(item.reviewedTop1Accuracy?.promotedTop1Accuracy)}`,
+        `latestReviewedAt=${toTrimmed(item.reviewedTop1Accuracy?.latestReviewedAt)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkPairedSelectionArtifact(item) {
+    return [
+        "learnedBackboneBenchmark pairedSelection",
+        `reviewed=${toNumber(item.pairedSelectionOutcomes?.reviewedManifestCount) ?? 0}`,
+        `promotedReviewed=${toNumber(item.pairedSelectionOutcomes?.promotedReviewedCount) ?? 0}`,
+        `heuristicReviewed=${toNumber(item.pairedSelectionOutcomes?.heuristicReviewedCount) ?? 0}`,
+        `promotedApproval=${formatOrchestrationMetric(item.pairedSelectionOutcomes?.promotedApprovalRate)}`,
+        `heuristicApproval=${formatOrchestrationMetric(item.pairedSelectionOutcomes?.heuristicApprovalRate)}`,
+        `promotedAppeal=${formatOrchestrationMetric(item.pairedSelectionOutcomes?.promotedAverageAppealScore)}`,
+        `heuristicAppeal=${formatOrchestrationMetric(item.pairedSelectionOutcomes?.heuristicAverageAppealScore)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkSelectedWorkerOutcomeArtifact(worker, item) {
+    return [
+        "learnedBackboneBenchmark selectedWorkerOutcome",
+        `worker=${toTrimmed(worker)}`,
+        `runs=${toNumber(item.runCount) ?? 0}`,
+        `reviewed=${toNumber(item.reviewedRunCount) ?? 0}`,
+        `pendingReview=${toNumber(item.pendingReviewCount) ?? 0}`,
+        `approved=${toNumber(item.approvedCount) ?? 0}`,
+        `rejected=${toNumber(item.rejectedCount) ?? 0}`,
+        `approvalRate=${formatOrchestrationMetric(item.approvalRate)}`,
+        `avgAppeal=${formatOrchestrationMetric(item.averageAppealScore)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkCoverageArtifact(item) {
+    return [
+        "learnedBackboneBenchmark coverage",
+        `benchmark=${toTrimmed(item.benchmarkId || item.benchmarkKey)}`,
+        `runs=${toNumber(item.runCount) ?? 0}`,
+        `paired=${toNumber(item.pairedRunCount) ?? 0}`,
+        `reviewed=${toNumber(item.reviewedRunCount) ?? 0}`,
+        `pendingReview=${toNumber(item.pendingReviewCount) ?? 0}`,
+        `approvalRate=${formatOrchestrationMetric(item.approvalRate)}`,
+        `avgAppeal=${formatOrchestrationMetric(item.averageAppealScore)}`,
+        `selectedWorkers=${formatNamedCountSummary(item.selectedWorkerCounts)}`,
+        `generationModes=${formatNamedCountSummary(item.generationModeCounts)}`,
+        `lastObserved=${toTrimmed(item.latestObservedAt)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkReviewQueueArtifact(item) {
+    return [
+        "learnedBackboneBenchmark reviewQueue",
+        `pendingBlind=${toNumber(item.reviewQueue?.pendingBlindReviewCount) ?? 0}`,
+        `pendingShortlist=${toNumber(item.reviewQueue?.pendingShortlistReviewCount) ?? 0}`,
+        `latestPendingAt=${toTrimmed(item.reviewQueue?.latestPendingAt)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkReviewPacksArtifact(item) {
+    return [
+        "learnedBackboneBenchmark reviewPacks",
+        `matched=${toNumber(item.reviewPacks?.matchedPackCount) ?? 0}`,
+        `active=${toNumber(item.reviewPacks?.activePackCount) ?? 0}`,
+        `pendingDecisions=${toNumber(item.reviewPacks?.pendingDecisionCount) ?? 0}`,
+        `completedDecisions=${toNumber(item.reviewPacks?.completedDecisionCount) ?? 0}`,
+        `latestGeneratedAt=${toTrimmed(item.reviewPacks?.latestGeneratedAt)}`,
+        `latestReviewedAt=${toTrimmed(item.reviewPacks?.latestReviewedAt)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkReviewQueueRowArtifact(item) {
+    const searchBudget = toTrimmed(item.searchBudgetDescriptor, "") || toTrimmed(item.searchBudgetLevel);
+    return [
+        `learnedBackboneBenchmark reviewQueue song=${toTrimmed(item.songId)}`,
+        `target=${toTrimmed(item.reviewTarget)}`,
+        `benchmark=${toTrimmed(item.benchmarkId)}`,
+        `selectedWorker=${toTrimmed(item.selectedWorker)}`,
+        `counterfactual=${toTrimmed(item.counterfactualWorker)}`,
+        `selectionMode=${toTrimmed(item.selectionMode)}`,
+        `searchBudget=${searchBudget}`,
+        `candidates=${toNumber(item.wholePieceCandidateCount) ?? 0}`,
+        `topK=${formatOrchestrationMetric(item.shortlistTopK)}`,
+        `selectedRank=${formatOrchestrationMetric(item.selectedRank)}`,
+        `inTopK=${boolLabel(item.selectedInShortlist)}`,
+        `observedAt=${toTrimmed(item.observedAt)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkReviewPackArtifact(item) {
+    const reviewSheetPath = toTrimmed(item.reviewSheetPath) || "-";
+    const recordCommand = reviewSheetPath === "-"
+        ? "-"
+        : `npm run ml:review-pack:record:learned-backbone -- --resultsFile ${reviewSheetPath}`;
+    const searchBudget = toTrimmed(item.searchBudget, "") || null;
+    return [
+        `learnedBackboneBenchmark reviewPack pack=${toTrimmed(item.packId)}`,
+        `target=${toTrimmed(item.reviewTarget)}`,
+        ...(searchBudget ? [`searchBudget=${searchBudget}`] : []),
+        `entries=${toNumber(item.entryCount) ?? 0}`,
+        `completed=${toNumber(item.completedDecisionCount) ?? 0}`,
+        `pending=${toNumber(item.pendingDecisionCount) ?? 0}`,
+        `pendingShortlist=${toNumber(item.pendingShortlistDecisionCount) ?? 0}`,
+        `generatedAt=${toTrimmed(item.generatedAt)}`,
+        `latestReviewedAt=${toTrimmed(item.latestReviewedAt)}`,
+        `reviewSheet=${reviewSheetPath}`,
+        `recordCommand=${recordCommand}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkReviewPackActionArtifact(item) {
+    const searchBudget = toTrimmed(item.searchBudget, "") || null;
+    return [
+        "learnedBackboneBenchmark reviewPackAction",
+        `target=${toTrimmed(item.reviewTarget)}`,
+        ...(searchBudget ? [`searchBudget=${searchBudget}`] : []),
+        `pendingOnly=${boolLabel(item.pendingOnly)}`,
+        `pendingPairs=${toNumber(item.pendingPairCount) ?? 0}`,
+        `priority=${toTrimmed(item.priority)}`,
+        `command=${toTrimmed(item.command)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkReviewPackRecordActionArtifact(item) {
+    const searchBudget = toTrimmed(item.searchBudget, "") || null;
+    return [
+        "learnedBackboneBenchmark reviewPackRecordAction",
+        `pack=${toTrimmed(item.packId)}`,
+        `target=${toTrimmed(item.reviewTarget)}`,
+        ...(searchBudget ? [`searchBudget=${searchBudget}`] : []),
+        `pendingDecisions=${toNumber(item.pendingDecisionCount) ?? 0}`,
+        `pendingShortlist=${toNumber(item.pendingShortlistDecisionCount) ?? 0}`,
+        `reviewSheet=${toTrimmed(item.reviewSheetPath)}`,
+        `priority=${toTrimmed(item.priority)}`,
+        `command=${toTrimmed(item.command)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkSearchBudgetArtifact(item) {
+    const searchBudget = toTrimmed(item.searchBudgetDescriptor, "") || toTrimmed(item.searchBudgetLevel);
+    return [
+        `learnedBackboneBenchmark searchBudget=${searchBudget}`,
+        `candidates=${toNumber(item.wholePieceCandidateCount) ?? 0}`,
+        `runs=${toNumber(item.runCount) ?? 0}`,
+        `reviewed=${toNumber(item.reviewedRunCount) ?? 0}`,
+        `pendingReview=${toNumber(item.pendingReviewCount) ?? 0}`,
+        `approvalRate=${formatOrchestrationMetric(item.approvalRate)}`,
+        `blindPreference=${formatOrchestrationMetric(item.blindPreferenceWinRate)}`,
+        `top1Accuracy=${formatOrchestrationMetric(item.selectedTop1Accuracy)}`,
+        `decisivePairs=${toNumber(item.decisivePairCount) ?? 0}`,
+        `correctSelections=${toNumber(item.correctSelectionCount) ?? 0}`,
+        `lastObserved=${toTrimmed(item.latestObservedAt)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkPromotionGateArtifact(item) {
+    return [
+        "learnedBackboneBenchmark promotionGate",
+        `status=${toTrimmed(item.promotionGate?.status)}`,
+        `signal=${toTrimmed(item.promotionGate?.signal)}`,
+        `reviewedFloor=${item.promotionGate?.meetsReviewedRunMinimum === true ? "yes" : "no"}`,
+        `disagreementFloor=${item.promotionGate?.meetsReviewedDisagreementMinimum === true ? "yes" : "no"}`,
+        `shortlistFloor=${item.promotionGate?.meetsReviewedSelectedInShortlistMinimum === true ? "yes" : "no"}`,
+        `retryStable=${item.promotionGate?.retryLocalizationStable === true ? "yes" : "no"}`,
+        `blindPreference=${item.promotionGate?.blindPreferenceAvailable === true ? "yes" : "no"}`,
+        `reviewedInTopK=${formatOrchestrationMetric(item.promotionGate?.reviewedSelectedInShortlistRate)}`,
+        `reviewedTop1=${formatOrchestrationMetric(item.promotionGate?.reviewedSelectedTop1Rate)}`,
+        `shortlistMin=${formatOrchestrationMetric(item.promotionGate?.minimumReviewedSelectedInShortlistRate)}`,
+        `approvalDelta=${formatOrchestrationMetric(item.promotionGate?.approvalRateDelta)}`,
+        `appealDelta=${formatOrchestrationMetric(item.promotionGate?.appealScoreDelta)}`,
+        `blockers=${item.promotionGate?.blockers?.length ? item.promotionGate.blockers.join(",") : "none"}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkFailureModeArtifact(item) {
+    return [
+        `learnedBackboneBenchmark failureMode=${toTrimmed(item.failureMode)}`,
+        `count=${toNumber(item.count) ?? 0}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkStopReasonArtifact(item) {
+    return [
+        `learnedBackboneBenchmark stopReason count=${toNumber(item.count) ?? 0}`,
+        `reason=${toTrimmed(item.reason)}`,
+    ].join(" ");
+}
+
+function formatLearnedBackboneBenchmarkRecentRunArtifact(item) {
+    const searchBudget = toTrimmed(item.searchBudgetDescriptor, "") || toTrimmed(item.searchBudgetLevel);
+    return [
+        `learnedBackboneBenchmark recent song=${toTrimmed(item.songId)}`,
+        `benchmark=${toTrimmed(item.benchmarkId)}`,
+        `searchBudget=${searchBudget}`,
+        `candidates=${toNumber(item.wholePieceCandidateCount) ?? 0}`,
+        `selectedWorker=${toTrimmed(item.selectedWorker)}`,
+        `approval=${toTrimmed(item.approvalStatus)}`,
+        `selectionMode=${toTrimmed(item.selectionMode)}`,
+        `disagreement=${item.disagreementObserved === true ? "yes" : "no"}`,
+        `promotion=${item.promotionApplied === true ? "yes" : "no"}`,
+        `retry=${toTrimmed(item.retryLocalization)}`,
+        `weakest=${toTrimmed(item.reviewWeakestDimension)}`,
+        `observedAt=${toTrimmed(item.observedAt)}`,
+    ].join(" ");
+}
+
 function formatShadowRerankerArtifact(item) {
     return [
         `shadowReranker manifests=${item.manifestCount}`,
@@ -1202,6 +2123,8 @@ function summarizeOverseer(payload, missing) {
         repeatedWarnings: warnings.slice(0, 3),
         phraseBreathTrend: summarizePhraseBreathTrend(manifestAudioRetry?.phraseBreathTrends),
         harmonicColorTrend: summarizeHarmonicColorTrend(manifestAudioRetry?.harmonicColorTrends),
+        learnedProposalWarnings: summarizeLearnedProposalWarnings(manifestAudioRetry?.learnedProposalWarnings),
+        learnedBackboneBenchmark: summarizeLearnedBackboneBenchmark(manifestAudioRetry?.learnedBackboneBenchmark),
         shadowReranker: summarizeShadowReranker(manifestAudioRetry?.shadowReranker),
         orchestrationTrends: summarizeOrchestrationTrends(manifestAudioRetry?.orchestrationTrends),
     };
@@ -1340,6 +2263,12 @@ async function main() {
             ...overseer.repeatedWarnings.map(formatWarningArtifact),
             ...(overseer.phraseBreathTrend ? [formatPhraseBreathTrendArtifact(overseer.phraseBreathTrend)] : []),
             ...(overseer.harmonicColorTrend ? [formatHarmonicColorTrendArtifact(overseer.harmonicColorTrend)] : []),
+            ...(overseer.learnedProposalWarnings && toNumber(overseer.learnedProposalWarnings.proposalCount) > 0
+                ? [
+                    formatLearnedProposalWarningArtifact(overseer.learnedProposalWarnings),
+                    ...overseer.learnedProposalWarnings.topWarnings.map(formatLearnedProposalWarningRowArtifact),
+                ]
+                : []),
             ...(overseer.shadowReranker
                 ? [
                     formatShadowRerankerArtifact(overseer.shadowReranker),
@@ -1359,6 +2288,34 @@ async function main() {
                         : []),
                     ...overseer.shadowReranker.recentDisagreements.map(formatShadowRerankerDisagreementArtifact),
                     ...overseer.shadowReranker.recentPromotions.map(formatShadowRerankerPromotionArtifact),
+                ]
+                : []),
+            ...(overseer.learnedBackboneBenchmark && toNumber(overseer.learnedBackboneBenchmark.runCount) > 0
+                ? [
+                    formatLearnedBackboneBenchmarkArtifact(overseer.learnedBackboneBenchmark),
+                    formatLearnedBackboneBenchmarkConfigArtifact(overseer.learnedBackboneBenchmark),
+                    formatLearnedBackboneBenchmarkBlindPreferenceArtifact(overseer.learnedBackboneBenchmark),
+                    formatLearnedBackboneBenchmarkShortlistBlindPreferenceArtifact(overseer.learnedBackboneBenchmark),
+                    formatLearnedBackboneBenchmarkTop1AccuracyArtifact(overseer.learnedBackboneBenchmark),
+                    formatLearnedBackboneBenchmarkPairedSelectionArtifact(overseer.learnedBackboneBenchmark),
+                    ...Object.entries(overseer.learnedBackboneBenchmark.selectedWorkerOutcomes ?? {})
+                        .sort((left, right) => (
+                            (toNumber(right[1].runCount) ?? 0) - (toNumber(left[1].runCount) ?? 0)
+                            || left[0].localeCompare(right[0])
+                        ))
+                        .map(([worker, summary]) => formatLearnedBackboneBenchmarkSelectedWorkerOutcomeArtifact(worker, summary)),
+                    ...(overseer.learnedBackboneBenchmark.coverageRows ?? []).map(formatLearnedBackboneBenchmarkCoverageArtifact),
+                    formatLearnedBackboneBenchmarkReviewQueueArtifact(overseer.learnedBackboneBenchmark),
+                    formatLearnedBackboneBenchmarkReviewPacksArtifact(overseer.learnedBackboneBenchmark),
+                    ...(overseer.learnedBackboneBenchmark.reviewQueue?.recentPendingRows ?? []).map(formatLearnedBackboneBenchmarkReviewQueueRowArtifact),
+                    ...(overseer.learnedBackboneBenchmark.reviewPacks?.recentActivePacks ?? []).map(formatLearnedBackboneBenchmarkReviewPackArtifact),
+                    ...(overseer.learnedBackboneBenchmark.reviewPackRecordActions ?? []).map(formatLearnedBackboneBenchmarkReviewPackRecordActionArtifact),
+                    ...(overseer.learnedBackboneBenchmark.reviewPackActions ?? []).map(formatLearnedBackboneBenchmarkReviewPackActionArtifact),
+                    ...overseer.learnedBackboneBenchmark.searchBudgetRows.map(formatLearnedBackboneBenchmarkSearchBudgetArtifact),
+                    formatLearnedBackboneBenchmarkPromotionGateArtifact(overseer.learnedBackboneBenchmark),
+                    ...overseer.learnedBackboneBenchmark.topFailureModes.map(formatLearnedBackboneBenchmarkFailureModeArtifact),
+                    ...overseer.learnedBackboneBenchmark.topStopReasons.map(formatLearnedBackboneBenchmarkStopReasonArtifact),
+                    ...overseer.learnedBackboneBenchmark.recentRunRows.map(formatLearnedBackboneBenchmarkRecentRunArtifact),
                 ]
                 : []),
             ...overseer.orchestrationTrends.map(formatOrchestrationTrendArtifact),

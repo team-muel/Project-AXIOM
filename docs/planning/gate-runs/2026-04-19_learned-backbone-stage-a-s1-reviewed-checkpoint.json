@@ -1,0 +1,90 @@
+{
+    "observed_at": "2026-04-19T05:54:03.812Z",
+    "lane": "string_trio_symbolic",
+    "benchmark_pack_version": "string_trio_symbolic_benchmark_pack_v1",
+    "benchmark_ids": [
+        "cadence_clarity_reference",
+        "counterline_dialogue_probe",
+        "localized_rewrite_probe"
+    ],
+    "source_command": "npm run ml:summarize:learned-backbone -- --outputDir outputs",
+    "manifest_review_sheet": "outputs/_system/ml/review-manifests/learned-backbone/2026-04-19-stage-a-s1-manifest-r01/review-sheet.csv",
+    "review_packs_completed": [
+        "2026-04-19-stage-a-s1-pack-r01",
+        "2026-04-19-stage-a-s1-pack-r02"
+    ],
+    "metrics": {
+        "runCount": 7,
+        "pairedRunCount": 7,
+        "reviewedRunCount": 7,
+        "pendingReviewCount": 0,
+        "approvalRate": 1,
+        "averageAppealScore": null,
+        "blindPreference": {
+            "available": true,
+            "winRate": 0,
+            "reviewedPairCount": 7,
+            "decisivePairCount": 6,
+            "learnedWinCount": 0,
+            "baselineWinCount": 6,
+            "tieCount": 1
+        },
+        "reviewedTop1Accuracy": {
+            "available": true,
+            "selectedTop1Accuracy": 0.6667,
+            "decisiveReviewedPairCount": 6,
+            "correctSelectionCount": 4,
+            "learnedSelectedTop1Accuracy": 0,
+            "baselineSelectedTop1Accuracy": 1
+        },
+        "reviewSampleStatus": {
+            "status": "directional_only",
+            "reviewedRunCount": 7,
+            "reviewedDisagreementCount": 0,
+            "minimumReviewedRunCountForScreening": 20,
+            "minimumReviewedRunCountForPromotion": 30,
+            "minimumReviewedDisagreementCountForPromotion": 10
+        },
+        "promotionGate": {
+            "status": "experimental",
+            "signal": "negative",
+            "blockers": [
+                "reviewed_runs_below_floor",
+                "reviewed_disagreements_below_floor",
+                "shortlist_quality_below_floor",
+                "reviewed_outcomes_favor_baseline"
+            ]
+        },
+        "promotionAdvantage": {
+            "signal": "parity",
+            "approvalRateDelta": 0,
+            "appealScoreDelta": null,
+            "sufficientReviewSample": true
+        },
+        "disagreementSummary": {
+            "disagreementRunCount": 0,
+            "reviewedDisagreementCount": 0
+        },
+        "selectionModeCounts": {
+            "learned_selected": 2,
+            "baseline_selected": 5
+        },
+        "searchBudgetCounts": {
+            "S1": 7
+        }
+    },
+    "decision": {
+        "verdict": "DO_NOT_ADVANCE_PAST_STAGE_A",
+        "keepBaselineAuthoritative": true,
+        "keepLearnedBackboneExperimental": true,
+        "advanceToStageB": false,
+        "advanceToStageC": false,
+        "backboneComplete": false
+    },
+    "next_work": [
+        "Improve whole-piece learned backbone quality on cadence clarity and counterline dialogue before larger search cells.",
+        "Record appeal scores and strongest or weakest dimensions on the next reviewed sample so approval evidence is discriminative.",
+        "Do not start Stage C reranker authority work until real disagreement cases exist.",
+        "Repeat the fixed S1 checkpoint only after a material learned-backbone change."
+    ]
+}

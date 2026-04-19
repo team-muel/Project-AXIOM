@@ -157,6 +157,18 @@ function uniqueStrings(values: unknown[]): string[] {
     return [...new Set(values.map((value) => toTrimmed(value)).filter(Boolean))];
 }
 
+function normalizeWarningList(values: unknown): string[] {
+    return (Array.isArray(values) ? values : [])
+        .map((value) => toTrimmed(value))
+        .filter(Boolean);
+}
+
+function countRoleCollapseWarnings(values: unknown): number {
+    return normalizeWarningList(values)
+        .filter((value) => value.toLowerCase().includes("role collapse"))
+        .length;
+}
+
 function collectDirectiveSectionIds(directives: unknown[]): string[] {
     const sectionIds: string[] = [];
 
@@ -285,6 +297,7 @@ function buildFeatureMap(candidate: StructureCandidateManifest, sectionArtifacts
         : [];
     const proposalEvidence = candidate.proposalEvidence;
     const proposalSummary = proposalEvidence?.summary;
+    const proposalWarnings = normalizeWarningList(proposalEvidence?.normalizationWarnings);
     const revisionDirectives = Array.isArray(candidate.revisionDirectives) ? candidate.revisionDirectives : [];
     const inputDirectiveKinds = uniqueStrings(revisionDirectives.map((directive) => directive?.kind));
     const inputDirectiveSectionIds = collectDirectiveSectionIds(revisionDirectives);
@@ -295,9 +308,8 @@ function buildFeatureMap(candidate: StructureCandidateManifest, sectionArtifacts
     const weakestSections = Array.isArray(candidate.structureEvaluation.weakestSections)
         ? candidate.structureEvaluation.weakestSections
         : [];
-    const proposalWarningCount = Array.isArray(proposalEvidence?.normalizationWarnings)
-        ? proposalEvidence.normalizationWarnings.map((value) => toTrimmed(value)).filter(Boolean).length
-        : 0;
+    const proposalWarningCount = proposalWarnings.length;
+    const roleCollapseWarningCount = countRoleCollapseWarnings(proposalWarnings);
     const weakestScores = weakestSections
         .map((entry) => normalizeScore(entry?.score))
         .filter((value) => Number.isFinite(value));
@@ -346,6 +358,8 @@ function buildFeatureMap(candidate: StructureCandidateManifest, sectionArtifacts
     featureMap.hasLearnedProposalEvidence = proposalEvidence?.worker === "learned_symbolic" ? 1 : 0;
     featureMap.hasProposalLane = toTrimmed(proposalEvidence?.lane) ? 1 : 0;
     featureMap.hasProposalSummary = proposalSummary && Object.keys(proposalSummary).length > 0 ? 1 : 0;
+    featureMap.hasProposalNormalizationWarnings = proposalWarningCount > 0 ? 1 : 0;
+    featureMap.hasProposalRoleCollapseWarnings = roleCollapseWarningCount > 0 ? 1 : 0;
     featureMap.selectedAttemptFeatureRich = sectionArtifacts.length > 0 || Boolean(candidate.compositionPlan) || weakestSections.length > 0 ? 1 : 0;
     featureMap.retryingCandidate = retriedFromAttempt !== undefined ? 1 : 0;
     featureMap.retryDirectiveCount = normalizeCount(inputDirectiveKinds.length, 4);
@@ -362,6 +376,7 @@ function buildFeatureMap(candidate: StructureCandidateManifest, sectionArtifacts
     featureMap.orchestrationHandoffFit = normalizeMetricValue(candidate.structureEvaluation.orchestration?.sectionHandoffFit);
     featureMap.proposalConfidence = normalizeMetricValue(proposalEvidence?.confidence);
     featureMap.proposalNormalizationWarningCount = normalizeCount(proposalWarningCount, 4);
+    featureMap.proposalRoleCollapseWarningCount = normalizeCount(roleCollapseWarningCount, 4);
     featureMap.proposalSummaryPartCount = normalizeCount(proposalSummary?.partCount, 4);
     featureMap.proposalSummaryMeasureCount = clamp((toNumber(proposalSummary?.measureCount) ?? 0) / 32, 0, 3);
     featureMap.proposalSummaryNoteCount = clamp((toNumber(proposalSummary?.noteCount) ?? 0) / 96, 0, 3);

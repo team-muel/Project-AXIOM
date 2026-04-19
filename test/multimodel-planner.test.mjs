@@ -282,6 +282,27 @@ test("previewAutonomyPlan preserves extended expression vocabulary from planner 
     assert.deepEqual(result.openingCharacter, ["cantabile", "grazioso"]);
 });
 
+test("previewAutonomyPlan preserves planner-requested candidateCount for Stage B search budgets", async () => {
+    const result = await runPlannerScenario(`
+        const { previewAutonomyPlan } = await import("./dist/autonomy/service.js");
+        const plan = await previewAutonomyPlan();
+        console.log(JSON.stringify({
+            candidateCount: plan.request.candidateCount,
+            localizedRewriteBranches: plan.request.localizedRewriteBranches,
+            promptHash: plan.request.promptHash,
+        }));
+    `, createPlannerResponse({
+        request: {
+            candidateCount: 8,
+            localizedRewriteBranches: 2,
+        },
+    }));
+
+    assert.equal(result.candidateCount, 8);
+    assert.equal(result.localizedRewriteBranches, 2);
+    assert.match(result.promptHash, /^[0-9a-f]{16}$/);
+});
+
 test("previewAutonomyPlan preserves phrase-breath contract from planner output", async () => {
     const result = await runPlannerScenario(`
         const { previewAutonomyPlan } = await import("./dist/autonomy/service.js");

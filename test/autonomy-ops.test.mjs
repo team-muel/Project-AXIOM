@@ -505,7 +505,7 @@ test("approval feedback updates preferences summary and autonomy ops exposes rec
             const fs = await import("node:fs");
             const path = await import("node:path");
             const { approveAutonomySong, rejectAutonomySong, getAutonomyStatus } = await import("./dist/autonomy/service.js");
-            const { loadAutonomyPreferences } = await import("./dist/memory/manifest.js");
+            const { loadAutonomyPreferences, loadManifest } = await import("./dist/memory/manifest.js");
             const { callMcpTool } = await import("./dist/mcp/toolAdapter.js");
 
             approveAutonomySong("approved-song", {
@@ -550,6 +550,8 @@ test("approval feedback updates preferences summary and autonomy ops exposes rec
                 humanFeedbackSummary: preferences.humanFeedbackSummary,
                 feedbackHighlights: status.feedbackHighlights,
                 opsFeedbackHighlights: opsPayload.feedbackHighlights,
+                approvedManifest: loadManifest("approved-song"),
+                rejectedManifest: loadManifest("rejected-song"),
                 latestAudit: latest,
                 auditHistory,
             }));
@@ -570,11 +572,15 @@ test("approval feedback updates preferences summary and autonomy ops exposes rec
     assert.deepEqual(result.feedbackHighlights.positiveFactors, result.humanFeedbackSummary.positiveDimensions);
     assert.deepEqual(result.feedbackHighlights.negativeFactors, result.humanFeedbackSummary.negativeDimensions);
     assert.deepEqual(result.opsFeedbackHighlights, result.feedbackHighlights);
+    assert.equal(result.approvedManifest.reviewFeedback.reviewRubricVersion, "approval_review_rubric_v1");
+    assert.equal(result.rejectedManifest.reviewFeedback.reviewRubricVersion, "approval_review_rubric_v1");
     assert.deepEqual(result.auditHistory.map((entry) => entry.action), ["approve", "reject"]);
     assert.equal(result.auditHistory[0].actor, "reviewer-approve");
     assert.equal(result.auditHistory[0].approvedBy, "lead-approve");
+    assert.equal(result.auditHistory[0].input.reviewFeedback.reviewRubricVersion, "approval_review_rubric_v1");
     assert.equal(result.auditHistory[0].rollbackNote, "If later evidence contradicts approval, reject the same songId and capture new review notes.");
     assert.equal(result.auditHistory[1].actor, "reviewer-reject");
+    assert.equal(result.auditHistory[1].input.reviewFeedback.reviewRubricVersion, "approval_review_rubric_v1");
     assert.equal(result.auditHistory[1].manualRecoveryNote, "Revise contrast and reopen approval after a new render pass.");
     assert.equal(result.latestAudit.action, "reject");
     assert.ok(result.latestAudit.artifactLinks.includes("outputs/_system/preferences.json"));

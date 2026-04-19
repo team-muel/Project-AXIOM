@@ -191,6 +191,24 @@ function toNumber(value: unknown): number | undefined {
     return undefined;
 }
 
+function parseCandidateCount(value: unknown): number | undefined {
+    const parsed = toNumber(value);
+    if (parsed === undefined || !Number.isInteger(parsed) || parsed < 1 || parsed > 8) {
+        return undefined;
+    }
+
+    return parsed;
+}
+
+function parseLocalizedRewriteBranches(value: unknown): number | undefined {
+    const parsed = toNumber(value);
+    if (parsed === undefined || !Number.isInteger(parsed) || parsed < 1 || parsed > 4) {
+        return undefined;
+    }
+
+    return parsed;
+}
+
 function toBoolean(value: unknown): boolean | undefined {
     return typeof value === "boolean" ? value : undefined;
 }
@@ -1341,6 +1359,23 @@ export function normalizeComposeRequestInput(
         errors.push("durationSec must be a positive number");
     }
 
+    const candidateCount = value.candidateCount !== undefined ? parseCandidateCount(value.candidateCount) : undefined;
+    if (value.candidateCount !== undefined && candidateCount === undefined) {
+        errors.push("candidateCount must be an integer between 1 and 8");
+    }
+
+    const localizedRewriteBranches = value.localizedRewriteBranches !== undefined
+        ? parseLocalizedRewriteBranches(value.localizedRewriteBranches)
+        : undefined;
+    if (value.localizedRewriteBranches !== undefined && localizedRewriteBranches === undefined) {
+        errors.push("localizedRewriteBranches must be an integer between 1 and 4");
+    }
+
+    const resolvedCandidateCount = candidateCount ?? (localizedRewriteBranches !== undefined ? 4 : undefined);
+    if (localizedRewriteBranches !== undefined && (resolvedCandidateCount ?? 0) < 3) {
+        errors.push("localizedRewriteBranches requires candidateCount of at least 3");
+    }
+
     const workflow = value.workflow !== undefined ? parseWorkflow(value.workflow) : undefined;
     if (value.workflow !== undefined && !workflow) {
         errors.push("workflow must be symbolic_only, symbolic_plus_audio, or audio_only");
@@ -1394,6 +1429,8 @@ export function normalizeComposeRequestInput(
         ...(tempo !== undefined ? { tempo } : {}),
         ...(compact(value.form) ? { form: compact(value.form) } : {}),
         ...(durationSec !== undefined ? { durationSec } : {}),
+        ...(resolvedCandidateCount !== undefined ? { candidateCount: resolvedCandidateCount } : {}),
+        ...(localizedRewriteBranches !== undefined ? { localizedRewriteBranches } : {}),
         ...(compositionProfile ? { compositionProfile } : {}),
         ...(workflow ? { workflow } : {}),
         ...(selectedModels?.length ? { selectedModels } : {}),

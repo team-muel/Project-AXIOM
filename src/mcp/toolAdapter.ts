@@ -161,6 +161,8 @@ const MCP_TOOLS: McpToolSpec[] = [
                 tempo: { type: "number", description: "템포 BPM" },
                 form: { type: "string", description: "예: nocturne, largo, symphony" },
                 durationSec: { type: "number", description: "MusicGen 오디오 길이(초)" },
+                candidateCount: { type: "number", description: "whole-piece candidate count; 2=S1, 4=S2, 8=S3, while 3 enables a custom mixed search budget" },
+                localizedRewriteBranches: { type: "number", description: "same-attempt localized rewrite branches to add on top of whole-piece candidates; 2 with candidateCount=4 corresponds to Stage B S4, while candidateCount=3 plus 1 branch enables a smaller custom mixed search budget" },
                 workflow: { type: "string", description: "symbolic_only | symbolic_plus_audio | audio_only" },
                 plannerVersion: { type: "string", description: "planner schema version" },
                 selectedModels: MODEL_BINDING_TRANSPORT_SCHEMA,

@@ -6,7 +6,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type {
     ComposeExecutionPlan,
-    ComposeProposalEvidence,
     ComposeRequest,
     ComposeResult,
     ComposeWorkflow,
@@ -17,19 +16,15 @@ import type {
     SectionTransformSummary,
     SongMeta,
 } from "../pipeline/types.js";
-import { coerceComposeWorkflowForForm, isAudioFirstForm, requiresSymbolicFirstWorkflow } from "../pipeline/formTemplates.js";
+import { coerceComposeWorkflowForForm, isAudioFirstForm } from "../pipeline/formTemplates.js";
 import { defaultModelBindings } from "../pipeline/modelBindings.js";
 import { config } from "../config.js";
 import { logger } from "../logging/logger.js";
-import {
-    buildLearnedSymbolicWorkerPayload,
-    type LearnedSymbolicPromptPack,
-} from "./learnedAdapter.js";
+import { composeWithLearnedSymbolic } from "./learnedClient.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const WORKER_SCRIPT = path.join(__dirname, "../../workers/composer/compose.py");
 export const MUSICGEN_WORKER_SCRIPT = path.join(__dirname, "../../workers/composer/compose_musicgen.py");
-export const LEARNED_SYMBOLIC_WORKER_SCRIPT = path.join(__dirname, "../../workers/composer/compose_learned_symbolic.py");
 
 function ensureSongDir(songId: string): string {
     const songDir = path.join(config.outputDir, songId);
@@ -47,6 +42,20 @@ function writeComposeProgress(songId: string, progress: ComposeWorkerProgress): 
     const tempPath = `${filePath}.tmp`;
     fs.writeFileSync(tempPath, JSON.stringify(progress, null, 2), "utf-8");
     fs.renameSync(tempPath, filePath);
+}
+
+function deriveVariantAwareSeed(baseValue: string, candidateVariantKey: string | undefined): number {
+    if (!candidateVariantKey) {
+        return Number.parseInt(baseValue.slice(0, 8), 16);
+    }
+
+    return Number.parseInt(
+        createHash("sha256")
+            .update(JSON.stringify([baseValue, candidateVariantKey]))
+            .digest("hex")
+            .slice(0, 8),
+        16,
+    );
 }
 
 export function readComposeProgress(songId: string): ComposeWorkerProgress | null {
@@ -221,51 +230,6 @@ interface MusicGenResponse {
     error?: string;
 }
 
-interface LearnedSymbolicProposalEvent {
-    kind: "note" | "chord" | "rest";
-    quarterLength: number;
-    midi?: number;
-    midiPitches?: number[];
-    velocity?: number;
-    role?: string;
-}
-
-interface LearnedSymbolicProposalSection {
-    sectionId: string;
-    role: string;
-    measureCount: number;
-    tonalCenter?: string;
-    phraseFunction?: string;
-    leadEvents: LearnedSymbolicProposalEvent[];
-    supportEvents: LearnedSymbolicProposalEvent[];
-    noteHistory: number[];
-    transform?: SectionTransformSummary;
-}
-
-interface LearnedSymbolicProposalResponse {
-    ok: boolean;
-    proposalMidiPath?: string;
-    proposalSummary?: {
-        measureCount?: number;
-        noteCount?: number;
-        partCount?: number;
-        partInstrumentNames?: string[];
-        key?: string;
-        tempo?: number;
-        form?: string;
-    };
-    proposalMetadata?: {
-        lane?: string;
-        provider?: string;
-        model?: string;
-        generationMode?: string;
-        confidence?: number;
-        normalizationWarnings?: string[];
-    };
-    proposalSections?: LearnedSymbolicProposalSection[];
-    error?: string;
-}
-
 // ── 공통 헬퍼: Python 워커 실행 ───────────────────────
 function runWorker<T>(
     script: string,
@@ -300,146 +264,6 @@ function runWorker<T>(
     });
 }
 
-function normalizeLearnedProposalEvents(
-    events: LearnedSymbolicProposalEvent[] | undefined,
-): SectionArtifactSummary["melodyEvents"] {
-    return (events ?? []).map((event) => {
-        if (event.kind === "rest") {
-            return {
-                type: "rest",
-                quarterLength: event.quarterLength,
-            };
-        }
-
-        if (event.kind === "chord") {
-            return {
-                type: "chord",
-                quarterLength: event.quarterLength,
-                ...(typeof event.velocity === "number" ? { velocity: event.velocity } : {}),
-                ...(Array.isArray(event.midiPitches) ? { pitches: [...event.midiPitches] } : {}),
-                ...(event.role ? { voiceRole: event.role as SectionArtifactSummary["melodyEvents"][number]["voiceRole"] } : {}),
-            };
-        }
-
-        return {
-            type: "note",
-            quarterLength: event.quarterLength,
-            ...(typeof event.velocity === "number" ? { velocity: event.velocity } : {}),
-            ...(typeof event.midi === "number" ? { pitch: event.midi } : {}),
-            ...(event.role ? { voiceRole: event.role as SectionArtifactSummary["melodyEvents"][number]["voiceRole"] } : {}),
-        };
-    });
-}
-
-function normalizeLearnedSymbolicResponse(
-    response: LearnedSymbolicProposalResponse,
-    request: ComposeRequest,
-    songId: string,
-    executionPlan: ComposeExecutionPlan,
-    promptPack: LearnedSymbolicPromptPack,
-): ComposeResult {
-    const midiPath = response.proposalMidiPath;
-    const structureBinding = resolveStructureBinding(executionPlan.selectedModels);
-    if (!midiPath || !fs.existsSync(midiPath) || fs.statSync(midiPath).size <= 0) {
-        throw new Error("learned symbolic worker did not produce a valid MIDI proposal");
-    }
-
-    for (const warning of response.proposalMetadata?.normalizationWarnings ?? []) {
-        logger.warn("Learned symbolic proposal normalization warning", {
-            songId,
-            warning,
-        });
-    }
-
-    const sectionArtifacts = (response.proposalSections ?? []).map((section) => ({
-        sectionId: section.sectionId,
-        role: section.role as SectionArtifactSummary["role"],
-        measureCount: section.measureCount,
-        melodyEvents: normalizeLearnedProposalEvents(section.leadEvents),
-        accompanimentEvents: normalizeLearnedProposalEvents(section.supportEvents),
-        noteHistory: [...section.noteHistory],
-        ...(section.phraseFunction ? { phraseFunction: section.phraseFunction as SectionArtifactSummary["phraseFunction"] } : {}),
-        textureVoiceCount: 3,
-        primaryTextureRoles: ["lead", "counterline", "bass"] as NonNullable<SectionArtifactSummary["primaryTextureRoles"]>,
-        counterpointMode: "contrary_motion" as SectionArtifactSummary["counterpointMode"],
-        sectionStyle: section.transform
-            ? (response.proposalMetadata?.generationMode ?? "learned_symbolic_proposal")
-            : "plan_conditioned_trio_template",
-        ...(section.transform ? { transform: { ...section.transform } } : {}),
-    }));
-    const sectionTransforms = (response.proposalSections ?? [])
-        .filter((section): section is LearnedSymbolicProposalSection & { transform: SectionTransformSummary } => Boolean(section.transform))
-        .map((section) => ({ ...section.transform }));
-
-    const sectionTonalities = (response.proposalSections ?? [])
-        .filter((section) => typeof section.tonalCenter === "string" && section.tonalCenter.trim())
-        .map((section) => ({
-            sectionId: section.sectionId,
-            role: section.role as SectionTonalitySummary["role"],
-            tonalCenter: String(section.tonalCenter).trim(),
-        }));
-
-    const proposalSummary = response.proposalSummary
-        ? {
-            ...(typeof response.proposalSummary.measureCount === "number" ? { measureCount: response.proposalSummary.measureCount } : {}),
-            ...(typeof response.proposalSummary.noteCount === "number" ? { noteCount: response.proposalSummary.noteCount } : {}),
-            ...(typeof response.proposalSummary.partCount === "number" ? { partCount: response.proposalSummary.partCount } : {}),
-            ...(Array.isArray(response.proposalSummary.partInstrumentNames)
-                ? { partInstrumentNames: [...response.proposalSummary.partInstrumentNames] }
-                : {}),
-            ...(typeof response.proposalSummary.key === "string" ? { key: response.proposalSummary.key } : {}),
-            ...(typeof response.proposalSummary.tempo === "number" ? { tempo: response.proposalSummary.tempo } : {}),
-            ...(typeof response.proposalSummary.form === "string" ? { form: response.proposalSummary.form } : {}),
-        }
-        : undefined;
-    const normalizedWarnings = response.proposalMetadata?.normalizationWarnings?.length
-        ? [...response.proposalMetadata.normalizationWarnings]
-        : undefined;
-    const proposalEvidence: ComposeProposalEvidence = {
-        worker: executionPlan.composeWorker,
-        ...(typeof response.proposalMetadata?.lane === "string" && response.proposalMetadata.lane.trim()
-            ? { lane: response.proposalMetadata.lane.trim() }
-            : {}),
-        ...(typeof response.proposalMetadata?.provider === "string" && response.proposalMetadata.provider.trim()
-            ? { provider: response.proposalMetadata.provider.trim() }
-            : (structureBinding?.provider ? { provider: structureBinding.provider } : {})),
-        ...(typeof response.proposalMetadata?.model === "string" && response.proposalMetadata.model.trim()
-            ? { model: response.proposalMetadata.model.trim() }
-            : (structureBinding?.model ? { model: structureBinding.model } : {})),
-        promptPackVersion: promptPack.version,
-        planSignature: promptPack.planSignature,
-        ...(typeof response.proposalMetadata?.generationMode === "string" && response.proposalMetadata.generationMode.trim()
-            ? { generationMode: response.proposalMetadata.generationMode.trim() }
-            : {}),
-        ...(typeof response.proposalMetadata?.confidence === "number"
-            ? { confidence: response.proposalMetadata.confidence }
-            : {}),
-        ...(normalizedWarnings ? { normalizationWarnings: normalizedWarnings } : {}),
-        ...(proposalSummary && Object.keys(proposalSummary).length > 0 ? { summary: proposalSummary } : {}),
-    };
-
-    return {
-        midiData: fs.readFileSync(midiPath),
-        meta: {
-            songId,
-            prompt: request.prompt,
-            key: response.proposalSummary?.key ?? request.key ?? request.compositionPlan?.key ?? promptPack.styleCue.key,
-            tempo: response.proposalSummary?.tempo ?? request.tempo ?? request.compositionPlan?.tempo ?? promptPack.styleCue.tempo ?? 96,
-            form: response.proposalSummary?.form ?? request.form ?? request.compositionPlan?.form ?? promptPack.styleCue.form,
-            workflow: executionPlan.workflow,
-            plannerVersion: request.plannerVersion ?? request.compositionPlan?.version,
-            plannedSectionCount: request.compositionPlan?.sections.length,
-            selectedModels: executionPlan.selectedModels,
-        },
-        compositionPlan: request.compositionPlan,
-        executionPlan,
-        proposalEvidence,
-        ...(sectionArtifacts.length > 0 ? { sectionArtifacts } : {}),
-        ...(sectionTransforms.length > 0 ? { sectionTransforms } : {}),
-        ...(sectionTonalities.length > 0 ? { sectionTonalities } : {}),
-    };
-}
-
 // ── music21 경로 ──────────────────────────────────────
 async function composeWithMusic21(
     request: ComposeRequest,
@@ -450,9 +274,11 @@ async function composeWithMusic21(
 
     const midiOutputPath = path.join(songDir, "composition.mid");
     const seed = request.promptHash
-        ? Number.parseInt(request.promptHash.slice(0, 8), 16)
+        ? deriveVariantAwareSeed(request.promptHash, request.candidateVariantKey)
         : undefined;
-    const stableSeed = Number.parseInt(createHash("sha256").update(songId).digest("hex").slice(0, 8), 16);
+    const stableSeed = request.candidateVariantKey
+        ? deriveVariantAwareSeed(songId, request.candidateVariantKey)
+        : Number.parseInt(createHash("sha256").update(songId).digest("hex").slice(0, 8), 16);
 
     logger.info("Composing via music21 worker", {
         songId,
@@ -678,71 +504,6 @@ async function composeWithMusicGen(
     };
 }
 
-async function composeWithLearnedSymbolic(
-    request: ComposeRequest,
-    songId: string,
-    executionPlan: ComposeExecutionPlan,
-): Promise<ComposeResult> {
-    const songDir = ensureSongDir(songId);
-    const midiOutputPath = path.join(songDir, "composition.mid");
-    const workerPayload = buildLearnedSymbolicWorkerPayload(request, songId, midiOutputPath, executionPlan);
-
-    logger.info("Composing via learned symbolic proposal worker", {
-        songId,
-        prompt: request.prompt,
-        workflow: executionPlan.workflow,
-        promptPackVersion: workerPayload.promptPack.version,
-        planSignature: workerPayload.promptPack.planSignature,
-    });
-
-    writeComposeProgress(songId, {
-        worker: "learned_symbolic",
-        phase: "starting",
-        updatedAt: new Date().toISOString(),
-        detail: "Starting learned symbolic proposal worker",
-        outputPath: midiOutputPath,
-    });
-
-    let result: LearnedSymbolicProposalResponse;
-    try {
-        result = await runWorker<LearnedSymbolicProposalResponse>(
-            LEARNED_SYMBOLIC_WORKER_SCRIPT,
-            JSON.stringify(workerPayload),
-            config.composeWorkerTimeoutMs,
-        );
-    } catch (error) {
-        writeComposeProgress(songId, {
-            worker: "learned_symbolic",
-            phase: "failed",
-            updatedAt: new Date().toISOString(),
-            detail: error instanceof Error ? error.message : String(error),
-            outputPath: midiOutputPath,
-        });
-        throw error;
-    }
-
-    if (!result.ok) {
-        writeComposeProgress(songId, {
-            worker: "learned_symbolic",
-            phase: "failed",
-            updatedAt: new Date().toISOString(),
-            detail: result.error,
-            outputPath: midiOutputPath,
-        });
-        throw new Error(`learned symbolic worker error: ${result.error}`);
-    }
-
-    writeComposeProgress(songId, {
-        worker: "learned_symbolic",
-        phase: "completed",
-        updatedAt: new Date().toISOString(),
-        detail: "Learned symbolic proposal finished",
-        outputPath: midiOutputPath,
-    });
-
-    return normalizeLearnedSymbolicResponse(result, request, songId, executionPlan, workerPayload.promptPack);
-}
-
 // ── 공개 API ─────────────────────────────────────────
 export async function compose(request: ComposeRequest): Promise<ComposeResult> {
     const songId = request.songId ?? uuidv4();
@@ -760,7 +521,10 @@ export async function compose(request: ComposeRequest): Promise<ComposeResult> {
     }
     if (executionPlan.composeWorker === "learned_symbolic") {
         try {
-            return await composeWithLearnedSymbolic(request, songId, executionPlan);
+            return await composeWithLearnedSymbolic(request, songId, executionPlan, {
+                writeComposeProgress,
+                runWorker,
+            });
         } catch (error) {
             const fallbackExecutionPlan = buildMusic21FallbackExecutionPlan(executionPlan);
             logger.warn("Learned symbolic proposal failed; falling back to music21 baseline", {

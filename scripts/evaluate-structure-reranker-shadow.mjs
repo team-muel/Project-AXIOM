@@ -151,6 +151,18 @@ function uniqueStrings(values) {
         .filter(Boolean))]
 }
 
+function normalizeWarningList(values) {
+    return (Array.isArray(values) ? values : [])
+        .map((value) => toTrimmed(value))
+        .filter(Boolean)
+}
+
+function countRoleCollapseWarnings(values) {
+    return normalizeWarningList(values)
+        .filter((value) => value.toLowerCase().includes("role collapse"))
+        .length
+}
+
 function normalizeLineage(example) {
     const lineage = example.lineage && typeof example.lineage === "object"
         ? example.lineage
@@ -304,20 +316,31 @@ function buildFeatureMap(example, options = {}) {
     const feedbackAwareMode = options?.mode === "feedback_aware"
     const sectionCount = Math.max(1, toNumber(example.planSummary?.sectionCount) ?? 1)
     const weakestSections = Array.isArray(example.structure?.weakestSections) ? example.structure.weakestSections : []
+    const proposalWarningSignals = example.proposalWarningSignals && typeof example.proposalWarningSignals === "object"
+        ? example.proposalWarningSignals
+        : {}
     const proposalEvidence = example.proposalEvidence && typeof example.proposalEvidence === "object"
         ? example.proposalEvidence
         : {}
     const proposalSummary = proposalEvidence.summary && typeof proposalEvidence.summary === "object"
         ? proposalEvidence.summary
         : {}
-    const proposalWarningCount = Array.isArray(proposalEvidence.normalizationWarnings)
-        ? proposalEvidence.normalizationWarnings.map((value) => toTrimmed(value)).filter(Boolean).length
-        : (toNumber(proposalEvidence.normalizationWarningCount) ?? 0)
+    const proposalWarnings = normalizeWarningList(proposalEvidence.normalizationWarnings)
+    const proposalWarningCount = toNumber(proposalWarningSignals.normalizationWarningCount)
+        ?? (proposalWarnings.length || (toNumber(proposalEvidence.normalizationWarningCount) ?? 0))
+    const roleCollapseWarningCount = toNumber(proposalWarningSignals.roleCollapseWarningCount)
+        ?? countRoleCollapseWarnings(proposalWarnings)
     const weakestScores = weakestSections
         .map((entry) => normalizeScore(entry?.score))
         .filter((value) => Number.isFinite(value))
     const weakestIssues = weakestSections.reduce((sum, entry) => sum + (entry?.topIssue ? 1 : 0), 0)
     const lineage = normalizeLineage(example)
+    const hasProposalNormalizationWarnings = typeof example.featureAvailability?.hasProposalNormalizationWarnings === "boolean"
+        ? example.featureAvailability.hasProposalNormalizationWarnings
+        : proposalWarningCount > 0
+    const hasProposalRoleCollapseWarnings = typeof example.featureAvailability?.hasProposalRoleCollapseWarnings === "boolean"
+        ? example.featureAvailability.hasProposalRoleCollapseWarnings
+        : roleCollapseWarningCount > 0
 
     featureMap.bias = 1
     featureMap.structurePassed = example.structure?.passed ? 1 : 0
@@ -351,6 +374,8 @@ function buildFeatureMap(example, options = {}) {
     featureMap.hasLearnedProposalEvidence = example.featureAvailability?.hasLearnedProposalEvidence ? 1 : 0
     featureMap.hasProposalLane = example.featureAvailability?.hasProposalLane ? 1 : 0
     featureMap.hasProposalSummary = example.featureAvailability?.hasProposalSummary ? 1 : 0
+    featureMap.hasProposalNormalizationWarnings = hasProposalNormalizationWarnings ? 1 : 0
+    featureMap.hasProposalRoleCollapseWarnings = hasProposalRoleCollapseWarnings ? 1 : 0
     featureMap.selectedAttemptFeatureRich = example.featureAvailability?.selectedAttemptFeatureRich ? 1 : 0
     featureMap.longSpanAverageFit = normalizeMetricValue(example.structure?.longSpan?.averageFit)
     featureMap.longSpanHeld = toTrimmed(example.structure?.longSpan?.status) === "held" ? 1 : 0
@@ -363,6 +388,7 @@ function buildFeatureMap(example, options = {}) {
     featureMap.orchestrationHandoffFit = normalizeMetricValue(example.structure?.orchestration?.sectionHandoffFit)
     featureMap.proposalConfidence = normalizeMetricValue(proposalEvidence.confidence)
     featureMap.proposalNormalizationWarningCount = normalizeCount(proposalWarningCount, 4)
+    featureMap.proposalRoleCollapseWarningCount = normalizeCount(roleCollapseWarningCount, 4)
     featureMap.proposalSummaryPartCount = normalizeCount(proposalSummary.partCount, 4)
     featureMap.proposalSummaryMeasureCount = clamp((toNumber(proposalSummary.measureCount) ?? 0) / 32, 0, 3)
     featureMap.proposalSummaryNoteCount = clamp((toNumber(proposalSummary.noteCount) ?? 0) / 96, 0, 3)

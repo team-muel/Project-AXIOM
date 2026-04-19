@@ -43,7 +43,7 @@ import { resolveStructureRerankerPromotion } from "./structureRerankerPromotion.
 import { runStructureRerankerShadowScoring } from "./structureShadowReranker.js";
 import { buildExpressionPlanSidecar, mergeExpressionPlanIntoRequest } from "./expressionPlan.js";
 import { evaluateCompletedManifest, updateAutonomyPreferencesFromManifest } from "../autonomy/service.js";
-import { computePromptHash } from "../autonomy/request.js";
+import { computePromptHash, ensureComposeRequestMetadata } from "../autonomy/request.js";
 import { buildExecutionPlan, compose, readComposeProgress } from "../composer/index.js";
 import { critique } from "../critic/index.js";
 import { humanize } from "../humanizer/index.js";
@@ -51,6 +51,7 @@ import { mergeRenderedAndStyledArtifacts, render, renderStyledAudio, resolveRequ
 import {
     buildStructureCandidateId,
     markSelectedStructureCandidate,
+    readStructureCandidateIndex,
     saveStructureCandidateSnapshot,
     type StructureCandidatePromotionSummary,
 } from "../memory/candidates.js";
@@ -78,9 +79,15 @@ interface SymbolicAttemptCandidate {
     structureEvaluation: StructureEvaluationReport;
 }
 
+interface LocalizedRewriteBranchParent {
+    candidate: SymbolicAttemptCandidate;
+    revisionDirectives: RevisionDirective[];
+}
+
 interface SymbolicRecoveryCheckpoint {
     stage: PipelineState;
     detail: string;
+    candidateId?: string;
     midiPath?: string;
 }
 
@@ -526,6 +533,63 @@ function chooseBetterSymbolicCandidate(
         : current;
 }
 
+function buildLocalizedRewriteBranchVariantKey(
+    candidate: SymbolicAttemptCandidate,
+    branchIndex: number,
+): string {
+    if (candidate.request.candidateVariantKey) {
+        return `${candidate.request.candidateVariantKey}-rewrite`;
+    }
+
+    return `${candidate.executionPlan.composeWorker}-rewrite-${branchIndex}`;
+}
+
+function collectSameAttemptLocalizedRewriteParents(
+    request: ComposeRequest,
+    attemptCandidates: SymbolicAttemptCandidate[],
+    targetStructureScore?: number,
+): LocalizedRewriteBranchParent[] {
+    const branchBudget = request.localizedRewriteBranches ?? 0;
+    if (branchBudget <= 0 || (request.candidateCount ?? 0) < 3 || (request.revisionDirectives?.length ?? 0) > 0) {
+        return [];
+    }
+
+    return [...attemptCandidates]
+        .map((candidate) => ({
+            candidate,
+            revisionDirectives: buildStructureRevisionDirectives(
+                candidate.structureEvaluation,
+                targetStructureScore,
+                candidate.request,
+            ).filter((directive) => (directive.sectionIds?.length ?? 0) > 0),
+        }))
+        .filter((entry) => entry.revisionDirectives.length > 0)
+        .sort((left, right) => compareStructureEvaluationsForCandidateSelection(
+            right.candidate.structureEvaluation,
+            left.candidate.structureEvaluation,
+        ))
+        .slice(0, branchBudget);
+}
+
+function buildLocalizedRewriteBranchStopReason(
+    currentReason: string | undefined,
+    selectedCandidate: SymbolicAttemptCandidate,
+    attemptCandidates: SymbolicAttemptCandidate[],
+): string | undefined {
+    if ((selectedCandidate.request.revisionDirectives?.length ?? 0) === 0) {
+        return currentReason;
+    }
+
+    const wholePieceCandidateCount = attemptCandidates.filter((candidate) => (candidate.request.revisionDirectives?.length ?? 0) === 0).length;
+    if (wholePieceCandidateCount === 0 || wholePieceCandidateCount === attemptCandidates.length) {
+        return currentReason;
+    }
+
+    const fragments = currentReason ? [currentReason] : [];
+    fragments.push(`selected same-attempt localized rewrite branch after reviewing ${wholePieceCandidateCount} whole-piece candidates`);
+    return fragments.join("; ");
+}
+
 function buildHybridAttemptStopReason(
     currentReason: string | undefined,
     selectedCandidate: SymbolicAttemptCandidate,
@@ -611,12 +675,14 @@ function resolveSymbolicRecoveryCheckpoint(
     const compositionMidi = existingFilePath(manifest.artifacts.midi) ?? existingFilePath(path.join(songDir, "composition.mid"));
     const humanizedMidi = existingFilePath(path.join(songDir, "humanized.mid"));
     const renderedAudio = existingFilePath(manifest.artifacts.renderedAudio) ?? existingFilePath(path.join(songDir, "output.wav"));
+    const selectedCandidateId = readStructureCandidateIndex(manifest.songId)?.selectedCandidateId;
 
     switch (manifest.state) {
         case PipelineState.HUMANIZE:
             if (compositionMidi && manifest.structureEvaluation) {
                 return {
                     stage: PipelineState.HUMANIZE,
+                    ...(selectedCandidateId ? { candidateId: selectedCandidateId } : {}),
                     midiPath: compositionMidi,
                     detail: "Recovered after restart; resuming humanize stage from persisted composition MIDI.",
                 };
@@ -629,6 +695,7 @@ function resolveSymbolicRecoveryCheckpoint(
             if (humanizedMidi && manifest.structureEvaluation) {
                 return {
                     stage: PipelineState.RENDER,
+                    ...(selectedCandidateId ? { candidateId: selectedCandidateId } : {}),
                     midiPath: humanizedMidi,
                     detail: "Recovered after restart; resuming render stage from persisted humanized MIDI.",
                 };
@@ -636,6 +703,7 @@ function resolveSymbolicRecoveryCheckpoint(
             if (compositionMidi && manifest.structureEvaluation) {
                 return {
                     stage: PipelineState.HUMANIZE,
+                    ...(selectedCandidateId ? { candidateId: selectedCandidateId } : {}),
                     midiPath: compositionMidi,
                     detail: "Recovered after restart; rebuilding humanized MIDI before rendering.",
                 };
@@ -648,12 +716,14 @@ function resolveSymbolicRecoveryCheckpoint(
             if (executionPlan.workflow === "symbolic_plus_audio" && renderedAudio && manifest.structureEvaluation) {
                 return {
                     stage: PipelineState.RENDER_AUDIO,
+                    ...(selectedCandidateId ? { candidateId: selectedCandidateId } : {}),
                     detail: "Recovered after restart; resuming styled audio render from the existing score-aligned render.",
                 };
             }
             if (humanizedMidi && manifest.structureEvaluation) {
                 return {
                     stage: PipelineState.RENDER,
+                    ...(selectedCandidateId ? { candidateId: selectedCandidateId } : {}),
                     midiPath: humanizedMidi,
                     detail: "Recovered after restart; rebuilding score-aligned render before styled audio.",
                 };
@@ -661,6 +731,7 @@ function resolveSymbolicRecoveryCheckpoint(
             if (compositionMidi && manifest.structureEvaluation) {
                 return {
                     stage: PipelineState.HUMANIZE,
+                    ...(selectedCandidateId ? { candidateId: selectedCandidateId } : {}),
                     midiPath: compositionMidi,
                     detail: "Recovered after restart; rebuilding humanized MIDI before downstream rendering.",
                 };
@@ -673,18 +744,21 @@ function resolveSymbolicRecoveryCheckpoint(
             if (manifest.audioEvaluation) {
                 return {
                     stage: PipelineState.STORE,
+                    ...(selectedCandidateId ? { candidateId: selectedCandidateId } : {}),
                     detail: "Recovered after restart; finalizing previously evaluated artifacts.",
                 };
             }
             if (executionPlan.workflow === "symbolic_plus_audio" && renderedAudio && manifest.structureEvaluation) {
                 return {
                     stage: PipelineState.RENDER_AUDIO,
+                    ...(selectedCandidateId ? { candidateId: selectedCandidateId } : {}),
                     detail: "Recovered after restart; re-running styled audio render before finalize.",
                 };
             }
             if (humanizedMidi && manifest.structureEvaluation) {
                 return {
                     stage: PipelineState.RENDER,
+                    ...(selectedCandidateId ? { candidateId: selectedCandidateId } : {}),
                     midiPath: humanizedMidi,
                     detail: "Recovered after restart; re-running score-aligned render before finalize.",
                 };
@@ -692,6 +766,7 @@ function resolveSymbolicRecoveryCheckpoint(
             if (compositionMidi && manifest.structureEvaluation) {
                 return {
                     stage: PipelineState.HUMANIZE,
+                    ...(selectedCandidateId ? { candidateId: selectedCandidateId } : {}),
                     midiPath: compositionMidi,
                     detail: "Recovered after restart; rebuilding symbolic assets before finalize.",
                 };
@@ -859,7 +934,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                     sectionTonalities: manifest.sectionTonalities?.map((entry) => ({ ...entry })),
                 };
                 selectedSymbolicCandidate = {
-                    candidateId: buildStructureCandidateId(recoveryAttempt, effectiveExecutionPlan),
+                    candidateId: activeRecoveryCheckpoint?.candidateId ?? buildStructureCandidateId(recoveryAttempt, effectiveExecutionPlan),
                     attempt: recoveryAttempt,
                     request: activeRequest,
                     composeResult,
@@ -1001,7 +1076,11 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             : [];
 
                         const candidate: SymbolicAttemptCandidate = {
-                            candidateId: buildStructureCandidateId(symbolicAttempt, candidateExecutionPlan),
+                            candidateId: buildStructureCandidateId(
+                                symbolicAttempt,
+                                candidateExecutionPlan,
+                                candidateVariant.request.candidateVariantKey,
+                            ),
                             attempt: symbolicAttempt,
                             request: candidateVariant.request,
                             composeResult: candidateComposeResult,
@@ -1065,6 +1144,169 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                         throw new Error(composeFailureMessages[0] ?? "No symbolic candidate survived compose step");
                     }
 
+                    const initialAttemptWinner = attemptCandidates.reduce<SymbolicAttemptCandidate | undefined>(
+                        (current, candidate) => chooseBetterSymbolicCandidate(current, candidate),
+                        undefined,
+                    ) ?? attemptCandidates[0];
+
+                    composeResult = initialAttemptWinner.composeResult;
+                    effectiveExecutionPlan = initialAttemptWinner.executionPlan;
+                    effectiveCompositionPlan = initialAttemptWinner.compositionPlan;
+                    activeRequest = {
+                        ...activeRequest,
+                        workflow: effectiveExecutionPlan.workflow,
+                        selectedModels: hybridPreferredSelectedModels ?? effectiveExecutionPlan.selectedModels,
+                        compositionPlan: effectiveCompositionPlan,
+                        plannerVersion: activeRequest.plannerVersion ?? effectiveCompositionPlan?.version,
+                    };
+                    request = activeRequest;
+
+                    manifest.songId = composeResult.meta.songId ?? manifest.songId;
+                    manifest.meta = { ...manifest.meta, ...composeResult.meta } as JobManifest["meta"];
+                    manifest.meta.songId = manifest.songId;
+                    manifest.sectionArtifacts = composeResult.sectionArtifacts?.map((entry) => ({ ...entry }));
+                    manifest.sectionTransforms = composeResult.sectionTransforms?.map((entry) => ({ ...entry }));
+                    manifest.sectionTonalities = composeResult.sectionTonalities?.map((entry) => ({ ...entry }));
+                    initializeQualityControl(manifest, activeRequest, effectiveExecutionPlan);
+                    applyPlanningMetadata(manifest, initialAttemptWinner.request, effectiveExecutionPlan, effectiveCompositionPlan);
+                    applyComposeProgress(manifest, songId);
+                    persistManifest(manifest, options?.onManifestUpdate);
+
+                    const qualityPolicy = manifest.qualityControl?.policy ?? resolveQualityPolicy(activeRequest, effectiveExecutionPlan);
+                    const localizedRewriteParents = collectSameAttemptLocalizedRewriteParents(
+                        activeRequest,
+                        attemptCandidates,
+                        qualityPolicy.targetStructureScore,
+                    );
+
+                    for (const [branchIndex, parent] of localizedRewriteParents.entries()) {
+                        const branchRequestBase = applyRevisionDirectives({
+                            ...parent.candidate.request,
+                            workflow: parent.candidate.executionPlan.workflow,
+                            selectedModels: parent.candidate.request.selectedModels ?? parent.candidate.executionPlan.selectedModels,
+                            compositionPlan: parent.candidate.compositionPlan,
+                            sectionArtifacts: parent.candidate.composeResult.sectionArtifacts?.map((entry) => ({ ...entry })),
+                            plannerVersion: parent.candidate.request.plannerVersion ?? parent.candidate.compositionPlan?.version,
+                        }, parent.revisionDirectives, symbolicAttempt);
+                        const branchRequest = ensureComposeRequestMetadata(
+                            materializeCompositionSketch({
+                                ...branchRequestBase,
+                                localizedRewriteBranches: activeRequest.localizedRewriteBranches,
+                                candidateVariantKey: buildLocalizedRewriteBranchVariantKey(parent.candidate, branchIndex + 1),
+                            }),
+                            parent.candidate.request.source ?? activeRequest.source ?? request.source ?? "api",
+                        );
+
+                        let branchComposeResult: ComposeResult | undefined;
+                        let branchComposeError: unknown;
+                        const stopComposeWatcher = startComposeProgressWatcher(songId, manifest, options?.onManifestUpdate);
+                        try {
+                            branchComposeResult = await compose(branchRequest);
+                        } catch (error) {
+                            branchComposeError = error;
+                        } finally {
+                            stopComposeWatcher();
+                        }
+
+                        if (branchComposeError) {
+                            const message = branchComposeError instanceof Error ? branchComposeError.message : String(branchComposeError);
+                            composeFailureMessages.push(message);
+                            logger.warn("Localized rewrite branch compose failed; keeping whole-piece candidates", {
+                                songId: manifest.songId,
+                                attempt: symbolicAttempt,
+                                parentCandidateId: parent.candidate.candidateId,
+                                error: message,
+                            });
+                            continue;
+                        }
+
+                        if (!branchComposeResult) {
+                            composeFailureMessages.push("Localized rewrite branch returned no result");
+                            continue;
+                        }
+
+                        const branchExecutionPlan = branchComposeResult.executionPlan ?? buildExecutionPlan(branchRequest);
+                        const branchCompositionPlan = branchComposeResult.compositionPlan ?? branchRequest.compositionPlan;
+                        const branchMidiData = branchComposeResult.midiData ?? Buffer.alloc(0);
+
+                        logger.info("Running localized rewrite branch structure evaluation", {
+                            songId: manifest.songId,
+                            workflow: branchExecutionPlan.workflow,
+                            sectionCount: branchCompositionPlan?.sections.length,
+                            attempt: symbolicAttempt,
+                            worker: branchExecutionPlan.composeWorker,
+                            parentCandidateId: parent.candidate.candidateId,
+                        });
+
+                        if (manifest.state === PipelineState.COMPOSE) {
+                            transition(manifest, PipelineState.CRITIQUE);
+                        }
+                        setRuntimeStage(
+                            manifest,
+                            PipelineState.CRITIQUE,
+                            `${describeSymbolicStage("critique", branchExecutionPlan, branchCompositionPlan)}; attempt=${symbolicAttempt}; worker=${branchExecutionPlan.composeWorker}; localizedRewriteParent=${parent.candidate.candidateId}`,
+                        );
+                        persistManifest(manifest, options?.onManifestUpdate);
+
+                        const critiqueResult = await critique(branchMidiData, manifest.songId, {
+                            key: branchComposeResult.meta.key ?? manifest.meta.key,
+                            form: branchCompositionPlan?.form ?? branchComposeResult.meta.form ?? manifest.meta.form,
+                            meter: branchCompositionPlan?.meter,
+                            sections: branchCompositionPlan?.sections,
+                            longSpanForm: branchCompositionPlan?.longSpanForm,
+                        });
+                        const structureEvaluation = buildStructureEvaluation(critiqueResult, {
+                            sections: branchCompositionPlan?.sections,
+                            sectionArtifacts: branchComposeResult.sectionArtifacts,
+                            expressionDefaults: branchCompositionPlan?.expressionDefaults,
+                            longSpanForm: branchCompositionPlan?.longSpanForm,
+                            orchestration: branchCompositionPlan?.orchestration,
+                        });
+                        const branchQualityPolicy = manifest.qualityControl?.policy ?? resolveQualityPolicy(branchRequest, branchExecutionPlan);
+
+                        const branchCandidate: SymbolicAttemptCandidate = {
+                            candidateId: buildStructureCandidateId(
+                                symbolicAttempt,
+                                branchExecutionPlan,
+                                branchRequest.candidateVariantKey,
+                            ),
+                            attempt: symbolicAttempt,
+                            request: branchRequest,
+                            composeResult: branchComposeResult,
+                            executionPlan: branchExecutionPlan,
+                            compositionPlan: branchCompositionPlan,
+                            midiData: branchMidiData,
+                            structureEvaluation,
+                        };
+                        attemptCandidates.push(branchCandidate);
+                        symbolicCandidates = [
+                            ...symbolicCandidates.filter((entry) => entry.candidateId !== branchCandidate.candidateId),
+                            branchCandidate,
+                        ];
+                        saveStructureCandidateSnapshot({
+                            songId: manifest.songId,
+                            candidateId: branchCandidate.candidateId,
+                            attempt: branchCandidate.attempt,
+                            meta: {
+                                ...manifest.meta,
+                                ...branchComposeResult.meta,
+                                songId: manifest.songId,
+                            },
+                            executionPlan: branchCandidate.executionPlan,
+                            compositionPlan: branchCandidate.compositionPlan,
+                            qualityPolicy: branchQualityPolicy,
+                            revisionDirectives: branchCandidate.request.revisionDirectives,
+                            structureEvaluation: branchCandidate.structureEvaluation,
+                            proposalEvidence: branchComposeResult.proposalEvidence,
+                            sectionArtifacts: branchComposeResult.sectionArtifacts,
+                            sectionTonalities: branchComposeResult.sectionTonalities,
+                            sectionTransforms: branchComposeResult.sectionTransforms,
+                            midiData: branchCandidate.midiData,
+                            evaluatedAt: manifest.updatedAt,
+                        });
+                        bestSymbolicCandidate = chooseBetterSymbolicCandidate(bestSymbolicCandidate, branchCandidate);
+                    }
+
                     const attemptWinner = attemptCandidates.reduce<SymbolicAttemptCandidate | undefined>(
                         (current, candidate) => chooseBetterSymbolicCandidate(current, candidate),
                         undefined,
@@ -1093,7 +1335,6 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                     applyComposeProgress(manifest, songId);
                     persistManifest(manifest, options?.onManifestUpdate);
 
-                    const qualityPolicy = manifest.qualityControl?.policy ?? resolveQualityPolicy(activeRequest, effectiveExecutionPlan);
                     const retryNeeded = shouldRetryStructureAttempt(
                         attemptWinner.structureEvaluation,
                         symbolicAttempt,
@@ -1110,11 +1351,16 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
 
                     if (!retryNeeded || revisionDirectives.length === 0) {
                         selectedSymbolicCandidate = bestSymbolicCandidate ?? attemptWinner;
-                        const stopReason = retryNeeded && revisionDirectives.length === 0
+                        const baseStopReason = retryNeeded && revisionDirectives.length === 0
                             ? "structure evaluation requested another pass but yielded no revision directives"
                             : (attemptWinner.structureEvaluation.passed
                                 ? "structure evaluation accepted the symbolic draft"
                                 : "reached the final structure attempt");
+                        const stopReason = buildLocalizedRewriteBranchStopReason(
+                            baseStopReason,
+                            selectedSymbolicCandidate,
+                            attemptCandidates,
+                        ) ?? baseStopReason;
                         finalizeQualityControl(
                             manifest,
                             selectedSymbolicCandidate.attempt,

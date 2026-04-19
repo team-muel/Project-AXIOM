@@ -1,0 +1,36 @@
+✔ learned backbone benchmark summary groups paired benchmark runs and promotion evidence (71.089ms)
+✖ learned backbone benchmark summary reads persisted blind review pack results (75.5997ms)
+✔ operator summary surfaces learned backbone benchmark aggregate on overseer payload (7967.2715ms)
+✔ project operator summary renders learned backbone benchmark section and artifact lines (8214.136ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16254.4771
+
+✖ failing tests:
+
+test at test\learned-backbone-benchmark-script.test.mjs:626:1
+✖ learned backbone benchmark summary reads persisted blind review pack results (75.5997ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /learned_symbolic|music21|baseline-a|learned-a/. Input:
+  
+  '{"version":1,"type":"learned_backbone_blind_review_pack","packId":"blind-pack-v1","generatedAt":"2026-04-18T12:06:38.229Z","lane":"string_trio_symbolic","benchmarkPackVersion":"string_trio_symbolic_benchmark_pack_v1","entryCount":3,"entries":[{"entryId":"pair-001","benchmarkId":"cadence_clarity_reference","planSignature":"lane=string_trio_symbolic|sig=cadence-a","promptPackVersion":"learned_symbolic_prompt_pack_v1","reviewRubricVersion":"approval_review_rubric_v1","observedAt":"2026-04-18T08:00:00.000Z","decisionOptions":["A","B","tie","skip"],"variants":[{"label":"A","midiPath":"assets/pair-001-A.mid"},{"label":"B","midiPath":"assets/pair-001-B.mid"}]},{"entryId":"pair-002","benchmarkId":"cadence_clarity_reference","planSignature":"lane=string_trio_symbolic|sig=cadence-a","promptPackVersion":"learned_symbolic_prompt_pack_v1","reviewRubricVersion":"approval_review_rubric_v1","observedAt":"2026-04-18T09:00:00.000Z","decisionOptions":["A","B","tie","skip"],"variants":[{"label":"A","midiPath":"assets/pair-002-A.mid"},{"label":"B","midiPath":"assets/pair-002-B.mid"}]},{"entryId":"pair-003","benchmarkId":"localized_rewrite_probe","planSignature":"lane=string_trio_symbolic|sig=localized-c","promptPackVersion":"learned_symbolic_prompt_pack_v1","reviewRubricVersion":null,"observedAt":"2026-04-18T10:00:00.000Z","decisionOptions":["A","B","tie","skip"],"variants":[{"label":"A","midiPath":"assets/pair-003-A.mid"},{"label":"B","midiPath":"assets/pair-003-B.mid"}]}]}'
+  
+      at seedLearnedBackboneBlindReviewResults (file:///C:/Users/User/axiom/test/learned-backbone-benchmark-script.test.mjs:306:12)
+      at TestContext.<anonymous> (file:///C:/Users/User/axiom/test/learned-backbone-benchmark-script.test.mjs:632:28)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '{"version":1,"type":"learned_backbone_blind_review_pack","packId":"blind-pack-v1","generatedAt":"2026-04-18T12:06:38.229Z","lane":"string_trio_symbolic","benchmarkPackVersion":"string_trio_symbolic_benchmark_pack_v1","entryCount":3,"entries":[{"entryId":"pair-001","benchmarkId":"cadence_clarity_reference","planSignature":"lane=string_trio_symbolic|sig=cadence-a","promptPackVersion":"learned_symbolic_prompt_pack_v1","reviewRubricVersion":"approval_review_rubric_v1","observedAt":"2026-04-18T08:00:00.000Z","decisionOptions":["A","B","tie","skip"],"variants":[{"label":"A","midiPath":"assets/pair-001-A.mid"},{"label":"B","midiPath":"assets/pair-001-B.mid"}]},{"entryId":"pair-002","benchmarkId":"cadence_clarity_reference","planSignature":"lane=string_trio_symbolic|sig=cadence-a","promptPackVersion":"learned_symbolic_prompt_pack_v1","reviewRubricVersion":"approval_review_rubric_v1","observedAt":"2026-04-18T09:00:00.000Z","decisionOptions":["A","B","tie","skip"],"variants":[{"label":"A","midiPath":"assets/pair-002-A.mid"},{"label":"B","midiPath":"assets/pair-002-B.mid"}]},{"entryId":"pair-003","benchmarkId":"localized_rewrite_probe","planSignature":"lane=string_trio_symbolic|sig=localized-c","promptPackVersion":"learned_symbolic_prompt_pack_v1","reviewRubricVersion":null,"observedAt":"2026-04-18T10:00:00.000Z","decisionOptions":["A","B","tie","skip"],"variants":[{"label":"A","midiPath":"assets/pair-003-A.mid"},{"label":"B","midiPath":"assets/pair-003-B.mid"}]}]}',
+    expected: /learned_symbolic|music21|baseline-a|learned-a/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }

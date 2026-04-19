@@ -19,6 +19,14 @@ function writeJsonl(filePath, rows) {
     fs.writeFileSync(filePath, content ? `${content}\n` : "", "utf8")
 }
 
+function countRoleCollapseWarnings(values) {
+    return (Array.isArray(values) ? values : [])
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean)
+        .filter((value) => value.toLowerCase().includes("role collapse"))
+        .length
+}
+
 function makeExample({
     exampleId,
     groupId,
@@ -49,6 +57,13 @@ function makeExample({
     const normalizedProposalEvidence = proposalEvidence && typeof proposalEvidence === "object"
         ? proposalEvidence
         : undefined
+    const normalizedProposalWarnings = Array.isArray(normalizedProposalEvidence?.normalizationWarnings)
+        ? normalizedProposalEvidence.normalizationWarnings.map((value) => String(value ?? "").trim()).filter(Boolean)
+        : []
+    const normalizationWarningCount = normalizedProposalWarnings.length > 0
+        ? normalizedProposalWarnings.length
+        : (typeof normalizedProposalEvidence?.normalizationWarningCount === "number" ? normalizedProposalEvidence.normalizationWarningCount : 0)
+    const roleCollapseWarningCount = countRoleCollapseWarnings(normalizedProposalWarnings)
     const normalizedLineage = lineage && typeof lineage === "object"
         ? lineage
         : {}
@@ -115,6 +130,8 @@ function makeExample({
             hasLearnedProposalEvidence: normalizedProposalEvidence?.worker === "learned_symbolic",
             hasProposalLane: Boolean(normalizedProposalEvidence?.lane),
             hasProposalSummary: Boolean(normalizedProposalEvidence?.summary),
+            hasProposalNormalizationWarnings: normalizationWarningCount > 0,
+            hasProposalRoleCollapseWarnings: roleCollapseWarningCount > 0,
             hasInputDirectiveContext,
             selectedAttemptFeatureRich: hasCompositionPlan || hasSectionArtifacts,
             derivedFromSyntheticAttempt: false,
@@ -151,6 +168,14 @@ function makeExample({
         },
         ...(normalizedReviewSignals ? { reviewSignals: normalizedReviewSignals } : {}),
         ...(normalizedProposalEvidence ? { proposalEvidence: normalizedProposalEvidence } : {}),
+        ...(normalizedProposalEvidence
+            ? {
+                proposalWarningSignals: {
+                    normalizationWarningCount,
+                    roleCollapseWarningCount,
+                },
+            }
+            : {}),
         artifacts: {
             manifestPath: path.join("outputs", songId, "manifest.json"),
         },
@@ -379,6 +404,10 @@ test("evaluate-structure-reranker-shadow learns proposal-evidence features for t
             lane: "string_trio_symbolic",
             generationMode: "plan_conditioned_trio_template",
             confidence: 0.63,
+            normalizationWarnings: [
+                "section s1 role collapse: expected lead,counterline,bass got lead,bass",
+                "projection reused prior cadence gesture to stabilize the retry",
+            ],
             summary: {
                 partCount: 3,
                 measureCount: 12,
@@ -576,6 +605,7 @@ test("evaluate-structure-reranker-shadow learns proposal-evidence features for t
         )
 
         const evaluationRoot = path.join(outputRoot, "_system", "ml", "evaluations", "structure-rank-v1", snapshotId)
+        const model = JSON.parse(fs.readFileSync(path.join(evaluationRoot, "shadow-reranker-model.json"), "utf8"))
         const disagreementRows = fs.readFileSync(path.join(evaluationRoot, "shadow-reranker-disagreements.jsonl"), "utf8")
             .split(/\r?\n/)
             .map((line) => line.trim())
@@ -583,6 +613,12 @@ test("evaluate-structure-reranker-shadow learns proposal-evidence features for t
             .map((line) => JSON.parse(line))
 
         assert.equal(disagreementRows.length >= 1, true)
+        assert.equal(model.featureNames.includes("proposalRoleCollapseWarningCount"), true)
+        assert.equal(model.featureNames.includes("hasProposalRoleCollapseWarnings"), true)
+        assert.equal(
+            model.weights.some((entry) => entry.feature === "proposalRoleCollapseWarningCount" && entry.weight > 0),
+            true,
+        )
         assert.equal(
             disagreementRows[0].explanation.topFeatures.some((entry) => entry.feature.startsWith("hasProposal") || entry.feature.startsWith("proposal")),
             true,

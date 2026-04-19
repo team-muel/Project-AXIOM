@@ -5,6 +5,12 @@
 
 ## Current Evidence
 
+- [2026-04-19_learned-backbone-projection-fix-smoke.md](2026-04-19_learned-backbone-projection-fix-smoke.md)
+  - projection fallback 개선 후 cadence/counterline 2-cell smoke batch 결과와 남은 Stage A blocker 정리
+- [2026-04-19_learned-backbone-stage-a-s1-reviewed-checkpoint.md](2026-04-19_learned-backbone-stage-a-s1-reviewed-checkpoint.md)
+  - 2026-04-19 시점 learned-backbone S1 manifest-reviewed checkpoint와 reviewed 7건 반영 후 Stage A hold 판단
+- [2026-04-19_learned-backbone-stage-a-s1-checkpoint.md](2026-04-19_learned-backbone-stage-a-s1-checkpoint.md)
+  - 2026-04-19 시점 learned-backbone S1 blind-review checkpoint와 Stage A hold 판단
 - [2026-04-09_injection-test-results.md](2026-04-09_injection-test-results.md)
   - 2026-04-09 시점 injection test 결과 요약
 

@@ -79,7 +79,9 @@ test("operator summary reports narrow-lane reranker promotion outcomes against h
                 const selectedCandidateId = songId + "-selected";
                 const learnedTopCandidateId = songId + "-learned";
                 const selectedDir = path.join(config.outputDir, songId, "candidates", selectedCandidateId);
+                const learnedDir = path.join(config.outputDir, songId, "candidates", learnedTopCandidateId);
                 fs.mkdirSync(selectedDir, { recursive: true });
+                fs.mkdirSync(learnedDir, { recursive: true });
 
                 const selectedShadow = {
                     snapshotId: "shadow-live",
@@ -88,6 +90,17 @@ test("operator summary reports narrow-lane reranker promotion outcomes against h
                     heuristicScore: 0.91,
                     learnedRank: promotionApplied ? 2 : 1,
                     learnedScore: 0.82,
+                    learnedConfidence: confidence,
+                    disagreesWithHeuristic: true,
+                    disagreementReason: "learned favored sectionArtifactCoverage, phraseBreathCueDensity",
+                };
+                const learnedShadow = {
+                    snapshotId: "shadow-live",
+                    evaluatedAt: updatedAt,
+                    heuristicRank: 2,
+                    heuristicScore: 0.82,
+                    learnedRank: 1,
+                    learnedScore: 0.91,
                     learnedConfidence: confidence,
                     disagreesWithHeuristic: true,
                     disagreementReason: "learned favored sectionArtifactCoverage, phraseBreathCueDensity",
@@ -191,6 +204,55 @@ test("operator summary reports narrow-lane reranker promotion outcomes against h
                     },
                 }, null, 2));
 
+                fs.writeFileSync(path.join(learnedDir, "candidate-manifest.json"), JSON.stringify({
+                    version: 1,
+                    stage: "structure",
+                    songId,
+                    candidateId: learnedTopCandidateId,
+                    attempt: 1,
+                    selected: false,
+                    evaluatedAt: updatedAt,
+                    workflow: "symbolic_only",
+                    worker: "learned_symbolic",
+                    provider: "learned",
+                    model: "learned-symbolic-trio-v1",
+                    meta: { songId },
+                    executionPlan: {
+                        workflow: "symbolic_only",
+                        composeWorker: "learned_symbolic",
+                        selectedModels: [
+                            { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
+                        ],
+                    },
+                    compositionPlan: {
+                        form: "string trio miniature",
+                        workflow: "symbolic_only",
+                        instrumentation: [
+                            { name: "Violin", family: "strings", roles: ["lead"] },
+                            { name: "Viola", family: "strings", roles: ["support"] },
+                            { name: "Cello", family: "strings", roles: ["bass"] },
+                        ],
+                        orchestration: {
+                            family: "string_trio",
+                            instrumentNames: ["Violin", "Viola", "Cello"],
+                            sections: [],
+                        },
+                        sections: [
+                            { sectionId: "s1", role: "theme_a", phraseFunction: "presentation" },
+                        ],
+                    },
+                    revisionDirectives: [],
+                    structureEvaluation: {
+                        passed: true,
+                        score: 82,
+                        issues: [],
+                        strengths: [],
+                        metrics: {},
+                    },
+                    shadowReranker: learnedShadow,
+                    artifacts: {},
+                }, null, 2));
+
                 fs.writeFileSync(path.join(config.outputDir, songId, "candidates", "index.json"), JSON.stringify({
                     version: 1,
                     songId,
@@ -216,6 +278,21 @@ test("operator summary reports narrow-lane reranker promotion outcomes against h
                         }
                         : {}),
                     entries: [
+                        {
+                            candidateId: learnedTopCandidateId,
+                            attempt: 1,
+                            stage: "structure",
+                            selected: false,
+                            workflow: "symbolic_only",
+                            worker: "learned_symbolic",
+                            provider: "learned",
+                            model: "learned-symbolic-trio-v1",
+                            passed: true,
+                            score: 82,
+                            evaluatedAt: updatedAt,
+                            manifestPath: path.join(learnedDir, "candidate-manifest.json"),
+                            shadowReranker: learnedShadow,
+                        },
                         {
                             candidateId: selectedCandidateId,
                             attempt: 2,
@@ -312,6 +389,14 @@ test("operator summary reports narrow-lane reranker promotion outcomes against h
         assert.equal(payload.overseer.shadowReranker.promotionAdvantage.approvalRateDelta, 1);
         assert.equal(payload.overseer.shadowReranker.promotionAdvantage.appealScoreDelta, 0.58);
         assert.equal(payload.overseer.shadowReranker.promotionAdvantage.signal, "promoted_advantage");
+        assert.equal(payload.overseer.shadowReranker.shortlist.lane, "string_trio_symbolic");
+        assert.equal(payload.overseer.shadowReranker.shortlist.scoredManifestCount, 5);
+        assert.equal(payload.overseer.shadowReranker.shortlist.reviewedManifestCount, 4);
+        assert.equal(payload.overseer.shadowReranker.shortlist.topKCounts["2"], 5);
+        assert.equal(payload.overseer.shadowReranker.shortlist.selectedInShortlistRate, 1);
+        assert.equal(payload.overseer.shadowReranker.shortlist.selectedTop1Rate, 0.4);
+        assert.equal(payload.overseer.shadowReranker.shortlist.reviewedSelectedInShortlistRate, 1);
+        assert.equal(payload.overseer.shadowReranker.shortlist.reviewedSelectedTop1Rate, 0.5);
         assert.equal(payload.overseer.shadowReranker.retryLocalizationOutcomes.lane, "string_trio_symbolic");
         assert.equal(payload.overseer.shadowReranker.retryLocalizationOutcomes.scoredManifestCount, 5);
         assert.equal(payload.overseer.shadowReranker.retryLocalizationOutcomes.retryingManifestCount, 5);
@@ -327,6 +412,7 @@ test("operator summary reports narrow-lane reranker promotion outcomes against h
         assert.equal(payload.overseer.shadowReranker.retryLocalizationOutcomes.heuristicSectionTargetedRate, 0);
         assert.match(JSON.stringify(payload.artifacts), /shadowReranker outcomes lane=string_trio_symbolic scored=5 reviewed=4 pendingReview=1 promoted=3 promotedReviewed=2 promotedApprovalRate=1\.00 heuristicReviewed=2 heuristicApprovalRate=0\.00 promotedAvgAppeal=0\.92 heuristicAvgAppeal=0\.34/);
         assert.match(JSON.stringify(payload.artifacts), /shadowReranker promotionAdvantage lane=string_trio_symbolic reviewed=4 promotedReviewed=2 heuristicReviewed=2 sufficientSample=yes approvalDelta=1\.00 appealDelta=0\.58 signal=promoted_advantage/);
+        assert.match(JSON.stringify(payload.artifacts), /shadowReranker shortlist lane=string_trio_symbolic scored=5 reviewed=4 topK=2:5 selectedInTopK=1\.00 outsideTopK=0 top1=0\.40 reviewedInTopK=1\.00 reviewedTop1=0\.50/);
         assert.match(JSON.stringify(payload.artifacts), /shadowReranker retryLocalization lane=string_trio_symbolic scored=5 retrying=5 promotedRetrying=3 promotedTargetedOnly=2 promotedMixed=1 promotedGlobalOnly=0 promotedTargetedRate=1\.00 heuristicRetrying=2 heuristicTargetedOnly=0 heuristicMixed=0 heuristicGlobalOnly=2 heuristicTargetedRate=0\.00/);
     } finally {
         fs.rmSync(tempRoot, { recursive: true, force: true });

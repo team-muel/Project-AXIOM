@@ -10,11 +10,25 @@ import {
     buildLearnedSymbolicPromptPack,
     buildLearnedSymbolicWorkerPayload,
     LEARNED_SYMBOLIC_PROMPT_PACK_VERSION,
+    resolveLearnedBenchmarkId,
+    resolveLearnedBenchmarkPackVersion,
 } from "../dist/composer/learnedAdapter.js";
+import {
+    LEARNED_NOTAGEN_ADAPTER_VERSION,
+    buildLearnedNotagenProviderRequest,
+} from "../dist/composer/learnedNotagenAdapter.js";
+import { normalizeLearnedSymbolicResponse } from "../dist/composer/learnedNormalizer.js";
+import { validateLearnedSymbolicProposalResponse } from "../dist/composer/learnedSymbolicContract.js";
 import { config } from "../dist/config.js";
 import { buildAudioEvaluation } from "../dist/pipeline/evaluation.js";
 import { buildExpressionPlanSidecar } from "../dist/pipeline/expressionPlan.js";
+import {
+    APPROVAL_REVIEW_RUBRIC_VERSION,
+    FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK,
+    STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION,
+} from "../dist/pipeline/learnedSymbolicContract.js";
 import { normalizeComposeRequestInput } from "../dist/pipeline/requestNormalization.js";
+import { materializeCompositionSketch } from "../dist/pipeline/sketch.js";
 import { PipelineState, canTransition } from "../dist/pipeline/states.js";
 import { serializeQueuedJob } from "../dist/queue/presentation.js";
 import { buildHumanizeWorkerInput } from "../dist/humanizer/index.js";
@@ -217,6 +231,29 @@ async function runHumanizerWorker(payload) {
 
     if (result.status !== 0) {
         throw new Error(result.stderr.trim() || result.stdout.trim() || `humanizer worker exited with code ${result.status}`);
+    }
+
+    return JSON.parse(result.stdout.trim());
+}
+
+async function runLearnedSymbolicWorker(payload) {
+    if (!pythonBin) {
+        throw new Error("No local Python binary found for learned-symbolic worker test.");
+    }
+
+    const result = spawnSync(pythonBin, ["workers/composer/compose_learned_symbolic.py"], {
+        cwd: repoRoot,
+        stdio: ["pipe", "pipe", "pipe"],
+        input: JSON.stringify(payload),
+        encoding: "utf8",
+    });
+
+    if (result.error) {
+        throw result.error;
+    }
+
+    if (result.status !== 0) {
+        throw new Error(result.stderr.trim() || result.stdout.trim() || `learned-symbolic worker exited with code ${result.status}`);
     }
 
     return JSON.parse(result.stdout.trim());
@@ -979,6 +1016,8 @@ print(json.dumps(payload))
 test("normalizeComposeRequestInput accepts multimodel compose payload", () => {
     const normalized = normalizeComposeRequestInput({
         prompt: "Write a chamber nocturne with violin and piano.",
+        candidateCount: 8,
+        localizedRewriteBranches: 2,
         workflow: "symbolic_plus_audio",
         selectedModels: [
             { role: "structure", provider: "python", model: "music21-symbolic-v1" },
@@ -1117,6 +1156,8 @@ test("normalizeComposeRequestInput accepts multimodel compose payload", () => {
     });
 
     assert.deepEqual(normalized.errors, []);
+    assert.equal(normalized.request?.candidateCount, 8);
+    assert.equal(normalized.request?.localizedRewriteBranches, 2);
     assert.equal(normalized.request?.workflow, "symbolic_plus_audio");
     assert.equal(normalized.request?.compositionPlan?.sections.length, 2);
     assert.equal(normalized.request?.selectedModels?.length, 2);
@@ -1159,6 +1200,50 @@ test("normalizeComposeRequestInput accepts multimodel compose payload", () => {
     assert.equal(normalized.request?.compositionPlan?.sections[1]?.harmonicPlan?.colorCues?.[1]?.tag, "suspension");
     assert.equal(normalized.request?.compositionPlan?.sections[1]?.harmonicPlan?.colorCues?.[1]?.resolutionMeasure, 8);
     assert.equal(normalized.request?.compositionPlan?.sections[1]?.tempoMotion?.[0]?.tag, "ritenuto");
+});
+
+test("normalizeComposeRequestInput infers Stage B S4 base candidate count when localized rewrite branches are requested", () => {
+    const normalized = normalizeComposeRequestInput({
+        prompt: "Write a compact string trio miniature.",
+        localizedRewriteBranches: 2,
+    });
+
+    assert.deepEqual(normalized.errors, []);
+    assert.equal(normalized.request?.candidateCount, 4);
+    assert.equal(normalized.request?.localizedRewriteBranches, 2);
+});
+
+test("normalizeComposeRequestInput accepts a custom mixed search budget with three whole-piece candidates and one rewrite branch", () => {
+    const normalized = normalizeComposeRequestInput({
+        prompt: "Write a compact string trio miniature.",
+        candidateCount: 3,
+        localizedRewriteBranches: 1,
+    });
+
+    assert.deepEqual(normalized.errors, []);
+    assert.equal(normalized.request?.candidateCount, 3);
+    assert.equal(normalized.request?.localizedRewriteBranches, 1);
+});
+
+test("normalizeComposeRequestInput rejects out-of-range candidateCount", () => {
+    const normalized = normalizeComposeRequestInput({
+        prompt: "Write a compact string trio miniature.",
+        candidateCount: 9,
+    });
+
+    assert.equal(normalized.request, undefined);
+    assert.ok(normalized.errors.includes("candidateCount must be an integer between 1 and 8"));
+});
+
+test("normalizeComposeRequestInput rejects localized rewrite branches when the whole-piece candidate budget is too small", () => {
+    const normalized = normalizeComposeRequestInput({
+        prompt: "Write a compact string trio miniature.",
+        candidateCount: 2,
+        localizedRewriteBranches: 2,
+    });
+
+    assert.equal(normalized.request, undefined);
+    assert.ok(normalized.errors.includes("localizedRewriteBranches requires candidateCount of at least 3"));
 });
 
 test("normalizeComposeRequestInput rejects deprecated sonification input and points callers to compositionProfile", () => {
@@ -1432,7 +1517,7 @@ test("learned symbolic prompt pack freezes plan signature while keeping retry co
             meter: "4/4",
             instrumentation: [
                 { name: "Violin", family: "strings", roles: ["lead"] },
-                { name: "Viola", family: "strings", roles: ["support"] },
+                { name: "Viola", family: "strings", roles: ["inner_voice"] },
                 { name: "Cello", family: "strings", roles: ["bass"] },
             ],
             orchestration: {
@@ -1519,8 +1604,461 @@ test("learned symbolic prompt pack freezes plan signature while keeping retry co
     assert.equal(workerPayload.songId, "learned-pack-song");
     assert.equal(workerPayload.promptPack.planSignature, basePack.planSignature);
     assert.equal(workerPayload.selectedModels[0].model, "learned-symbolic-trio-v1");
+    assert.equal(workerPayload.providerRequest.version, LEARNED_NOTAGEN_ADAPTER_VERSION);
+    assert.equal(workerPayload.providerRequest.adapter, "notagen_class");
+    assert.equal(workerPayload.providerRequest.planSignature, basePack.planSignature);
+    assert.equal(workerPayload.providerRequest.conditioningText.includes("Compose a miniature for Violin, Viola, Cello at 88 BPM in D minor."), true);
+    assert.equal(workerPayload.providerRequest.controlLines.some((line) => line === "lane=string_trio_symbolic"), true);
+    assert.equal(workerPayload.providerRequest.controlLines.some((line) => line.includes("section id=s2") && line.includes("phrase=cadential")), true);
+    assert.equal(workerPayload.providerRequest.controlLines.includes("revision attempt=2"), true);
+    assert.equal(workerPayload.providerRequest.controlLines.includes("revision directive_kinds=clarify_narrative_arc"), true);
+    assert.equal(workerPayload.providerRequest.controlLines.includes("revision targeted_sections=s2"), true);
     assert.equal(typeof workerPayload.stableSeed, "number");
     assert.ok(Number.isInteger(workerPayload.stableSeed));
+});
+
+test("notagen provider request keeps backbone conditioning stable while surfacing retry control lines", () => {
+    const request = FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK.entries[0].request;
+    const retryRequest = {
+        ...request,
+        attemptIndex: 2,
+        revisionDirectives: [
+            {
+                kind: "clarify_phrase_rhetoric",
+                priority: 90,
+                reason: "Refine only the cadence section.",
+                sectionIds: ["s2"],
+            },
+        ],
+    };
+    const selectedModels = [{ role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" }];
+    const baseProviderRequest = buildLearnedNotagenProviderRequest(
+        buildLearnedSymbolicPromptPack({ ...request, selectedModels }),
+        selectedModels,
+    );
+    const retryProviderRequest = buildLearnedNotagenProviderRequest(
+        buildLearnedSymbolicPromptPack({ ...retryRequest, selectedModels }),
+        selectedModels,
+    );
+
+    assert.equal(baseProviderRequest.conditioningText, retryProviderRequest.conditioningText);
+    assert.equal(baseProviderRequest.controlLines.includes("revision attempt=2"), false);
+    assert.equal(retryProviderRequest.controlLines.includes("revision attempt=2"), true);
+    assert.equal(retryProviderRequest.controlLines.includes("revision directive_kinds=clarify_phrase_rhetoric"), true);
+    assert.equal(retryProviderRequest.controlLines.includes("revision targeted_sections=s2"), true);
+});
+
+test("learned_symbolic worker rejects malformed providerRequest before generation", { skip: !pythonBin }, async () => {
+    const request = {
+        ...FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK.entries[0].request,
+        selectedModels: [
+            { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
+        ],
+    };
+    const executionPlan = buildExecutionPlan(request);
+    const payload = buildLearnedSymbolicWorkerPayload(
+        request,
+        "learned-provider-request-probe",
+        path.join(os.tmpdir(), "axiom-learned-provider-request-probe.mid"),
+        executionPlan,
+    );
+    const response = await runLearnedSymbolicWorker({
+        ...payload,
+        providerRequest: {
+            ...payload.providerRequest,
+            controlLines: [123],
+        },
+    });
+
+    assert.equal(response.ok, false);
+    assert.match(response.error, /providerRequest\.controlLines must be a non-empty string array/);
+});
+
+test("learned_symbolic worker rejects providerRequest lane mismatches before generation", { skip: !pythonBin }, async () => {
+    const request = {
+        ...FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK.entries[0].request,
+        selectedModels: [
+            { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
+        ],
+    };
+    const executionPlan = buildExecutionPlan(request);
+    const payload = buildLearnedSymbolicWorkerPayload(
+        request,
+        "learned-provider-lane-mismatch-probe",
+        path.join(os.tmpdir(), "axiom-learned-provider-lane-mismatch-probe.mid"),
+        executionPlan,
+    );
+    const response = await runLearnedSymbolicWorker({
+        ...payload,
+        providerRequest: {
+            ...payload.providerRequest,
+            controlLines: payload.providerRequest.controlLines.map((line) => (
+                line === "lane=string_trio_symbolic" ? "lane=generic_symbolic" : line
+            )),
+        },
+    });
+
+    assert.equal(response.ok, false);
+    assert.match(response.error, /providerRequest lane does not match promptPack\.lane/);
+});
+
+test("learned_symbolic worker records role collapse warnings for seeded trio artifacts", { skip: !pythonBin }, async () => {
+    const request = {
+        ...FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK.entries[0].request,
+        selectedModels: [
+            { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
+        ],
+    };
+    const executionPlan = buildExecutionPlan(request);
+    const payload = buildLearnedSymbolicWorkerPayload(
+        request,
+        "learned-role-collapse-probe",
+        path.join(os.tmpdir(), "axiom-learned-role-collapse-probe.mid"),
+        executionPlan,
+    );
+    const response = await runLearnedSymbolicWorker({
+        ...payload,
+        sectionArtifacts: [
+            {
+                sectionId: "s1",
+                role: "theme_a",
+                phraseFunction: "presentation",
+                measureCount: 4,
+                melodyEvents: [
+                    { kind: "note", midi: 74, quarterLength: 1, velocity: 72, role: "lead" },
+                    { kind: "note", midi: 76, quarterLength: 1, velocity: 72, role: "lead" },
+                    { kind: "note", midi: 77, quarterLength: 1, velocity: 72, role: "lead" },
+                    { kind: "note", midi: 74, quarterLength: 1, velocity: 72, role: "lead" },
+                ],
+                accompanimentEvents: [
+                    { kind: "note", midi: 50, quarterLength: 1, velocity: 56, voiceRole: "bass" },
+                    { kind: "note", midi: 45, quarterLength: 1, velocity: 56, voiceRole: "bass" },
+                    { kind: "note", midi: 50, quarterLength: 1, velocity: 56, voiceRole: "bass" },
+                    { kind: "note", midi: 38, quarterLength: 1, velocity: 56, voiceRole: "bass" },
+                ],
+            },
+        ],
+    });
+
+    assert.equal(response.ok, true);
+    assert.match(
+        response.proposalMetadata.normalizationWarnings.join(" | "),
+        /section s1 role collapse: expected lead,counterline,bass got lead,bass/,
+    );
+    assert.equal(
+        response.proposalSections[0].supportEvents.every((event) => event.role === "bass"),
+        true,
+    );
+});
+
+test("learned_symbolic worker accepts hyphenated flat tonal centers in the fixed counterline benchmark", { skip: !pythonBin }, async () => {
+    const counterlineProbe = FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK.entries.find(
+        (entry) => entry.benchmarkId === "counterline_dialogue_probe",
+    );
+
+    assert.ok(counterlineProbe);
+    const clonedRequest = JSON.parse(JSON.stringify(counterlineProbe.request));
+
+    const request = {
+        ...clonedRequest,
+        selectedModels: [
+            { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
+        ],
+    };
+    const executionPlan = buildExecutionPlan(request);
+    const payload = buildLearnedSymbolicWorkerPayload(
+        request,
+        "learned-bflat-counterline-probe",
+        path.join(os.tmpdir(), "axiom-learned-bflat-counterline-probe.mid"),
+        executionPlan,
+    );
+    const response = await runLearnedSymbolicWorker(payload);
+
+    assert.equal(response.ok, true);
+    assert.equal(response.proposalSummary?.key, "G minor");
+    assert.equal(response.proposalSections?.[1]?.tonalCenter, "B-flat major");
+    assert.equal(response.proposalMetadata?.generationMode, "plan_conditioned_trio_template");
+});
+
+test("learned_symbolic worker shapes cadential closures with varied durations in the fixed cadence benchmark", { skip: !pythonBin }, async () => {
+    const cadenceProbe = FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK.entries.find(
+        (entry) => entry.benchmarkId === "cadence_clarity_reference",
+    );
+
+    assert.ok(cadenceProbe);
+    const request = {
+        ...JSON.parse(JSON.stringify(cadenceProbe.request)),
+        selectedModels: [
+            { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
+        ],
+    };
+    const executionPlan = buildExecutionPlan(request);
+    const payload = buildLearnedSymbolicWorkerPayload(
+        request,
+        "learned-cadence-closure-probe",
+        path.join(os.tmpdir(), "axiom-learned-cadence-closure-probe.mid"),
+        executionPlan,
+    );
+    const response = await runLearnedSymbolicWorker(payload);
+
+    assert.equal(response.ok, true);
+    const opening = response.proposalSections[0];
+    const cadence = response.proposalSections[1];
+    assert.ok(opening);
+    assert.ok(cadence);
+    assert.equal(new Set(opening.leadEvents.map((event) => Number(event.quarterLength))).size > 1, true);
+    assert.equal(new Set(cadence.leadEvents.map((event) => Number(event.quarterLength))).size > 1, true);
+    assert.equal(
+        cadence.leadEvents.some((event) => Number(event.quarterLength) >= 2),
+        true,
+    );
+    assert.equal(
+        cadence.supportEvents
+            .filter((event) => event.role === "bass")
+            .some((event) => Number(event.quarterLength) >= 2),
+        true,
+    );
+    assert.equal(Number(cadence.leadEvents.at(-1)?.quarterLength ?? 0) >= 2, true);
+});
+
+test("learned_symbolic worker materializes trio handoffs and wider dialogue spacing in the fixed counterline benchmark", { skip: !pythonBin }, async () => {
+    const counterlineProbe = FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK.entries.find(
+        (entry) => entry.benchmarkId === "counterline_dialogue_probe",
+    );
+
+    assert.ok(counterlineProbe);
+    const request = {
+        ...JSON.parse(JSON.stringify(counterlineProbe.request)),
+        selectedModels: [
+            { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
+        ],
+    };
+    const executionPlan = buildExecutionPlan(request);
+    const payload = buildLearnedSymbolicWorkerPayload(
+        request,
+        "learned-counterline-handoff-probe",
+        path.join(os.tmpdir(), "axiom-learned-counterline-handoff-probe.mid"),
+        executionPlan,
+    );
+    const response = await runLearnedSymbolicWorker(payload);
+
+    assert.equal(response.ok, true);
+    const averageMidi = (events) => {
+        const noteEvents = events.filter((event) => event.kind === "note");
+        return noteEvents.reduce((sum, event) => sum + Number(event.midi), 0) / noteEvents.length;
+    };
+    const statement = response.proposalSections[0];
+    const dialogue = response.proposalSections[1];
+    const returnSection = response.proposalSections[2];
+    assert.ok(statement);
+    assert.ok(dialogue);
+    assert.ok(returnSection);
+    assert.equal(statement.leadEvents.some((event) => event.kind === "rest"), true);
+    assert.equal(returnSection.leadEvents.some((event) => event.kind === "rest"), true);
+    assert.equal(dialogue.leadEvents.some((event) => Number(event.quarterLength) === 0.5), true);
+    assert.equal(
+        dialogue.supportEvents
+            .filter((event) => event.role === "counterline")
+            .some((event) => Number(event.quarterLength) === 0.5),
+        true,
+    );
+    assert.equal(averageMidi(dialogue.leadEvents) < averageMidi(statement.leadEvents), true);
+    assert.equal(
+        averageMidi(dialogue.supportEvents.filter((event) => event.role === "counterline"))
+        > averageMidi(statement.supportEvents.filter((event) => event.role === "counterline")),
+        true,
+    );
+    assert.equal(
+        averageMidi(dialogue.supportEvents.filter((event) => event.role === "bass"))
+        < averageMidi(statement.supportEvents.filter((event) => event.role === "bass")),
+        true,
+    );
+    const cadenceBassNotes = returnSection.supportEvents.filter(
+        (event) => event.role === "bass" && event.kind === "note",
+    );
+    assert.equal(cadenceBassNotes.length >= 2, true);
+    assert.equal(
+        Number(cadenceBassNotes.at(-1)?.midi ?? 0) < Number(cadenceBassNotes.at(-2)?.midi ?? 0),
+        true,
+    );
+    assert.equal(Number(returnSection.leadEvents.at(-1)?.quarterLength ?? 0) >= 2, true);
+});
+
+test("fixed string trio benchmark pack keeps stable plan-signature coverage for retry probes", () => {
+    const pack = FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK;
+    const planSignatures = pack.entries.map((entry) => buildLearnedSymbolicPromptPack(entry.request).planSignature);
+    const localizedRetryProbe = pack.entries.find((entry) => entry.coverageTags.includes("localized_retry_probe"));
+
+    assert.equal(pack.promptPackVersion, LEARNED_SYMBOLIC_PROMPT_PACK_VERSION);
+    assert.equal(pack.reviewRubricVersion, APPROVAL_REVIEW_RUBRIC_VERSION);
+    assert.equal(new Set(planSignatures).size, pack.entries.length);
+    assert.ok(localizedRetryProbe);
+
+    for (const entry of pack.entries) {
+        const promptPack = buildLearnedSymbolicPromptPack(entry.request);
+        const materializedPromptPack = buildLearnedSymbolicPromptPack(materializeCompositionSketch(entry.request));
+        assert.equal(promptPack.lane, "string_trio_symbolic");
+        assert.equal(promptPack.planSignature, materializedPromptPack.planSignature);
+        assert.equal(resolveLearnedBenchmarkId(promptPack), entry.benchmarkId);
+        assert.equal(resolveLearnedBenchmarkId(materializedPromptPack), entry.benchmarkId);
+        assert.equal(resolveLearnedBenchmarkPackVersion(promptPack), STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION);
+        assert.equal(resolveLearnedBenchmarkPackVersion(materializedPromptPack), STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION);
+    }
+
+    const retryPack = buildLearnedSymbolicPromptPack({
+        ...localizedRetryProbe.request,
+        attemptIndex: 2,
+        revisionDirectives: [
+            {
+                kind: "clarify_phrase_rhetoric",
+                priority: 90,
+                reason: "Refine only the closing section.",
+                sectionIds: ["s2"],
+            },
+        ],
+    });
+
+    assert.equal(
+        buildLearnedSymbolicPromptPack(localizedRetryProbe.request).planSignature,
+        retryPack.planSignature,
+    );
+});
+
+test("learned normalizer maps proposal responses into AXIOM compose results", () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-learned-normalizer-"));
+    const midiPath = path.join(tempRoot, "proposal.mid");
+    fs.writeFileSync(midiPath, createMinimalMidiBuffer());
+
+    try {
+        const request = {
+            ...FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK.entries[0].request,
+            selectedModels: [
+                { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
+            ],
+        };
+        const promptPack = buildLearnedSymbolicPromptPack(request);
+        const executionPlan = buildExecutionPlan(request);
+        const result = normalizeLearnedSymbolicResponse(
+            {
+                ok: true,
+                proposalMidiPath: midiPath,
+                proposalSummary: {
+                    measureCount: 8,
+                    noteCount: 24,
+                    partCount: 3,
+                    partInstrumentNames: ["Violin", "Viola", "Cello"],
+                    key: "D minor",
+                    tempo: 88,
+                    form: "miniature",
+                },
+                proposalMetadata: {
+                    lane: "string_trio_symbolic",
+                    provider: "learned",
+                    model: "learned-symbolic-trio-v1",
+                    generationMode: "plan_conditioned_trio_template",
+                    confidence: 0.61,
+                    normalizationWarnings: ["section_alignment=approximate"],
+                },
+                proposalSections: [
+                    {
+                        sectionId: "s1",
+                        role: "theme_a",
+                        measureCount: 4,
+                        tonalCenter: "D minor",
+                        phraseFunction: "presentation",
+                        leadEvents: [
+                            { kind: "note", midi: 74, quarterLength: 1, velocity: 72, role: "lead" },
+                            { kind: "note", midi: 76, quarterLength: 1, velocity: 72, role: "lead" },
+                        ],
+                        supportEvents: [
+                            { kind: "note", midi: 62, quarterLength: 1, velocity: 60, role: "counterline" },
+                            { kind: "note", midi: 50, quarterLength: 1, velocity: 56, role: "bass" },
+                        ],
+                        noteHistory: [74, 76],
+                    },
+                    {
+                        sectionId: "s2",
+                        role: "cadence",
+                        measureCount: 4,
+                        tonalCenter: "D minor",
+                        phraseFunction: "cadential",
+                        leadEvents: [
+                            { kind: "note", midi: 77, quarterLength: 1, velocity: 78, role: "lead" },
+                            { kind: "note", midi: 74, quarterLength: 1, velocity: 80, role: "lead" },
+                        ],
+                        supportEvents: [
+                            { kind: "note", midi: 65, quarterLength: 1, velocity: 62, role: "counterline" },
+                            { kind: "note", midi: 50, quarterLength: 1, velocity: 58, role: "bass" },
+                        ],
+                        noteHistory: [77, 74],
+                        transform: {
+                            sectionId: "s2",
+                            role: "cadence",
+                            sourceSectionId: "s2",
+                            transformMode: "targeted_rewrite:clarify_phrase_rhetoric",
+                            generatedNoteCount: 4,
+                            sourceNoteCount: 4,
+                        },
+                    },
+                ],
+            },
+            request,
+            "learned-normalizer-probe",
+            executionPlan,
+            promptPack,
+        );
+
+        assert.equal(result.executionPlan?.composeWorker, "learned_symbolic");
+        assert.ok(result.midiData.length > 0);
+        assert.equal(result.meta?.songId, "learned-normalizer-probe");
+        assert.equal(result.proposalEvidence?.worker, "learned_symbolic");
+        assert.equal(result.proposalEvidence?.lane, "string_trio_symbolic");
+        assert.equal(result.proposalEvidence?.benchmarkPackVersion, STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION);
+        assert.equal(result.proposalEvidence?.benchmarkId, "cadence_clarity_reference");
+        assert.equal(result.proposalEvidence?.promptPackVersion, LEARNED_SYMBOLIC_PROMPT_PACK_VERSION);
+        assert.equal(result.proposalEvidence?.planSignature, promptPack.planSignature);
+        assert.equal(result.proposalEvidence?.summary?.partCount, 3);
+        assert.deepEqual(result.proposalEvidence?.normalizationWarnings, ["section_alignment=approximate"]);
+        assert.equal(result.sectionArtifacts?.length, 2);
+        assert.equal(result.sectionArtifacts?.[1]?.sectionStyle, "plan_conditioned_trio_template");
+        assert.equal(result.sectionTransforms?.[0]?.transformMode, "targeted_rewrite:clarify_phrase_rhetoric");
+        assert.equal(result.sectionTonalities?.[1]?.tonalCenter, "D minor");
+    } finally {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+});
+
+test("learned contract validator rejects malformed provider responses before normalization", () => {
+    assert.throws(
+        () => validateLearnedSymbolicProposalResponse({
+            ok: true,
+            proposalMidiPath: "outputs/bad.mid",
+            proposalMetadata: {
+                lane: "string_trio_symbolic",
+                normalizationWarnings: ["fine"],
+            },
+            proposalSections: [
+                {
+                    sectionId: "s1",
+                    role: "theme_a",
+                    measureCount: 4,
+                    leadEvents: [
+                        { kind: "note", quarterLength: 1, role: "lead" },
+                    ],
+                    supportEvents: [],
+                    noteHistory: [72],
+                },
+            ],
+        }),
+        /proposalSections\[0\]\.leadEvents\[0\]\.midi must be numeric for note events/,
+    );
+
+    assert.throws(
+        () => validateLearnedSymbolicProposalResponse({
+            ok: false,
+        }),
+        /ok=false responses must include a non-empty error string/,
+    );
 });
 
 test("learned_symbolic worker produces a normalized string trio miniature candidate", { skip: !pythonBin }, async (t) => {
@@ -1550,7 +2088,7 @@ test("learned_symbolic worker produces a normalized string trio miniature candid
                 workflow: "symbolic_only",
                 instrumentation: [
                     { name: "Violin", family: "strings", roles: ["lead"] },
-                    { name: "Viola", family: "strings", roles: ["support"] },
+                    { name: "Viola", family: "strings", roles: ["inner_voice"] },
                     { name: "Cello", family: "strings", roles: ["bass"] },
                 ],
                 orchestration: {
@@ -1583,7 +2121,7 @@ test("learned_symbolic worker produces a normalized string trio miniature candid
                     },
                     {
                         id: "s2",
-                        role: "closing",
+                        role: "cadence",
                         label: "Cadence",
                         measures: 4,
                         energy: 0.42,
@@ -1611,6 +2149,10 @@ test("learned_symbolic worker produces a normalized string trio miniature candid
         assert.ok(result.midiData.length > 0);
         assert.equal(result.proposalEvidence?.worker, "learned_symbolic");
         assert.equal(result.proposalEvidence?.lane, "string_trio_symbolic");
+        assert.equal(result.proposalEvidence?.provider, "learned");
+        assert.equal(result.proposalEvidence?.model, "learned-symbolic-trio-v1");
+        assert.equal(result.proposalEvidence?.benchmarkPackVersion, STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION);
+        assert.equal(result.proposalEvidence?.benchmarkId, "cadence_clarity_reference");
         assert.equal(result.proposalEvidence?.promptPackVersion, LEARNED_SYMBOLIC_PROMPT_PACK_VERSION);
         assert.equal(result.proposalEvidence?.planSignature, expectedPromptPack.planSignature);
         assert.equal(result.proposalEvidence?.generationMode, "plan_conditioned_trio_template");
@@ -1620,6 +2162,89 @@ test("learned_symbolic worker produces a normalized string trio miniature candid
         assert.equal(result.sectionArtifacts?.[0]?.measureCount, 4);
         assert.equal(result.sectionArtifacts?.[0]?.primaryTextureRoles?.join(","), "lead,counterline,bass");
         assert.ok(fs.existsSync(path.join(outputDir, "learned-string-trio", "composition.mid")));
+    } catch (error) {
+        if (String(error?.message ?? error).includes("No module named 'music21'")) {
+            t.skip("music21 is not installed in the local test environment");
+            return;
+        }
+        throw error;
+    } finally {
+        config.outputDir = previousOutputDir;
+        config.pythonBin = previousPythonBin;
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+});
+
+test("learned_symbolic falls back to music21 when the narrow lane rejects the request", { skip: !pythonBin }, async (t) => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-learned-fallback-"));
+    const outputDir = path.join(tempRoot, "outputs");
+    const previousOutputDir = config.outputDir;
+    const previousPythonBin = config.pythonBin;
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    try {
+        config.outputDir = outputDir;
+        config.pythonBin = pythonBin;
+
+        const result = await compose({
+            songId: "learned-fallback-probe",
+            prompt: "Compose a compact piano miniature with a clear cadence.",
+            key: "C major",
+            tempo: 84,
+            form: "miniature",
+            workflow: "symbolic_only",
+            selectedModels: [
+                { role: "structure", provider: "learned", model: "learned-symbolic-trio-v1" },
+            ],
+            compositionPlan: {
+                version: "plan-v1",
+                brief: "piano fallback probe",
+                form: "miniature",
+                workflow: "symbolic_only",
+                instrumentation: [
+                    { name: "Piano", family: "keyboard", roles: ["lead", "bass"] },
+                ],
+                sections: [
+                    {
+                        id: "s1",
+                        role: "theme_a",
+                        label: "Opening",
+                        measures: 4,
+                        energy: 0.35,
+                        density: 0.3,
+                        phraseFunction: "presentation",
+                        harmonicPlan: {
+                            tonalCenter: "C major",
+                            harmonicRhythm: "medium",
+                            cadence: "half",
+                            allowModulation: false,
+                        },
+                    },
+                    {
+                        id: "s2",
+                        role: "cadence",
+                        label: "Cadence",
+                        measures: 4,
+                        energy: 0.41,
+                        density: 0.34,
+                        phraseFunction: "cadential",
+                        harmonicPlan: {
+                            tonalCenter: "C major",
+                            harmonicRhythm: "medium",
+                            cadence: "authentic",
+                            allowModulation: false,
+                        },
+                    },
+                ],
+            },
+        });
+
+        assert.equal(result.executionPlan?.composeWorker, "music21");
+        assert.equal(result.meta?.selectedModels?.[0]?.provider, "python");
+        assert.equal(result.meta?.selectedModels?.[0]?.model, "music21-symbolic-v1");
+        assert.equal(result.proposalEvidence, undefined);
+        assert.ok(result.midiData.length > 0);
+        assert.ok(fs.existsSync(path.join(outputDir, "learned-fallback-probe", "composition.mid")));
     } catch (error) {
         if (String(error?.message ?? error).includes("No module named 'music21'")) {
             t.skip("music21 is not installed in the local test environment");
@@ -1661,7 +2286,7 @@ test("learned_symbolic worker localizes targeted rewrite to the requested weak s
                 workflow: "symbolic_only",
                 instrumentation: [
                     { name: "Violin", family: "strings", roles: ["lead"] },
-                    { name: "Viola", family: "strings", roles: ["support"] },
+                    { name: "Viola", family: "strings", roles: ["inner_voice"] },
                     { name: "Cello", family: "strings", roles: ["bass"] },
                 ],
                 orchestration: {

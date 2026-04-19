@@ -1108,6 +1108,9 @@ export type ModelRole =
 The worker name should remain model-generic.
 An initial adapter may wrap a NotaGen-class ABC generator, but AXIOM should not hard-code one repository name into its long-term contract.
 
+External reference candidates for this learned-worker slot, localized rewrite ideas, and theory-engine support are summarized in [symbolic-backbone-reference.md](symbolic-backbone-reference.md), while the full nine-repository layered priority map lives in [external-repository-stack.md](external-repository-stack.md).
+Concrete implementation details for the first learned backbone adapter live in [notagen-class-adapter-design.md](notagen-class-adapter-design.md), and the stronger targeted rewrite design lives in [deepbach-style-localized-rewrite-design.md](deepbach-style-localized-rewrite-design.md).
+
 #### Candidate flow
 
 ```mermaid
@@ -1337,8 +1340,8 @@ Status:
 2. the heuristic attempt winner drives localized retry directives while both candidates remain persisted for reranker inspection and later promotion
 3. operator summary and projection artifacts now expose recent hybrid disagreement and promotion rows with selected worker, counterfactual worker, lane, and the persisted hybrid stop-reason
 4. targeted runtime regression now verifies that same-attempt hybrid candidates persist both sidecars and the hybrid stop-reason before downstream humanize or render stages begin
-5. `structure_rank_v1` export now carries candidate proposal evidence, including learned worker, lane, generation mode, confidence, and proposal summary fields, so hybrid-lane evidence can feed future reranker or proposal-worker training
-6. offline shadow training and runtime shadow scoring now both consume proposal-evidence features from the hybrid lane, so learned worker, lane, generation mode, confidence, and proposal summary fields can influence disagreement ranking instead of living only in sidecar metadata
+5. `structure_rank_v1` export now carries candidate proposal evidence, including learned worker, lane, generation mode, confidence, normalization warnings with explicit warning counts, and proposal summary fields, so hybrid-lane evidence can feed future reranker or proposal-worker training
+6. offline shadow training and runtime shadow scoring now both consume proposal-evidence features from the hybrid lane, including normalization-warning counts and role-collapse warning counts, so learned worker, lane, generation mode, confidence, warning drift, and proposal summary fields can influence disagreement ranking instead of living only in sidecar metadata
 7. targeted promotion regression now proves that the narrow `string_trio_symbolic` lane can promote the learned candidate from proposal-evidence features alone, even when heuristic structure score still prefers the baseline candidate
 8. end-to-end `runPipeline(...)` regression now verifies that proposal-driven reranker promotion persists the selected learned candidate snapshot, promotion summary, and combined stop-reason before downstream humanize or render failures can erase that truth-plane evidence
 9. operator summary, projection markdown, and bridge-compatible artifacts now expose `retryLocalizationOutcomes` for the promoted hybrid lane, splitting promoted vs heuristic retries into section-targeted-only, mixed, and global-only buckets so Stage L5 exit criterion 2 is visible without manual manifest forensics
@@ -1384,6 +1387,136 @@ Exit criteria:
 3. Do not let the first learned worker claim general orchestration competence.
 4. Do not fold the learned track into `audio_only` first just because it is easier to demo.
 5. Do not hide learned disagreement or confidence behind one opaque score.
+
+## Post-L6 Execution Program
+
+Stage L6 closed the current narrow-lane evidence set, but it did not solve the larger musical-generation problem.
+The next implementation cycle should stop spending its main budget on scheduler surfaces or more operator wrappers.
+It should spend that budget on three linked upgrades:
+
+1. a real learned symbolic backbone that can consume the existing plan contract as a first-class generator
+2. a larger search budget that uses persisted candidate sidecars as real selection evidence rather than as audit-only metadata
+3. a feedback loop that turns human approval, retry lineage, and candidate comparison into training data for both reranking and localized rewrite
+
+### Program Guardrails
+
+1. Keep `outputs/<songId>/` and `outputs/_system/` truth-plane contracts backward-compatible.
+2. Keep `music21` as the fallback and regression baseline until a learned backbone wins on reviewed narrow-lane evidence.
+3. Do not claim broad composer-grade orchestration or long-form mastery from the first narrow learned win.
+4. Do not move this work into `audio_only`; the canonical comparison lane remains `symbolic_only` and then `symbolic_plus_audio`.
+5. Treat `CompositionPlan`, `section-artifacts.json`, candidate sidecars, and review metadata as the contract surface to be consumed, not merely described.
+
+### Next 90 Days
+
+#### Day 0-30: Freeze The Learning Interface
+
+Goal:
+
+Turn the current truth plane into a stable training interface before changing the generator hierarchy.
+
+Required work:
+
+1. Define versioned dataset products for backbone training, localized rewrite training, and candidate reranking.
+2. Export selected-piece, candidate-group, and localized-rewrite rows from persisted manifests and sidecars instead of relying only on the current `structure_rank_v1` snapshot.
+3. Lock one narrow execution family for promotion work, preferably `string_trio_symbolic`, and keep the prompt pack, review rubric, and score surfaces stable across all experiments.
+4. Add explicit data-quality tiers so reviewed runs, unreviewed high-scoring runs, and synthetic teacher rows are never mixed without provenance.
+
+Exit criteria:
+
+1. A versioned dataset design exists for the current truth plane, with leakage rules and row eligibility defined.
+2. Export scripts can reconstruct selected-piece rows, candidate-group rows, and targeted-rewrite rows without reading transient runtime state.
+3. The current narrow lane has a fixed benchmark pack and a fixed approval rubric for later promotion decisions.
+
+Reference documents:
+
+1. [truth-plane-dataset-design.md](truth-plane-dataset-design.md)
+2. [backbone-search-reranker-matrix.md](backbone-search-reranker-matrix.md)
+3. [external-repository-stack.md](external-repository-stack.md)
+4. [symbolic-backbone-reference.md](symbolic-backbone-reference.md)
+5. [notagen-class-adapter-design.md](notagen-class-adapter-design.md)
+6. [deepbach-style-localized-rewrite-design.md](deepbach-style-localized-rewrite-design.md)
+
+#### Day 31-60: Promote One Real Learned Backbone
+
+Goal:
+
+Replace "learned as a proposer only" with "learned as a first-class generator" in one constrained family.
+
+Required work:
+
+1. Train or integrate one learned symbolic worker that accepts the existing plan contract: form, sections, phrase function, harmonic route, texture roles, and expression defaults.
+2. Keep `music21` running as the paired baseline under the same request and plan so every reviewed run still produces a clean counterfactual.
+3. Make the learned worker generate whole-piece candidates, not only proposal metadata or narrow localized rewrites.
+4. Preserve current fallback and rollback behavior: unsupported plans or worker failures must still collapse back to baseline `music21` without breaking queue or recovery semantics.
+
+Exit criteria:
+
+1. One learned worker can generate full narrow-lane candidates from the current `CompositionPlan` contract.
+2. The same request can still produce paired baseline and learned candidates for audit and reranking.
+3. The learned worker is evaluated by the same structure, audio, and review surfaces as the baseline path.
+
+#### Day 61-90: Turn Search And Review Into The Main Value Loop
+
+Goal:
+
+Make AXIOM win by search and selection rather than by trusting one sample.
+
+Required work:
+
+1. Raise whole-piece candidate count above the current paired-baseline minimum and add localized rewrite branching on the weakest sections of the top candidates.
+2. Promote the feedback-aware reranker from offline evidence toward real shortlist control once reviewed sample volume is sufficient.
+3. Route human review toward pairwise or shortlist decisions instead of only final approval text so the data loop learns from near-misses.
+4. Track selection quality with approval rate, appeal score, blind preference win rate, retry localization stability, and reviewed top-1 accuracy instead of only heuristic structure score.
+
+Exit criteria:
+
+1. Search budget changes increase reviewed top-1 quality relative to the single-sample or paired-minimum baseline.
+2. Feedback-aware reranking beats heuristic selection on reviewed candidate groups with enough sample size to clear the narrow-lane sparse-evidence floor.
+3. Localized rewrite stays localized under higher search budgets and does not collapse into whole-piece drift.
+
+### Practical External Execution Order
+
+The external repository plan should be executed in the same order as the internal promotion logic.
+That means AXIOM should not jump from "first learned backbone" straight to render infrastructure or score-export tooling.
+
+Recommended staging:
+
+1. integrate one NotaGen-class adapter behind `learned_symbolic` while keeping `music21` as the paired baseline, fallback path, and canonical theory engine
+2. increase candidate count and promote feedback-aware reranking so the learned lane is judged by shortlist quality and reviewed top-1 quality rather than by one sample
+3. introduce DeepBach-style localized rewrite only after the candidate-group loop is stable enough to show whether the repair improved the weak span without collateral drift
+4. evaluate sfizz as a headless SFZ render-backend track only after the symbolic winner is stable enough that render changes will not obscure backbone comparisons
+5. use MuseScore and LilyPond later for human review and final score export once selected works consistently survive the narrow-lane promotion gates
+6. keep music21-mcp-server and LangGraph parked until service boundaries and long-running orchestration needs are large enough to justify the added complexity
+
+Clarification:
+
+1. the MuseScore-related work above refers to score review or proofreading surfaces; the `MuseScore_General.sf3` GM SoundFont adoption is already complete and should not be mistaken for the future review-surface phase
+2. sfizz is a render-infrastructure decision, not the main blocker for the first learned-backbone promotion
+3. localized rewrite remains valuable, but it should enter after search and reranking become the primary value loop rather than before them
+
+### After Day 90
+
+Only after the 90-day program clears the narrow-lane gates should AXIOM widen scope.
+
+Allowed next expansions:
+
+1. one longer-form family with explicit exposition-development-recap or equivalent long-span payoff evaluation
+2. one broader instrumentation family after the learned backbone can already consume texture-role and orchestration fields in the narrow family
+3. one stronger pairwise-review loop for promotion decisions and localized rewrite distillation
+
+Not yet allowed:
+
+1. broad orchestration or master-composer claims from narrow-lane evidence alone
+2. removing `music21` as the baseline comparator before reviewed promotion data is strong enough
+3. replacing dataset provenance with prompt-only supervision or final approval labels alone
+
+### Concrete Deliverables
+
+This program should produce three concrete artifacts, not just new code paths.
+
+1. a dataset design that turns the current truth plane into versioned training products
+2. an experiment matrix that compares backbone, search budget, and reranker policy under fixed review rules
+3. one narrow-lane promotion gate that names the minimum reviewed evidence needed before the learned backbone stops being "experimental"
 
 ## Deferred Work
 

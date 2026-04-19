@@ -1,0 +1,120 @@
+{
+    "generated_at": "2026-04-19T05:08:10.807Z",
+    "lane": "string_trio_symbolic",
+    "benchmark_pack_version": "string_trio_symbolic_benchmark_pack_v1",
+    "benchmark_ids": [
+        "cadence_clarity_reference",
+        "counterline_dialogue_probe",
+        "localized_rewrite_probe"
+    ],
+    "source_command": "npm run ml:summarize:learned-backbone -- --outputDir outputs",
+    "review_packs_completed": [
+        "2026-04-19-stage-a-s1-pack-r01",
+        "2026-04-19-stage-a-s1-pack-r02"
+    ],
+    "metrics": {
+        "runCount": 7,
+        "pairedRunCount": 7,
+        "reviewedRunCount": 0,
+        "pendingReviewCount": 7,
+        "blindPreference": {
+            "available": true,
+            "winRate": 0,
+            "reviewedPairCount": 7,
+            "decisivePairCount": 6,
+            "learnedWinCount": 0,
+            "baselineWinCount": 6,
+            "tieCount": 1
+        },
+        "reviewedTop1Accuracy": {
+            "available": true,
+            "selectedTop1Accuracy": 0.6667,
+            "decisiveReviewedPairCount": 6,
+            "correctSelectionCount": 4,
+            "learnedSelectedTop1Accuracy": 0,
+            "baselineSelectedTop1Accuracy": 1
+        },
+        "reviewQueue": {
+            "pendingBlindReviewCount": 0,
+            "pendingShortlistReviewCount": 0
+        },
+        "reviewPacks": {
+            "matchedPackCount": 2,
+            "activePackCount": 0,
+            "pendingDecisionCount": 0,
+            "completedDecisionCount": 7
+        },
+        "reviewSampleStatus": {
+            "status": "directional_only",
+            "reviewedRunCount": 0,
+            "reviewedDisagreementCount": 0,
+            "remainingReviewedRunCountForScreening": 20,
+            "remainingReviewedRunCountForPromotion": 30,
+            "remainingReviewedDisagreementCountForPromotion": 10
+        },
+        "promotionGate": {
+            "status": "experimental",
+            "signal": "negative",
+            "blockers": [
+                "reviewed_runs_below_floor",
+                "reviewed_disagreements_below_floor",
+                "shortlist_quality_unavailable",
+                "reviewed_outcomes_favor_baseline"
+            ]
+        },
+        "retryLocalizationStability": {
+            "status": "not_enough_retry_data"
+        },
+        "disagreementSummary": {
+            "disagreementRunCount": 0,
+            "reviewedDisagreementCount": 0
+        },
+        "selectionModeCounts": {
+            "learned_selected": 2,
+            "baseline_selected": 5
+        },
+        "searchBudgetCounts": {
+            "S1": 7
+        }
+    },
+    "coverage": [
+        {
+            "benchmarkId": "cadence_clarity_reference",
+            "runCount": 3,
+            "selectedWorkerCounts": {
+                "learned_symbolic": 2,
+                "music21": 1
+            },
+            "directionalRead": "blind_review_favors_baseline"
+        },
+        {
+            "benchmarkId": "localized_rewrite_probe",
+            "runCount": 3,
+            "selectedWorkerCounts": {
+                "music21": 3
+            },
+            "directionalRead": "no_learned_advantage_observed"
+        },
+        {
+            "benchmarkId": "counterline_dialogue_probe",
+            "runCount": 1,
+            "selectedWorkerCounts": {
+                "music21": 1
+            },
+            "directionalRead": "baseline_selected_and_blind_review_favored_baseline"
+        }
+    ],
+    "decision": {
+        "verdict": "DO_NOT_ADVANCE_PAST_STAGE_A",
+        "keepBaselineAuthoritative": true,
+        "keepLearnedBackboneExperimental": true,
+        "advanceToStageB": false,
+        "advanceToStageC": false,
+        "backboneComplete": false
+    },
+    "next_work": [
+        "Improve whole-piece learned backbone quality on cadence clarity and counterline dialogue before larger search cells.",
+        "Record manifest-level approvalStatus and reviewFeedback if approval-rate and appeal-score evidence is needed for the gate.",
+        "Repeat the fixed S1 checkpoint only after a material learned-backbone change."
+    ]
+}

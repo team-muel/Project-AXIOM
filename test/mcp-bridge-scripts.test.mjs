@@ -10,6 +10,8 @@ import { runNodeEval, parseLastJsonLine } from "./helpers/subprocess.mjs";
 
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
+const learnedBackboneBenchmarkPackVersion = "string_trio_symbolic_benchmark_pack_v1";
+const learnedBackbonePromptPackVersion = "learned_symbolic_prompt_pack_v1";
 
 function createTempRuntimeRoot(prefix) {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -18,6 +20,11 @@ function createTempRuntimeRoot(prefix) {
     fs.mkdirSync(outputDir, { recursive: true });
     fs.mkdirSync(logDir, { recursive: true });
     return { tempRoot, outputDir, logDir };
+}
+
+function writeJson(filePath, value) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
 }
 
 function seedPendingApprovalManifest(outputDir, overrides = {}) {
@@ -212,6 +219,252 @@ function createReviewOnlyAudioEvaluation() {
     };
 }
 
+function buildLearnedBackboneCandidateEntry({
+    outputDir,
+    songId,
+    candidateId,
+    selected,
+    worker,
+    provider,
+    model,
+    attempt,
+    evaluatedAt,
+    proposalEvidence,
+    revisionDirectives = [],
+}) {
+    const manifestPath = path.join(outputDir, songId, "candidates", candidateId, "candidate-manifest.json");
+    writeJson(manifestPath, {
+        version: 1,
+        stage: "structure",
+        songId,
+        candidateId,
+        attempt,
+        selected,
+        evaluatedAt,
+        workflow: "symbolic_only",
+        worker,
+        provider,
+        model,
+        revisionDirectives,
+        ...(proposalEvidence ? { proposalEvidence } : {}),
+        artifacts: {},
+    });
+
+    return {
+        candidateId,
+        attempt,
+        stage: "structure",
+        selected,
+        workflow: "symbolic_only",
+        worker,
+        provider,
+        model,
+        passed: true,
+        score: selected ? 88 : 84,
+        evaluatedAt,
+        manifestPath,
+        ...(proposalEvidence ? { proposalEvidence } : {}),
+    };
+}
+
+function seedLearnedBackboneBenchmarkReviewedFixtures(outputDir) {
+    const benchmarkId = "stage-b-string-trio";
+    const benchmarkSongs = [
+        {
+            songId: "benchmark-approved-song",
+            approvalStatus: "approved",
+            appealScore: 0.93,
+            updatedAt: "2026-04-17T04:07:00.000Z",
+            selectedRevisionDirectives: [{ kind: "clarify_phrase_rhetoric", sectionIds: ["s2"] }],
+        },
+        {
+            songId: "benchmark-rejected-song",
+            approvalStatus: "rejected",
+            appealScore: 0.31,
+            updatedAt: "2026-04-17T04:08:00.000Z",
+            weakestDimension: "cadence_release",
+            selectedRevisionDirectives: [{ kind: "increase_rhythm_variety" }],
+        },
+    ];
+
+    for (const item of benchmarkSongs) {
+        writeJson(path.join(outputDir, item.songId, "manifest.json"), {
+            songId: item.songId,
+            state: "DONE",
+            approvalStatus: item.approvalStatus,
+            reviewFeedback: {
+                appealScore: item.appealScore,
+                reviewRubricVersion: "approval_review_rubric_v1",
+                ...(item.weakestDimension ? { weakestDimension: item.weakestDimension } : {}),
+            },
+            meta: {
+                songId: item.songId,
+                prompt: item.songId,
+                form: "string trio miniature",
+                workflow: "symbolic_only",
+                source: "autonomy",
+                autonomyRunId: `run-${item.songId}`,
+                promptHash: `hash-${item.songId}`,
+                createdAt: item.updatedAt,
+                updatedAt: item.updatedAt,
+            },
+            artifacts: {
+                midi: `outputs/${item.songId}/composition.mid`,
+            },
+            selfAssessment: {
+                qualityScore: 0.5,
+            },
+            structureEvaluation: createReviewOnlyStructureEvaluation(),
+            audioEvaluation: createReviewOnlyAudioEvaluation(),
+            qualityControl: {
+                selectedAttempt: 1,
+                attempts: [],
+            },
+            stateHistory: [
+                { state: "IDLE", timestamp: item.updatedAt },
+                { state: "DONE", timestamp: item.updatedAt },
+            ],
+            updatedAt: item.updatedAt,
+        });
+
+        const baselineCandidateId = `${item.songId}-baseline`;
+        const learnedCandidateId = `${item.songId}-learned`;
+        const learnedEntry = buildLearnedBackboneCandidateEntry({
+            outputDir,
+            songId: item.songId,
+            candidateId: learnedCandidateId,
+            selected: false,
+            worker: "learned_symbolic",
+            provider: "learned",
+            model: "learned-symbolic-trio-v1",
+            attempt: 1,
+            evaluatedAt: item.updatedAt,
+            proposalEvidence: {
+                worker: "learned_symbolic",
+                lane: "string_trio_symbolic",
+                provider: "learned",
+                model: "learned-symbolic-trio-v1",
+                benchmarkPackVersion: learnedBackboneBenchmarkPackVersion,
+                benchmarkId,
+                promptPackVersion: learnedBackbonePromptPackVersion,
+                planSignature: "lane=string_trio_symbolic|sig=stage-b-reviewed",
+                generationMode: "plan_conditioned_trio_template",
+            },
+        });
+        const baselineEntry = buildLearnedBackboneCandidateEntry({
+            outputDir,
+            songId: item.songId,
+            candidateId: baselineCandidateId,
+            selected: true,
+            worker: "music21",
+            provider: "python",
+            model: "music21-symbolic-v1",
+            attempt: 1,
+            evaluatedAt: item.updatedAt,
+            revisionDirectives: item.selectedRevisionDirectives,
+        });
+
+        writeJson(path.join(outputDir, item.songId, "candidates", "index.json"), {
+            version: 1,
+            songId: item.songId,
+            updatedAt: item.updatedAt,
+            selectedCandidateId: baselineCandidateId,
+            selectedAttempt: 1,
+            selectionStopReason: `hybrid candidate pool kept music21 over learned_symbolic on ${benchmarkId}`,
+            entries: [learnedEntry, baselineEntry],
+        });
+    }
+}
+
+async function seedActiveLearnedBackboneBlindReviewPack(outputDir, snapshot = "active-pack-v1") {
+    const packDir = path.join(outputDir, "_system", "ml", "review-packs", "learned-backbone", snapshot);
+    const generatedAt = "2026-04-18T12:00:00.000Z";
+    const sourceReviewQueue = {
+        pendingOnly: true,
+        reviewTarget: "pairwise",
+        candidatePairCount: 2,
+        pendingBlindReviewCount: 2,
+        pendingShortlistReviewCount: 0,
+    };
+    const answerEntries = [
+        {
+            entryId: "bridge-pack-1",
+            songId: "benchmark-approved-song",
+            benchmarkId: "stage-b-string-trio",
+            planSignature: "lane=string_trio_symbolic|sig=stage-b-reviewed",
+            selectedWorker: "music21",
+            selectionMode: "baseline_selected",
+            reviewTarget: "pairwise",
+            selectedInShortlist: false,
+            learned: { label: "A" },
+            baseline: { label: "B" },
+        },
+        {
+            entryId: "bridge-pack-2",
+            songId: "benchmark-rejected-song",
+            benchmarkId: "stage-b-string-trio",
+            planSignature: "lane=string_trio_symbolic|sig=stage-b-reviewed",
+            selectedWorker: "music21",
+            selectionMode: "baseline_selected",
+            reviewTarget: "pairwise",
+            selectedInShortlist: false,
+            learned: { label: "A" },
+            baseline: { label: "B" },
+        },
+    ];
+    const reviewSheetPath = path.join(packDir, "review-sheet.csv");
+
+    writeJson(path.join(packDir, "pack.json"), {
+        version: 1,
+        type: "learned_backbone_blind_review_pack",
+        packId: snapshot,
+        generatedAt,
+        lane: "string_trio_symbolic",
+        benchmarkPackVersion: learnedBackboneBenchmarkPackVersion,
+        sourceReviewQueue,
+        entryCount: answerEntries.length,
+        entries: [],
+    });
+    writeJson(path.join(packDir, "answer-key.json"), {
+        version: 1,
+        type: "learned_backbone_blind_review_answer_key",
+        packId: snapshot,
+        generatedAt,
+        lane: "string_trio_symbolic",
+        benchmarkPackVersion: learnedBackboneBenchmarkPackVersion,
+        sourceReviewQueue,
+        entryCount: answerEntries.length,
+        entries: answerEntries,
+    });
+    writeJson(path.join(packDir, "results.json"), {
+        version: 1,
+        type: "learned_backbone_blind_review_results",
+        packId: snapshot,
+        generatedAt,
+        lane: "string_trio_symbolic",
+        benchmarkPackVersion: learnedBackboneBenchmarkPackVersion,
+        results: [],
+    });
+    fs.mkdirSync(packDir, { recursive: true });
+    fs.writeFileSync(
+        reviewSheetPath,
+        [
+            "entryId,songId,benchmarkId,reviewTarget,winnerLabel,reviewedAt,reviewerId,notes,allowedWinnerLabels,midiAPath,midiBPath",
+            "bridge-pack-1,benchmark-approved-song,stage-b-string-trio,pairwise,,,,,A|B|TIE|SKIP,,",
+            "bridge-pack-2,benchmark-rejected-song,stage-b-string-trio,pairwise,,,,,A|B|TIE|SKIP,,",
+            "",
+        ].join("\n"),
+        "utf8",
+    );
+
+    return {
+        packId: snapshot,
+        paths: {
+            reviewSheetPath,
+        },
+    };
+}
+
 function seedOperatorAction(outputDir, overrides = {}) {
     const operatorActionDir = path.join(outputDir, "_system", "operator-actions");
     const payload = {
@@ -243,9 +496,17 @@ function seedShadowRerankerEvidence(outputDir, overrides = {}) {
     const selectedCandidateId = overrides.selectedCandidateId || "structure-a2-selected";
     const learnedTopCandidateId = overrides.learnedTopCandidateId || "structure-a1-learned";
     const learnedConfidence = overrides.learnedConfidence ?? 0.81;
+    const learnedNormalizationWarnings = Array.isArray(overrides.learnedNormalizationWarnings)
+        ? overrides.learnedNormalizationWarnings
+        : ["section s1 role collapse: expected lead,counterline,bass got lead,bass"];
     const disagreement = overrides.disagreement ?? true;
     const promotionApplied = overrides.promotionApplied ?? false;
     const promotionLane = overrides.promotionLane || "string_trio_symbolic";
+    const benchmarkId = overrides.benchmarkId || null;
+    const benchmarkPackVersion = overrides.benchmarkPackVersion || (benchmarkId ? "string_trio_symbolic_benchmark_pack_v1" : null);
+    const promptPackVersion = overrides.promptPackVersion || (benchmarkId ? "learned_symbolic_prompt_pack_v1" : null);
+    const planSignature = overrides.planSignature || (benchmarkId ? `${promotionLane}:${benchmarkId}` : null);
+    const benchmarkGenerationMode = overrides.benchmarkGenerationMode || (benchmarkId ? "plan_conditioned_trio_template" : null);
     const reason = overrides.reason || "learned favored sectionArtifactCoverage, phraseBreathCueDensity";
     const selectionStopReason = overrides.selectionStopReason
         || `structure evaluation accepted the symbolic draft; hybrid candidate pool kept music21 over learned_symbolic in ${promotionLane} lane on heuristic structure score (88.0 vs 84.0)${promotionApplied ? `; learned reranker promoted attempt 1 over heuristic attempt 2 in ${promotionLane} lane (snapshot=${snapshotId}; confidence=${learnedConfidence.toFixed(3)})` : ""}`;
@@ -254,6 +515,15 @@ function seedShadowRerankerEvidence(outputDir, overrides = {}) {
     const selectedManifestPath = path.join(selectedCandidateDir, "candidate-manifest.json");
     const selectedScorePath = path.join(selectedCandidateDir, "reranker-score.json");
     const learnedManifestPath = path.join(learnedCandidateDir, "candidate-manifest.json");
+    const learnedBenchmarkEvidence = benchmarkId
+        ? {
+            benchmarkId,
+            benchmarkPackVersion,
+            promptPackVersion,
+            planSignature,
+            generationMode: benchmarkGenerationMode,
+        }
+        : null;
 
     fs.mkdirSync(selectedCandidateDir, { recursive: true });
     fs.mkdirSync(learnedCandidateDir, { recursive: true });
@@ -402,6 +672,10 @@ function seedShadowRerankerEvidence(outputDir, overrides = {}) {
             provider: "learned",
             model: "learned-symbolic-trio-v1",
             confidence: learnedConfidence,
+            ...(learnedBenchmarkEvidence ?? {}),
+            ...(learnedNormalizationWarnings.length > 0
+                ? { normalizationWarnings: learnedNormalizationWarnings }
+                : {}),
         },
         shadowReranker: learnedShadowSummary,
         artifacts: {},
@@ -480,6 +754,10 @@ function seedShadowRerankerEvidence(outputDir, overrides = {}) {
                     provider: "learned",
                     model: "learned-symbolic-trio-v1",
                     confidence: learnedConfidence,
+                    ...(learnedBenchmarkEvidence ?? {}),
+                    ...(learnedNormalizationWarnings.length > 0
+                        ? { normalizationWarnings: learnedNormalizationWarnings }
+                        : {}),
                 },
                 shadowReranker: learnedShadowSummary,
             },
@@ -852,6 +1130,12 @@ test("print-operator-summary emits canonical operator summary from AXIOM runtime
         assert.equal(payload.queue.backlog.topJobs[0].orchestration.registerBalanceFit, 0.86);
         assert.equal(payload.queue.backlog.topJobs[0].orchestration.doublingPressureFit, 0.8);
         assert.deepEqual(payload.queue.backlog.topJobs[0].orchestration.weakSectionIds, ["s2"]);
+        assert.equal(payload.overseer.learnedProposalWarnings.sampledManifestCount, 2);
+        assert.equal(payload.overseer.learnedProposalWarnings.proposalCount, 1);
+        assert.equal(payload.overseer.learnedProposalWarnings.proposalWithWarningsCount, 1);
+        assert.equal(payload.overseer.learnedProposalWarnings.totalWarningCount, 1);
+        assert.equal(payload.overseer.learnedProposalWarnings.roleCollapseWarningCount, 1);
+        assert.match(payload.overseer.learnedProposalWarnings.topWarnings[0].warning ?? "", /role collapse/);
         assert.equal(payload.overseer.shadowReranker.manifestCount, 2);
         assert.equal(payload.overseer.shadowReranker.scoredManifestCount, 1);
         assert.equal(payload.overseer.shadowReranker.disagreementCount, 1);
@@ -891,6 +1175,8 @@ test("print-operator-summary emits canonical operator summary from AXIOM runtime
         assert.match(JSON.stringify(payload.artifacts), /audioLongSpan=collapsed:tonal_return/);
         assert.match(JSON.stringify(payload.artifacts), /longSpanDivergence=render_collapsed:tonal_return\+recap_recall@s3>s4,\+s5>s6/);
         assert.match(JSON.stringify(payload.artifacts), /longSpanReason=Rendered weak section Recap \(s3\) must reconverge with paired symbolic weak section Coda Cadence \(s4\)\./);
+        assert.match(JSON.stringify(payload.artifacts), /learnedProposalWarnings manifests=2 proposals=1 warningProposals=1 warnings=1 roleCollapse=1/);
+        assert.match(JSON.stringify(payload.artifacts), /learnedProposalWarning count=1 proposals=1 lastSeen=2026-04-10T03:05:30.000Z song=pending-song warning=section s1 role collapse: expected lead,counterline,bass got lead,bass/);
         assert.match(JSON.stringify(payload.artifacts), /shadowReranker manifests=2 scored=1 disagreements=1 highConfidence=1 promotions=1 agreementRate=0\.00 avgConfidence=0\.81 snapshot=shadow-live/);
         assert.match(JSON.stringify(payload.artifacts), /shadowReranker runtimeWindow=12h sampled=1 disagreements=1 highConfidence=1/);
         assert.match(JSON.stringify(payload.artifacts), /shadowReranker disagreement song=pending-song lane=string_trio_symbolic selected=structure-a2-selected selectedWorker=music21 learnedTop=structure-a1-learned learnedTopWorker=learned_symbolic confidence=0\.81 snapshot=shadow-live/);
@@ -1132,6 +1418,12 @@ test("project-operator-summary writes latest artifacts and daily history", async
         assert.equal(result.latestPayload.overseer.harmonicColorTrend.weakManifestCount, 1);
         assert.equal(result.latestPayload.overseer.harmonicColorTrend.averagePlanFit, 0.62);
         assert.equal(result.latestPayload.overseer.harmonicColorTrend.averageProlongationMotionFit, 0.615);
+        assert.equal(result.latestPayload.overseer.learnedProposalWarnings.sampledManifestCount, 2);
+        assert.equal(result.latestPayload.overseer.learnedProposalWarnings.proposalCount, 1);
+        assert.equal(result.latestPayload.overseer.learnedProposalWarnings.proposalWithWarningsCount, 1);
+        assert.equal(result.latestPayload.overseer.learnedProposalWarnings.totalWarningCount, 1);
+        assert.equal(result.latestPayload.overseer.learnedProposalWarnings.roleCollapseWarningCount, 1);
+        assert.match(result.latestPayload.overseer.learnedProposalWarnings.topWarnings[0].warning ?? "", /role collapse/);
         assert.equal(result.latestPayload.overseer.shadowReranker.manifestCount, 2);
         assert.equal(result.latestPayload.overseer.shadowReranker.scoredManifestCount, 1);
         assert.equal(result.latestPayload.overseer.shadowReranker.disagreementCount, 1);
@@ -1171,6 +1463,9 @@ test("project-operator-summary writes latest artifacts and daily history", async
         assert.match(result.latestMarkdown, /- manifests=2 \| plan=0\.66 \| cov=0\.66 \| pickup=0\.61 \| arr=0\.60 \| rel=0\.58 \| weakManifests=1/);
         assert.match(result.latestMarkdown, /## Harmonic-Color Trend/);
         assert.match(result.latestMarkdown, /- manifests=2 \| plan=0\.62 \| cov=0\.62 \| target=0\.57 \| time=0\.58 \| tonic=0\.56 \| prolong=0\.61 \| weakManifests=1/);
+        assert.match(result.latestMarkdown, /## Learned Proposal Warnings/);
+        assert.match(result.latestMarkdown, /- manifests=2 \| proposals=1 \| warningProposals=1 \| warnings=1 \| roleCollapse=1/);
+        assert.match(result.latestMarkdown, /- x1 \| proposals=1 \| lastSeen=2026-04-10T03:05:30.000Z \| song=pending-song \| section s1 role collapse: expected lead,counterline,bass got lead,bass/);
         assert.match(result.latestMarkdown, /## Shadow Reranker/);
         assert.match(result.latestMarkdown, /- manifests=2 \| scored=1 \| disagreements=1 \| highConfidence=1 \| promotions=1 \| agreementRate=0\.00 \| avgConfidence=0\.81 \| snapshot=shadow-live/);
         assert.match(result.latestMarkdown, /- runtimeWindow=24h \| sampledRuns=1 \| disagreements=1 \| highConfidence=1/);
@@ -1178,6 +1473,8 @@ test("project-operator-summary writes latest artifacts and daily history", async
         assert.match(result.latestMarkdown, /- promotion song=pending-song \| lane=string_trio_symbolic \| selected=structure-a2-selected \| heuristicCounterfactual=structure-a2-selected \| confidence=0\.81 \| snapshot=shadow-live/);
         assert.match(result.latestMarkdown, /## Orchestration Trends/);
         assert.match(result.latestMarkdown, /- trio \| instruments=violin \/ viola \/ cello \| manifests=1 \| rng=0\.89 \| bal=0\.86 \| conv=0\.82 \| dbl=0\.80 \| rot=0\.77 \| weakManifests=1 \| avgWeakSections=1\.00/);
+        assert.match(JSON.stringify(result.latestPayload.artifacts), /learnedProposalWarnings manifests=2 proposals=1 warningProposals=1 warnings=1 roleCollapse=1/);
+        assert.match(JSON.stringify(result.upstreamCompatible.artifacts), /learnedProposalWarning count=1 proposals=1 lastSeen=2026-04-10T03:05:30.000Z song=pending-song warning=section s1 role collapse: expected lead,counterline,bass got lead,bass/);
         assert.match(result.latestMarkdown, /longSpanDivergence=render_collapsed:tonal_return\+recap_recall@s3>s4,\+s5>s6/);
         assert.match(result.latestMarkdown, /longSpanReason=Rendered weak section Recap \(s3\) must reconverge with paired symbolic weak section Coda Cadence \(s4\)\./);
         assert.match(JSON.stringify(result.latestPayload.artifacts), /shadowReranker manifests=2 scored=1 disagreements=1 highConfidence=1 promotions=1 agreementRate=0\.00 avgConfidence=0\.81 snapshot=shadow-live/);
@@ -1332,6 +1629,7 @@ test("project-operator-summary projects shadow reranker advantage and retry loca
         });
         seedShadowRerankerEvidence(outputDir, { songId: "promoted-reviewed-song", promotionApplied: true, learnedConfidence: 0.91, updatedAt: "2026-04-17T04:05:00.000Z" });
         seedShadowRerankerEvidence(outputDir, { songId: "heuristic-reviewed-song", promotionApplied: false, learnedConfidence: 0.74, updatedAt: "2026-04-17T04:06:00.000Z" });
+        seedLearnedBackboneBenchmarkReviewedFixtures(outputDir);
         seedShadowRerankerEvidence(outputDir, { songId: "promoted-pending-song", promotionApplied: true, learnedConfidence: 0.88, updatedAt: "2026-04-17T04:07:00.000Z" });
 
         const { stdout } = await runNodeEval(`
@@ -1883,6 +2181,8 @@ test("run-safe-unattended-sweep writes bridge, projection, warning, and stale-lo
         });
         seedShadowRerankerEvidence(outputDir, { songId: "promoted-reviewed-song", promotionApplied: true, learnedConfidence: 0.91, updatedAt: "2026-04-17T04:05:00.000Z" });
         seedShadowRerankerEvidence(outputDir, { songId: "heuristic-reviewed-song", promotionApplied: false, learnedConfidence: 0.74, updatedAt: "2026-04-17T04:06:00.000Z" });
+        seedLearnedBackboneBenchmarkReviewedFixtures(outputDir);
+        await seedActiveLearnedBackboneBlindReviewPack(outputDir);
         seedOperatorAction(outputDir, {
             action: "resume",
             reason: "evidence_cleared",
@@ -2007,6 +2307,7 @@ test("run-safe-unattended-sweep writes bridge, projection, warning, and stale-lo
         assert.equal(result.latest.recommendations.some((item) => item.includes("projection evidence is stale")), true);
         assert.equal(result.latest.recommendations.some((item) => item.includes("orchestration trend shows trio ensemble pressure")), true);
         assert.equal(result.latest.recommendations.some((item) => item.includes("before treating timbre as the root issue")), true);
+        assert.equal(result.latest.recommendations.some((item) => item.includes("learned backbone benchmark retry localization is drifting")), true);
         assert.equal(result.latest.recommendations.some((item) => item.includes("shadow reranker narrow-lane review data is still sparse")), true);
         assert.equal(result.latest.recommendations.some((item) => item.includes("latest operator action rollback note: Pause again if readiness drops during observation.")), true);
         assert.equal(result.latest.recommendations.some((item) => item.includes("latest operator action manual recovery note: Inspect operator-summary latest.json before retrying.")), true);
@@ -2029,6 +2330,37 @@ test("run-safe-unattended-sweep writes bridge, projection, warning, and stale-lo
         assert.equal(result.incidentLatest.orchestrationTrends[0].averageIdiomaticRangeFit, 0.89);
         assert.equal(result.incidentLatest.phraseBreathTrend.manifestCount, 2);
         assert.equal(result.incidentLatest.phraseBreathTrend.weakManifestCount, 1);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.runCount, 2);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.reviewSampleStatus.status, "directional_only");
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.reviewSampleStatus.remainingReviewedRunCountForPromotion, 28);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.reviewSampleStatus.remainingReviewedDisagreementCountForPromotion, 10);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.pairedSelectionOutcomes.reviewedManifestCount, 2);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.pairedSelectionOutcomes.promotedReviewedCount, 0);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.pairedSelectionOutcomes.heuristicReviewedCount, 2);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.selectedWorkerOutcomes.music21.runCount, 2);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.selectedWorkerOutcomes.music21.reviewedRunCount, 2);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.coverageRows.length, 1);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.coverageRows[0].benchmarkId, "stage-b-string-trio");
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.coverageRows[0].selectedWorkerCounts.music21, 2);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.retryLocalizationStability.status, "drifting");
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.reviewPacks.matchedPackCount, 1);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.reviewPacks.activePackCount, 1);
+        assert.equal(result.latest.projection.latest.overseer.learnedBackboneBenchmark.reviewPacks.recentActivePacks[0].reviewSheetPath, "outputs/_system/ml/review-packs/learned-backbone/active-pack-v1/review-sheet.csv");
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.runCount, 2);
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.reviewSampleStatus.status, "directional_only");
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.pairedSelectionOutcomes.reviewedManifestCount, 2);
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.pairedSelectionOutcomes.promotedReviewedCount, 0);
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.selectedWorkerOutcomes.music21.runCount, 2);
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.coverageRows.length, 1);
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.retryLocalizationStability.status, "drifting");
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.reviewPacks.matchedPackCount, 1);
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.reviewPacks.activePackCount, 1);
+        assert.equal(Array.isArray(result.incidentLatest.learnedBackboneBenchmark.reviewPackActions), true);
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.reviewPackActions.length, 0);
+        assert.equal(Array.isArray(result.incidentLatest.learnedBackboneBenchmark.reviewPackRecordActions), true);
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.reviewPackRecordActions[0].packId, "active-pack-v1");
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.reviewPackRecordActions[0].pendingDecisionCount, 2);
+        assert.equal(result.incidentLatest.learnedBackboneBenchmark.reviewPackRecordActions[0].command, "npm run ml:review-pack:record:learned-backbone -- --resultsFile outputs/_system/ml/review-packs/learned-backbone/active-pack-v1/review-sheet.csv");
         assert.equal(result.incidentLatest.shadowReranker.promotionOutcomes.reviewedManifestCount, 2);
         assert.equal(result.incidentLatest.shadowReranker.promotionAdvantage.sufficientReviewSample, false);
         assert.equal(result.incidentLatest.shadowReranker.promotionAdvantage.signal, "insufficient_data");
@@ -2048,6 +2380,17 @@ test("run-safe-unattended-sweep writes bridge, projection, warning, and stale-lo
         assert.match(result.latestMarkdown, /evidenceStale: yes/);
         assert.match(result.latestMarkdown, /pending-song/);
         assert.match(result.latestMarkdown, /## Repeated Warning Digest/);
+        assert.match(result.latestMarkdown, /## Learned Backbone Benchmark/);
+        assert.match(result.latestMarkdown, /- lane=string_trio_symbolic \| pack=string_trio_symbolic_benchmark_pack_v1 \| runs=2 \| paired=2 \| reviewed=2 \| pendingReview=0/);
+        assert.match(result.latestMarkdown, /- sampleStatus=directional_only \| reviewed=2 \| reviewedDisagreements=0/);
+        assert.match(result.latestMarkdown, /- pairedSelection reviewed=2 \| promotedReviewed=0 \| heuristicReviewed=2 \| promotedApproval=- \| heuristicApproval=0\.50 \| promotedAppeal=- \| heuristicAppeal=0\.62/);
+        assert.match(result.latestMarkdown, /- selectedWorkerOutcome worker=music21 \| runs=2 \| reviewed=2 \| pendingReview=0 \| approved=1 \| rejected=1 \| approvalRate=0\.50 \| avgAppeal=0\.62/);
+        assert.match(result.latestMarkdown, /- coverage benchmark=stage-b-string-trio \| runs=2 \| paired=2 \| reviewed=2 \| pendingReview=0 \| approvalRate=0\.50 \| avgAppeal=0\.62 \| selectedWorkers=music21:2 \| generationModes=plan_conditioned_trio_template:2 \| lastObserved=2026-04-17T04:08:00.000Z/);
+        assert.match(result.latestMarkdown, /- reviewQueue pendingBlind=2 \| pendingShortlist=0 \| latestPendingAt=/);
+        assert.match(result.latestMarkdown, /- reviewPacks matched=1 \| active=1 \| pendingDecisions=2 \| completedDecisions=0 \| latestGeneratedAt=.* \| latestReviewedAt=-/);
+        assert.match(result.latestMarkdown, /- reviewPack pack=active-pack-v1 \| target=pairwise \| entries=2 \| completed=0 \| pending=2 \| pendingShortlist=0 \| generatedAt=.* \| latestReviewedAt=- \| reviewSheet=outputs\/_system\/ml\/review-packs\/learned-backbone\/active-pack-v1\/review-sheet\.csv \| recordCommand=npm run ml:review-pack:record:learned-backbone -- --resultsFile outputs\/_system\/ml\/review-packs\/learned-backbone\/active-pack-v1\/review-sheet\.csv/);
+        assert.match(result.latestMarkdown, /- retryStability status=drifting \| retrying=2 \| sectionTargetedOnly=1 \| mixed=0 \| globalOnly=1 \| targetedRate=0\.50 \| driftRate=0\.50/);
+        assert.match(result.latestMarkdown, /- advisory: finish 2 pending worksheet decision\(s\) in 1 active learned backbone review pack before generating more blind-review packs; learned backbone benchmark retry localization is drifting/);
         assert.match(result.latestMarkdown, /## Stale Lock Digest/);
         assert.match(result.latestMarkdown, /orchestration trend shows trio ensemble pressure/);
         assert.match(result.latestMarkdown, /## Incident Draft/);
@@ -2061,6 +2404,16 @@ test("run-safe-unattended-sweep writes bridge, projection, warning, and stale-lo
         assert.match(result.incidentLatestMarkdown, /- trio \| instruments=violin \/ viola \/ cello \| manifests=1 \| rng=0\.89 \| bal=0\.86 \| conv=0\.82 \| dbl=0\.80 \| rot=0\.77 \| weakManifests=1 \| avgWeakSections=1\.00/);
         assert.match(result.incidentLatestMarkdown, /## Phrase-Breath Trend/);
         assert.match(result.incidentLatestMarkdown, /- manifests=2 \| plan=0\.66 \| cov=0\.66 \| pickup=0\.61 \| arr=0\.60 \| rel=0\.58 \| weakManifests=1/);
+        assert.match(result.incidentLatestMarkdown, /## Learned Backbone Benchmark/);
+        assert.match(result.incidentLatestMarkdown, /- sampleStatus=directional_only \| reviewed=2 \| reviewedDisagreements=0/);
+        assert.match(result.incidentLatestMarkdown, /- pairedSelection reviewed=2 \| promotedReviewed=0 \| heuristicReviewed=2 \| promotedApproval=- \| heuristicApproval=0\.50 \| promotedAppeal=- \| heuristicAppeal=0\.62/);
+        assert.match(result.incidentLatestMarkdown, /- selectedWorkerOutcome worker=music21 \| runs=2 \| reviewed=2 \| pendingReview=0 \| approved=1 \| rejected=1 \| approvalRate=0\.50 \| avgAppeal=0\.62/);
+        assert.match(result.incidentLatestMarkdown, /- coverage benchmark=stage-b-string-trio \| runs=2 \| paired=2 \| reviewed=2 \| pendingReview=0 \| approvalRate=0\.50 \| avgAppeal=0\.62 \| selectedWorkers=music21:2 \| generationModes=plan_conditioned_trio_template:2 \| lastObserved=2026-04-17T04:08:00.000Z/);
+        assert.match(result.incidentLatestMarkdown, /- reviewQueue pendingBlind=2 \| pendingShortlist=0 \| latestPendingAt=/);
+        assert.match(result.incidentLatestMarkdown, /- reviewPacks matched=1 \| active=1 \| pendingDecisions=2 \| completedDecisions=0 \| latestGeneratedAt=.* \| latestReviewedAt=-/);
+        assert.match(result.incidentLatestMarkdown, /- reviewPack pack=active-pack-v1 \| target=pairwise \| entries=2 \| completed=0 \| pending=2 \| pendingShortlist=0 \| generatedAt=.* \| latestReviewedAt=- \| reviewSheet=outputs\/_system\/ml\/review-packs\/learned-backbone\/active-pack-v1\/review-sheet\.csv \| recordCommand=npm run ml:review-pack:record:learned-backbone -- --resultsFile outputs\/_system\/ml\/review-packs\/learned-backbone\/active-pack-v1\/review-sheet\.csv/);
+        assert.match(result.incidentLatestMarkdown, /- retryStability status=drifting \| retrying=2 \| sectionTargetedOnly=1 \| mixed=0 \| globalOnly=1 \| targetedRate=0\.50 \| driftRate=0\.50/);
+        assert.match(result.incidentLatestMarkdown, /- advisory: finish 2 pending worksheet decision\(s\) in 1 active learned backbone review pack before generating more blind-review packs; learned backbone benchmark retry localization is drifting/);
         assert.match(result.incidentLatestMarkdown, /## Shadow Reranker/);
         assert.match(result.incidentLatestMarkdown, /- promotionAdvantage lane=string_trio_symbolic \| reviewed=2 \| promotedReviewed=1 \| heuristicReviewed=1 \| sufficientSample=no \| approvalDelta=1\.00 \| appealDelta=0\.62 \| signal=insufficient_data/);
         assert.match(result.incidentLatestMarkdown, /- advisory: shadow reranker narrow-lane review data is still sparse/);
@@ -2197,6 +2550,8 @@ test("project-operator-pickup writes consolidated shared pickup artifacts", asyn
         });
         seedShadowRerankerEvidence(outputDir, { songId: "promoted-reviewed-song", promotionApplied: true, learnedConfidence: 0.91, updatedAt: "2026-04-17T04:05:00.000Z" });
         seedShadowRerankerEvidence(outputDir, { songId: "heuristic-reviewed-song", promotionApplied: false, learnedConfidence: 0.74, updatedAt: "2026-04-17T04:06:00.000Z" });
+        seedLearnedBackboneBenchmarkReviewedFixtures(outputDir);
+        await seedActiveLearnedBackboneBlindReviewPack(outputDir);
         seedOperatorAction(outputDir, {
             action: "resume",
             reason: "evidence_cleared",
@@ -2329,6 +2684,17 @@ test("project-operator-pickup writes consolidated shared pickup artifacts", asyn
         assert.equal(result.latest.overseer.harmonicColorTrend.manifestCount, 2);
         assert.equal(result.latest.overseer.harmonicColorTrend.weakManifestCount, 1);
         assert.equal(result.latest.overseer.harmonicColorTrend.averagePlanFit, 0.62);
+        assert.equal(result.latest.overseer.learnedBackboneBenchmark.runCount, 2);
+        assert.equal(result.latest.overseer.learnedBackboneBenchmark.reviewSampleStatus.status, "directional_only");
+        assert.equal(result.latest.overseer.learnedBackboneBenchmark.retryLocalizationStability.status, "drifting");
+        assert.equal(result.latest.overseer.learnedBackboneBenchmark.reviewPacks.matchedPackCount, 1);
+        assert.equal(result.latest.overseer.learnedBackboneBenchmark.reviewPacks.activePackCount, 1);
+        assert.equal(Array.isArray(result.latest.overseer.learnedBackboneBenchmark.reviewPackActions), true);
+        assert.equal(result.latest.overseer.learnedBackboneBenchmark.reviewPackActions.length, 0);
+        assert.equal(Array.isArray(result.latest.overseer.learnedBackboneBenchmark.reviewPackRecordActions), true);
+        assert.equal(result.latest.overseer.learnedBackboneBenchmark.reviewPackRecordActions[0].packId, "active-pack-v1");
+        assert.equal(result.latest.overseer.learnedBackboneBenchmark.reviewPackRecordActions[0].pendingDecisionCount, 2);
+        assert.equal(result.latest.overseer.learnedBackboneBenchmark.reviewPackRecordActions[0].command, "npm run ml:review-pack:record:learned-backbone -- --resultsFile outputs/_system/ml/review-packs/learned-backbone/active-pack-v1/review-sheet.csv");
         assert.equal(result.latest.overseer.shadowReranker.promotionOutcomes.reviewedManifestCount, 2);
         assert.equal(result.latest.overseer.shadowReranker.promotionAdvantage.sufficientReviewSample, false);
         assert.equal(result.latest.incidentDraft.present, true);
@@ -2345,11 +2711,19 @@ test("project-operator-pickup writes consolidated shared pickup artifacts", asyn
         assert.equal(result.latest.incidentDraft.phraseBreathTrend.manifestCount, 2);
         assert.equal(result.latest.incidentDraft.harmonicColorTrend.manifestCount, 2);
         assert.equal(result.latest.incidentDraft.harmonicColorTrend.averageTargetFit, 0.575);
+        assert.equal(result.latest.incidentDraft.learnedBackboneBenchmark.runCount, 2);
+        assert.equal(result.latest.incidentDraft.learnedBackboneBenchmark.reviewSampleStatus.status, "directional_only");
+        assert.equal(result.latest.incidentDraft.learnedBackboneBenchmark.pairedSelectionOutcomes.reviewedManifestCount, 2);
+        assert.equal(result.latest.incidentDraft.learnedBackboneBenchmark.pairedSelectionOutcomes.promotedReviewedCount, 0);
+        assert.equal(result.latest.incidentDraft.learnedBackboneBenchmark.selectedWorkerOutcomes.music21.runCount, 2);
+        assert.equal(result.latest.incidentDraft.learnedBackboneBenchmark.coverageRows.length, 1);
+        assert.equal(result.latest.incidentDraft.learnedBackboneBenchmark.retryLocalizationStability.status, "drifting");
         assert.equal(result.latest.incidentDraft.shadowReranker.promotionAdvantage.signal, "insufficient_data");
         assert.equal(result.latest.evidence.projectionStale, true);
         assert.equal(Array.isArray(result.latest.recommendations), true);
         assert.equal(result.latest.recommendations.some((item) => item.includes("orchestration trend shows trio ensemble pressure")), true);
         assert.equal(result.latest.recommendations.some((item) => item.includes("harmonic-color trend shows local color pressure")), true);
+        assert.equal(result.latest.recommendations.some((item) => item.includes("learned backbone benchmark retry localization is drifting")), true);
         assert.equal(result.latest.recommendations.some((item) => item.includes("shadow reranker narrow-lane review data is still sparse")), true);
         assert.equal(result.latest.recommendations.some((item) => item.includes("latest operator action rollback note: Pause again if readiness drops during observation.")), true);
         assert.equal(result.latest.recommendations.some((item) => item.includes("latest operator action manual recovery note: Inspect operator-summary latest.json before retrying.")), true);
@@ -2363,6 +2737,17 @@ test("project-operator-pickup writes consolidated shared pickup artifacts", asyn
         assert.match(result.latestMarkdown, /- manifests=2 \| plan=0\.66 \| cov=0\.66 \| pickup=0\.61 \| arr=0\.60 \| rel=0\.58 \| weakManifests=1/);
         assert.match(result.latestMarkdown, /## Harmonic-Color Trend/);
         assert.match(result.latestMarkdown, /- manifests=2 \| plan=0\.62 \| cov=0\.62 \| target=0\.57 \| time=0\.58 \| tonic=0\.56 \| prolong=0\.61 \| weakManifests=1/);
+        assert.match(result.latestMarkdown, /## Learned Backbone Benchmark/);
+        assert.match(result.latestMarkdown, /- lane=string_trio_symbolic \| pack=string_trio_symbolic_benchmark_pack_v1 \| runs=2 \| paired=2 \| reviewed=2 \| pendingReview=0/);
+        assert.match(result.latestMarkdown, /- sampleStatus=directional_only \| reviewed=2 \| reviewedDisagreements=0/);
+        assert.match(result.latestMarkdown, /- pairedSelection reviewed=2 \| promotedReviewed=0 \| heuristicReviewed=2 \| promotedApproval=- \| heuristicApproval=0\.50 \| promotedAppeal=- \| heuristicAppeal=0\.62/);
+        assert.match(result.latestMarkdown, /- selectedWorkerOutcome worker=music21 \| runs=2 \| reviewed=2 \| pendingReview=0 \| approved=1 \| rejected=1 \| approvalRate=0\.50 \| avgAppeal=0\.62/);
+        assert.match(result.latestMarkdown, /- coverage benchmark=stage-b-string-trio \| runs=2 \| paired=2 \| reviewed=2 \| pendingReview=0 \| approvalRate=0\.50 \| avgAppeal=0\.62 \| selectedWorkers=music21:2 \| generationModes=plan_conditioned_trio_template:2 \| lastObserved=2026-04-17T04:08:00.000Z/);
+        assert.match(result.latestMarkdown, /- reviewQueue pendingBlind=2 \| pendingShortlist=0 \| latestPendingAt=/);
+        assert.match(result.latestMarkdown, /- reviewPacks matched=1 \| active=1 \| pendingDecisions=2 \| completedDecisions=0 \| latestGeneratedAt=.* \| latestReviewedAt=-/);
+        assert.match(result.latestMarkdown, /- reviewPack pack=active-pack-v1 \| target=pairwise \| entries=2 \| completed=0 \| pending=2 \| pendingShortlist=0 \| generatedAt=.* \| latestReviewedAt=- \| reviewSheet=outputs\/_system\/ml\/review-packs\/learned-backbone\/active-pack-v1\/review-sheet\.csv \| recordCommand=npm run ml:review-pack:record:learned-backbone -- --resultsFile outputs\/_system\/ml\/review-packs\/learned-backbone\/active-pack-v1\/review-sheet\.csv/);
+        assert.match(result.latestMarkdown, /- retryStability status=drifting \| retrying=2 \| sectionTargetedOnly=1 \| mixed=0 \| globalOnly=1 \| targetedRate=0\.50 \| driftRate=0\.50/);
+        assert.match(result.latestMarkdown, /- advisory: finish 2 pending worksheet decision\(s\) in 1 active learned backbone review pack before generating more blind-review packs; learned backbone benchmark retry localization is drifting/);
         assert.match(result.latestMarkdown, /## Shadow Reranker/);
         assert.match(result.latestMarkdown, /- promotionAdvantage lane=string_trio_symbolic \| reviewed=2 \| promotedReviewed=1 \| heuristicReviewed=1 \| sufficientSample=no \| approvalDelta=1\.00 \| appealDelta=0\.62 \| signal=insufficient_data/);
         assert.match(result.latestMarkdown, /- advisory: shadow reranker narrow-lane review data is still sparse/);
