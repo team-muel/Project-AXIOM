@@ -2,6 +2,7 @@ import "./restart-recovery.test.mjs";
 import "./autonomy-conflicts.test.mjs";
 import "./critic-rules.test.mjs";
 import "./form-templates.test.mjs";
+import "./classical-knowledge.test.mjs";
 import "./quality-loop.test.mjs";
 import "./autonomy-ops.test.mjs";
 import "./multimodel-planner.test.mjs";

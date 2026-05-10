@@ -12,6 +12,9 @@ import type {
     AudioKeyTrackingReport,
     AudioSectionEvaluationFinding,
     AudioSectionKeyTracking,
+    ClassicalKnowledgeEvaluationSummary,
+    ClassicalKnowledgePlan,
+    ClassicalNotationMarkCategory,
     ComposeWorkflow,
     CritiqueResult,
     RenderedKeyEstimate,
@@ -39,6 +42,7 @@ interface StructureEvaluationOptions {
     expressionDefaults?: ExpressionGuidance;
     longSpanForm?: LongSpanFormPlan;
     orchestration?: OrchestrationPlan;
+    classicalKnowledge?: ClassicalKnowledgePlan;
 }
 
 type StructureSectionFinding = NonNullable<StructureEvaluationReport["sectionFindings"]>[number];
@@ -168,6 +172,13 @@ const PITCH_CLASS_TO_TONIC = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "
 const KRUMHANSL_MAJOR_PROFILE = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
 const KRUMHANSL_MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
 const DYNAMIC_LEVEL_ORDER = ["pp", "p", "mp", "mf", "f", "ff"] as const;
+const SUPPORTED_CLASSICAL_NOTATION_MARK_CATEGORIES = new Set<ClassicalNotationMarkCategory>([
+    "dynamic",
+    "articulation",
+    "tempo",
+    "character",
+    "ornament",
+]);
 const STRING_TRIO_IDIOMATIC_RANGES: Record<string, { min: number; max: number }> = {
     violin: { min: 55, max: 100 },
     viola: { min: 48, max: 88 },
@@ -6009,6 +6020,175 @@ function summarizeNarrativeAudioMetrics(
     };
 }
 
+function normalizeClassicalMarkKey(category: string | undefined, mark: string | undefined, sectionId?: string): string {
+    return [
+        String(category ?? "").trim().toLowerCase(),
+        String(mark ?? "").trim().toLowerCase(),
+        String(sectionId ?? "").trim().toLowerCase(),
+    ].join("::");
+}
+
+function countPreservedClassicalNotationMarks(
+    classicalKnowledge: ClassicalKnowledgePlan,
+    sectionArtifacts: SectionArtifactSummary[] | undefined,
+): number {
+    const marks = classicalKnowledge.notation?.marks ?? [];
+    if (marks.length === 0 || !sectionArtifacts?.length) {
+        return 0;
+    }
+
+    const globalKeys = new Set<string>();
+    const sectionKeys = new Set<string>();
+    for (const artifact of sectionArtifacts) {
+        for (const mark of artifact.classicalNotationMarks ?? []) {
+            globalKeys.add(normalizeClassicalMarkKey(mark.category, mark.mark));
+            sectionKeys.add(normalizeClassicalMarkKey(mark.category, mark.mark, artifact.sectionId));
+            if (mark.sectionId) {
+                sectionKeys.add(normalizeClassicalMarkKey(mark.category, mark.mark, mark.sectionId));
+            }
+        }
+    }
+
+    let preserved = 0;
+    for (const mark of marks) {
+        if (mark.sectionId && sectionKeys.has(normalizeClassicalMarkKey(mark.category, mark.mark, mark.sectionId))) {
+            preserved += 1;
+        } else if (!mark.sectionId && globalKeys.has(normalizeClassicalMarkKey(mark.category, mark.mark))) {
+            preserved += 1;
+        }
+    }
+
+    return preserved;
+}
+
+function buildClassicalKnowledgeEvaluation(
+    enriched: {
+        issues: string[];
+        strengths: string[];
+        metrics: Record<string, number>;
+        longSpan?: LongSpanEvaluationSummary;
+        sectionFindings?: NonNullable<StructureEvaluationReport["sectionFindings"]>;
+    },
+    options: StructureEvaluationOptions | undefined,
+): ClassicalKnowledgeEvaluationSummary | undefined {
+    const classicalKnowledge = options?.classicalKnowledge;
+    if (!classicalKnowledge) {
+        return undefined;
+    }
+
+    const issues: string[] = [];
+    const strengths: string[] = [];
+    const metrics: Record<string, number> = {};
+    const marks = classicalKnowledge.notation?.marks ?? [];
+    const notationMarkCount = marks.length;
+    const preservedNotationMarkCount = countPreservedClassicalNotationMarks(classicalKnowledge, options?.sectionArtifacts);
+    const supportedNotationMarkCount = marks.filter((mark) => SUPPORTED_CLASSICAL_NOTATION_MARK_CATEGORIES.has(mark.category)).length;
+    const notationPreservationFit = notationMarkCount > 0 && options?.sectionArtifacts?.length
+        ? preservedNotationMarkCount / notationMarkCount
+        : undefined;
+
+    metrics.classicalKnowledgeNotationMarkCount = notationMarkCount;
+    metrics.classicalKnowledgePreservedNotationMarkCount = preservedNotationMarkCount;
+    metrics.classicalKnowledgeSupportedNotationMarkCount = supportedNotationMarkCount;
+    if (notationPreservationFit !== undefined) {
+        metrics.classicalKnowledgeNotationPreservationFit = Number(notationPreservationFit.toFixed(4));
+        if (notationPreservationFit < 0.75) {
+            issues.push("Classical notation intent is not preserved strongly enough across realized section artifacts.");
+        } else {
+            strengths.push("Classical notation marks survive into section-level realization artifacts.");
+        }
+    }
+
+    const allIssues = [
+        ...enriched.issues,
+        ...(enriched.sectionFindings ?? []).flatMap((finding) => finding.issues),
+    ].map((issue) => issue.toLowerCase());
+
+    const strictVoiceLeadingRequired = classicalKnowledge.counterpoint?.voiceLeading === "strict";
+    metrics.classicalKnowledgeStrictVoiceLeadingRequired = strictVoiceLeadingRequired ? 1 : 0;
+    if (strictVoiceLeadingRequired) {
+        const strictIssue = allIssues.some((issue) => (
+            issue.includes("parallel perfect")
+            || issue.includes("wide leaps")
+            || issue.includes("large leaps")
+            || issue.includes("unstable leap")
+        ));
+        if (strictIssue) {
+            issues.push("Strict counterpoint contract is weakened by voice-leading or leap-control findings.");
+        } else {
+            strengths.push("Strict counterpoint contract has no direct voice-leading violation findings.");
+        }
+    }
+
+    const architecturalCadenceRequired = classicalKnowledge.harmony?.cadencePolicy === "architectural";
+    metrics.classicalKnowledgeArchitecturalCadenceRequired = architecturalCadenceRequired ? 1 : 0;
+    if (architecturalCadenceRequired) {
+        const cadenceMetric = numericMetricValue(enriched.metrics, "globalCadentialBassSupport")
+            ?? numericMetricValue(enriched.metrics, "cadentialBassSupport")
+            ?? numericMetricValue(enriched.metrics, "dominantPreparationFit");
+        const cadenceIssue = allIssues.some((issue) => (
+            issue.includes("cadential bass")
+            || issue.includes("dominant preparation")
+            || issue.includes("final melodic note")
+            || issue.includes("recap does not re-establish")
+            || issue.includes("harmonic route")
+        ));
+        if ((cadenceMetric !== undefined && cadenceMetric < 0.68) || cadenceIssue) {
+            issues.push("Architectural cadence contract is not yet held by the harmonic arrival evidence.");
+        } else {
+            strengths.push("Architectural cadence contract has no direct cadence-support violation findings.");
+        }
+        if (cadenceMetric !== undefined) {
+            metrics.classicalKnowledgeCadenceFit = Number(cadenceMetric.toFixed(4));
+        }
+    }
+
+    if (classicalKnowledge.form?.developmentPriority === "high") {
+        const developmentFit = enriched.longSpan?.developmentPressureFit
+            ?? numericMetricValue(enriched.metrics, "longSpanDevelopmentPressureFit");
+        const developmentIssue = allIssues.some((issue) => issue.includes("development"));
+        if ((developmentFit !== undefined && developmentFit < 0.56) || developmentIssue) {
+            issues.push("Classical development contract is not yet held by the transformation and pressure evidence.");
+        } else {
+            strengths.push("High-development form contract has no direct transformation-pressure violation findings.");
+        }
+        if (developmentFit !== undefined) {
+            metrics.classicalKnowledgeDevelopmentFit = Number(developmentFit.toFixed(4));
+        }
+    }
+
+    const componentFits = [
+        notationPreservationFit,
+        strictVoiceLeadingRequired ? (issues.some((issue) => issue.startsWith("Strict counterpoint")) ? 0.45 : 1) : undefined,
+        architecturalCadenceRequired ? (issues.some((issue) => issue.startsWith("Architectural cadence")) ? 0.5 : 1) : undefined,
+        classicalKnowledge.form?.developmentPriority === "high"
+            ? (issues.some((issue) => issue.startsWith("Classical development")) ? 0.5 : 1)
+            : undefined,
+    ].filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+    const score = Math.round(clamp((average(componentFits) ?? 1) * 100, 0, 100));
+    const status = score >= 80 ? "held" : score >= 55 ? "at_risk" : "missing";
+    metrics.classicalKnowledgeScore = score;
+    metrics.classicalKnowledgeStatusMissing = status === "missing" ? 1 : 0;
+
+    if (issues.length === 0) {
+        strengths.push("Classical knowledge contract is held by current symbolic evidence.");
+    }
+
+    return {
+        status,
+        score,
+        domains: [...classicalKnowledge.domains],
+        issues,
+        strengths,
+        metrics,
+        notationMarkCount,
+        preservedNotationMarkCount,
+        supportedNotationMarkCount,
+        ...(strictVoiceLeadingRequired ? { strictVoiceLeadingRequired } : {}),
+        ...(architecturalCadenceRequired ? { architecturalCadenceRequired } : {}),
+    };
+}
+
 function scoreDuration(actualDurationSec: number | undefined, expectedDurationSec: number | undefined): number {
     if (!actualDurationSec || !expectedDurationSec || expectedDurationSec <= 0) {
         return 0;
@@ -6051,15 +6231,29 @@ function scoreAudioDensity(sizeBytes: number | undefined, durationSec: number | 
 
 export function buildStructureEvaluation(result: CritiqueResult, options?: StructureEvaluationOptions): StructureEvaluationReport {
     const enriched = enrichStructureEvaluationFromArtifacts(result, options);
+    const classicalKnowledgeEvaluation = buildClassicalKnowledgeEvaluation(enriched, options);
+    const issues = classicalKnowledgeEvaluation
+        ? [...enriched.issues, ...classicalKnowledgeEvaluation.issues]
+        : enriched.issues;
+    const strengths = classicalKnowledgeEvaluation
+        ? [...enriched.strengths, ...classicalKnowledgeEvaluation.strengths]
+        : enriched.strengths;
+    const metrics = classicalKnowledgeEvaluation
+        ? { ...enriched.metrics, ...classicalKnowledgeEvaluation.metrics }
+        : enriched.metrics;
+    const score = classicalKnowledgeEvaluation
+        ? Math.round((enriched.score * 0.88) + (classicalKnowledgeEvaluation.score * 0.12))
+        : enriched.score;
 
     return {
-        passed: result.pass,
-        score: enriched.score,
-        issues: enriched.issues,
-        strengths: enriched.strengths,
-        metrics: enriched.metrics,
+        passed: result.pass && (!classicalKnowledgeEvaluation || classicalKnowledgeEvaluation.status !== "missing"),
+        score,
+        issues,
+        strengths,
+        metrics,
         ...(enriched.longSpan ? { longSpan: enriched.longSpan } : {}),
         ...(enriched.orchestration ? { orchestration: enriched.orchestration } : {}),
+        ...(classicalKnowledgeEvaluation ? { classicalKnowledgeEvaluation } : {}),
         ...(enriched.sectionFindings?.length ? {
             sectionFindings: enriched.sectionFindings,
         } : {}),

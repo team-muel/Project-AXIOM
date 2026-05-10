@@ -490,10 +490,124 @@ class ResolvedProfile:
     global_directive_kinds: set[str]
     section_directive_kinds: dict[str, set[str]]
     reusable_section_artifacts: dict[str, dict[str, Any]]
+    classical_knowledge: dict[str, Any]
 
 
 def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
+
+
+def normalize_classical_knowledge_plan(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+
+    domains = [
+        str(domain).strip().lower()
+        for domain in value.get("domains", [])
+        if str(domain).strip()
+    ]
+    normalized: dict[str, Any] = {
+        "version": str(value.get("version") or "classical-knowledge-v1").strip(),
+        "domains": sorted(set(domains)),
+    }
+
+    for field in [
+        "harmony",
+        "counterpoint",
+        "form",
+        "orchestration",
+        "performance",
+    ]:
+        section = value.get(field)
+        if isinstance(section, dict):
+            normalized[field] = dict(section)
+
+    notation = value.get("notation")
+    if isinstance(notation, dict):
+        marks: list[dict[str, Any]] = []
+        for raw_mark in notation.get("marks", []):
+            if not isinstance(raw_mark, dict):
+                continue
+            category = str(raw_mark.get("category") or "").strip().lower()
+            mark = str(raw_mark.get("mark") or raw_mark.get("name") or "").strip()
+            if not category or not mark:
+                continue
+            marks.append(
+                {
+                    key: raw_mark[key]
+                    for key in [
+                        "category",
+                        "mark",
+                        "scope",
+                        "sectionId",
+                        "startMeasure",
+                        "endMeasure",
+                        "intensity",
+                        "notes",
+                    ]
+                    if key in raw_mark
+                }
+            )
+        normalized["notation"] = {
+            "phraseMarkingDensity": notation.get("phraseMarkingDensity"),
+            "marks": marks[:128],
+            "notes": notation.get("notes") if isinstance(notation.get("notes"), list) else [],
+        }
+
+    constraints = value.get("constraints")
+    if isinstance(constraints, list):
+        normalized["constraints"] = [
+            str(item).strip() for item in constraints if str(item).strip()
+        ][:16]
+
+    return normalized
+
+
+def expression_guidance_from_classical_knowledge(
+    classical_knowledge: dict[str, Any],
+) -> dict[str, Any] | None:
+    notation = classical_knowledge.get("notation")
+    if not isinstance(notation, dict):
+        return None
+
+    marks = notation.get("marks")
+    if not isinstance(marks, list):
+        return None
+
+    dynamics: list[str] = []
+    articulations: list[str] = []
+    characters: list[str] = []
+    notes: list[str] = []
+
+    for raw_mark in marks:
+        if not isinstance(raw_mark, dict):
+            continue
+        category = str(raw_mark.get("category") or "").strip().lower()
+        mark = str(raw_mark.get("mark") or "").strip().lower().replace(" ", "_")
+        if category == "dynamic" and mark in DYNAMIC_LEVEL_VELOCITY_OFFSETS:
+            dynamics.append(mark)
+        elif category == "articulation" and mark in EXPRESSION_ARTICULATION_TAGS:
+            articulations.append(mark)
+        elif category == "character" and mark in EXPRESSION_CHARACTER_TAGS:
+            characters.append(mark)
+        elif mark:
+            notes.append(f"{category}:{mark}")
+
+    expression: dict[str, Any] = {}
+    if dynamics:
+        expression["dynamics"] = {
+            "start": dynamics[0],
+            "peak": dynamics[min(1, len(dynamics) - 1)],
+            "end": dynamics[-1],
+        }
+    if articulations:
+        expression["articulation"] = list(dict.fromkeys(articulations))
+    if characters:
+        expression["character"] = list(dict.fromkeys(characters))
+    if notes:
+        expression["notes"] = notes[:12]
+
+    return expression or None
 
 
 def pitch_class(value: int) -> int:
@@ -1471,6 +1585,16 @@ def resolve_profile(
     expression_defaults = normalize_expression_guidance(
         composition_plan.get("expressionDefaults")
     )
+    classical_knowledge = normalize_classical_knowledge_plan(
+        composition_plan.get("classicalKnowledge")
+    )
+    classical_expression_defaults = expression_guidance_from_classical_knowledge(
+        classical_knowledge
+    )
+    expression_defaults = merge_expression_guidance(
+        expression_defaults,
+        classical_expression_defaults,
+    )
     texture_defaults = normalize_texture_guidance(
         composition_plan.get("textureDefaults")
     )
@@ -1971,6 +2095,39 @@ def resolve_profile(
     if "strengthen_cadence" in global_directive_set:
         cadence_bass_bias = max(cadence_bass_bias, 1.35)
 
+    harmony_knowledge = classical_knowledge.get("harmony")
+    if isinstance(harmony_knowledge, dict):
+        cadence_policy = str(harmony_knowledge.get("cadencePolicy") or "").strip().lower()
+        modulation_strategy = str(harmony_knowledge.get("modulationStrategy") or "").strip().lower()
+        if cadence_policy == "architectural":
+            cadence_bass_bias = max(cadence_bass_bias, 1.2)
+            harmonic_stability_bias = max(harmonic_stability_bias, 0.85)
+        elif cadence_policy == "structural":
+            cadence_bass_bias = max(cadence_bass_bias, 0.85)
+        if modulation_strategy in {"sectional", "long_range"}:
+            pitch_variety_bias = max(pitch_variety_bias, 0.55)
+
+    counterpoint_knowledge = classical_knowledge.get("counterpoint")
+    if isinstance(counterpoint_knowledge, dict):
+        voice_leading = str(counterpoint_knowledge.get("voiceLeading") or "").strip().lower()
+        if voice_leading == "strict":
+            max_preferred_leap = min(max_preferred_leap, 5)
+            max_absolute_leap = min(max_absolute_leap, 9)
+            harmonic_stability_bias = max(harmonic_stability_bias, 0.95)
+        elif voice_leading == "guided":
+            max_preferred_leap = min(max_preferred_leap, 6)
+            harmonic_stability_bias = max(harmonic_stability_bias, 0.72)
+
+    form_knowledge = classical_knowledge.get("form")
+    if isinstance(form_knowledge, dict):
+        development_priority = str(form_knowledge.get("developmentPriority") or "").strip().lower()
+        return_strategy = str(form_knowledge.get("returnStrategy") or "").strip().lower()
+        if development_priority == "high":
+            pitch_variety_bias = max(pitch_variety_bias, 0.75)
+            rhythm_variety_bias = max(rhythm_variety_bias, 0.45)
+        if return_strategy == "inevitable":
+            cadence_bass_bias = max(cadence_bass_bias, 1.25)
+
     return ResolvedProfile(
         tonic=tonic,
         mode=mode,
@@ -2020,6 +2177,7 @@ def resolve_profile(
         global_directive_kinds=global_directive_set,
         section_directive_kinds=section_directive_map,
         reusable_section_artifacts=reusable_section_artifacts,
+        classical_knowledge=classical_knowledge,
     )
 
 
@@ -5713,6 +5871,28 @@ def compose_piece(
             if isinstance(accent_bias, (int, float)):
                 artifact["accentBias"] = round(float(accent_bias), 3)
 
+        if profile.classical_knowledge:
+            domains = profile.classical_knowledge.get("domains")
+            if isinstance(domains, list) and domains:
+                artifact["classicalKnowledgeDomains"] = [
+                    str(value) for value in domains if str(value).strip()
+                ]
+            notation = profile.classical_knowledge.get("notation")
+            if isinstance(notation, dict):
+                marks = notation.get("marks")
+                if isinstance(marks, list) and marks:
+                    section_marks = [
+                        mark
+                        for mark in marks
+                        if isinstance(mark, dict)
+                        and (
+                            not mark.get("sectionId")
+                            or str(mark.get("sectionId")) == span.id
+                        )
+                    ][:16]
+                    if section_marks:
+                        artifact["classicalNotationMarks"] = section_marks
+
     ordered_section_artifacts = [
         clone_section_artifact(section_artifacts[span.id])
         for span in profile.section_spans
@@ -5752,6 +5932,12 @@ def main() -> None:
     composition_plan = req.get("compositionPlan", {})
     if not isinstance(composition_plan, dict):
         composition_plan = {}
+    request_classical_knowledge = req.get("classicalKnowledge")
+    if (
+        isinstance(request_classical_knowledge, dict)
+        and not isinstance(composition_plan.get("classicalKnowledge"), dict)
+    ):
+        composition_plan["classicalKnowledge"] = request_classical_knowledge
     revision_directives = req.get("revisionDirectives", [])
     section_artifacts = req.get("sectionArtifacts", [])
     attempt_index_value = req.get("attemptIndex")
@@ -5824,6 +6010,7 @@ def main() -> None:
             "style": profile.style,
             "sectionArtifacts": section_artifacts_result,
             "sectionTransforms": section_transforms,
+            "classicalKnowledge": profile.classical_knowledge,
             "sectionTonalities": [
                 {
                     "sectionId": span.id,

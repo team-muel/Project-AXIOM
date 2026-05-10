@@ -59,6 +59,7 @@ import type {
 import { coerceComposeWorkflowForForm, validateFormSectionFit } from "./formTemplates.js";
 import { defaultModelBindings } from "./modelBindings.js";
 import { ensureCompositionPlanOrchestration } from "./orchestrationPlan.js";
+import { ensureClassicalKnowledgePlan, normalizeClassicalKnowledgePlan } from "./classicalKnowledge.js";
 
 interface ComposeRequestNormalizationResult {
     request?: ComposeRequest;
@@ -1206,13 +1207,14 @@ function parseCompositionPlan(value: unknown): CompositionPlan | undefined {
     const ornamentDefaults = parseOrnamentPlans(value.ornamentDefaults ?? value.ornaments ?? value.ornament ?? value.ornamentPlan);
     const longSpanForm = parseLongSpanFormPlan(value.longSpanForm ?? value.longRangeForm);
     const orchestration = parseOrchestrationPlan(value.orchestration);
+    const classicalKnowledge = normalizeClassicalKnowledgePlan(value.classicalKnowledge ?? value.knowledgePlan);
     const rationale = compact(value.rationale);
 
     if (!version || !brief || !form || !workflow || !instrumentation?.length || !motifPolicy || !sections?.length || !rationale) {
         return undefined;
     }
 
-    return ensureCompositionPlanOrchestration({
+    return ensureClassicalKnowledgePlan(ensureCompositionPlanOrchestration({
         version,
         titleHint: compact(value.titleHint) || undefined,
         brief,
@@ -1239,9 +1241,10 @@ function parseCompositionPlan(value: unknown): CompositionPlan | undefined {
         sketch: parseCompositionSketch(value.sketch),
         longSpanForm,
         ...(orchestration ? { orchestration } : {}),
+        ...(classicalKnowledge ? { classicalKnowledge } : {}),
         sections,
         rationale,
-    });
+    }));
 }
 
 function ensureBindingsForWorkflow(
@@ -1386,6 +1389,12 @@ export function normalizeComposeRequestInput(
     }
 
     const compositionProfile = value.compositionProfile !== undefined ? parseCompositionProfile(value.compositionProfile) : undefined;
+    const requestClassicalKnowledge = value.classicalKnowledge !== undefined
+        ? normalizeClassicalKnowledgePlan(value.classicalKnowledge)
+        : undefined;
+    if (value.classicalKnowledge !== undefined && !requestClassicalKnowledge) {
+        errors.push("classicalKnowledge must contain at least one valid domain, summary, constraint, or knowledge section");
+    }
 
     const selectedModels = value.selectedModels !== undefined ? parseModelBindings(value.selectedModels) : undefined;
     if (value.selectedModels !== undefined && !selectedModels?.length) {
@@ -1399,7 +1408,7 @@ export function normalizeComposeRequestInput(
         errors.push("targetInstrumentation must contain valid instrument entries");
     }
 
-    const compositionPlan = value.compositionPlan !== undefined ? parseCompositionPlan(value.compositionPlan) : undefined;
+    let compositionPlan = value.compositionPlan !== undefined ? parseCompositionPlan(value.compositionPlan) : undefined;
     if (value.compositionPlan !== undefined && !compositionPlan) {
         errors.push("compositionPlan must include version, brief, form, workflow, instrumentation, motifPolicy, sections, and rationale");
     }
@@ -1438,6 +1447,7 @@ export function normalizeComposeRequestInput(
         ...(compact(value.plannerVersion) ? { plannerVersion: compact(value.plannerVersion) } : {}),
         ...(parseEvaluationPolicy(value.evaluationPolicy) ? { evaluationPolicy: parseEvaluationPolicy(value.evaluationPolicy) } : {}),
         ...(qualityPolicy ? { qualityPolicy } : {}),
+        ...(requestClassicalKnowledge ? { classicalKnowledge: requestClassicalKnowledge } : {}),
         ...(compositionPlan ? { compositionPlan } : {}),
     };
 
@@ -1465,6 +1475,10 @@ export function normalizeComposeRequestInput(
         request.targetInstrumentation = compositionPlan.instrumentation;
     }
 
+    if (!request.classicalKnowledge && compositionPlan?.classicalKnowledge) {
+        request.classicalKnowledge = compositionPlan.classicalKnowledge;
+    }
+
     const normalizedWorkflow = coerceStructureFirstWorkflow(
         request.form ?? compositionPlan?.form,
         request.workflow,
@@ -1478,6 +1492,8 @@ export function normalizeComposeRequestInput(
         }
         if (compositionPlan) {
             compositionPlan.workflow = normalizedWorkflow;
+            compositionPlan = ensureClassicalKnowledgePlan(compositionPlan);
+            request.compositionPlan = compositionPlan;
         }
     }
 

@@ -17,6 +17,7 @@ import type {
     SongMeta,
 } from "../pipeline/types.js";
 import { coerceComposeWorkflowForForm, isAudioFirstForm } from "../pipeline/formTemplates.js";
+import { summarizeClassicalKnowledgePlan } from "../pipeline/classicalKnowledge.js";
 import { defaultModelBindings } from "../pipeline/modelBindings.js";
 import { config } from "../config.js";
 import { logger } from "../logging/logger.js";
@@ -309,7 +310,13 @@ async function composeWithMusic21(
                 ...(request.compositionProfile ? { compositionProfile: request.compositionProfile } : {}),
                 ...(request.revisionDirectives?.length ? { revisionDirectives: request.revisionDirectives } : {}),
                 ...(request.sectionArtifacts?.length ? { sectionArtifacts: request.sectionArtifacts } : {}),
-                ...(request.compositionPlan ? { compositionPlan: request.compositionPlan } : {}),
+                ...(request.classicalKnowledge ? { classicalKnowledge: request.classicalKnowledge } : {}),
+                ...(request.compositionPlan ? {
+                    compositionPlan: {
+                        ...request.compositionPlan,
+                        classicalKnowledge: request.classicalKnowledge ?? request.compositionPlan.classicalKnowledge,
+                    },
+                } : {}),
                 outputPath: midiOutputPath,
             }),
             config.composeWorkerTimeoutMs,
@@ -357,6 +364,7 @@ async function composeWithMusic21(
         plannerVersion: request.plannerVersion ?? request.compositionPlan?.version,
         plannedSectionCount: request.compositionPlan?.sections.length,
         selectedModels: executionPlan.selectedModels,
+        classicalKnowledge: summarizeClassicalKnowledgePlan(request.classicalKnowledge ?? request.compositionPlan?.classicalKnowledge),
     };
     return {
         midiData,
@@ -409,6 +417,7 @@ async function composeWithMusicGen(
                 plannerVersion: request.plannerVersion ?? request.compositionPlan?.version,
                 plannedSectionCount: request.compositionPlan?.sections.length,
                 selectedModels: executionPlan.selectedModels,
+                classicalKnowledge: summarizeClassicalKnowledgePlan(request.classicalKnowledge ?? request.compositionPlan?.classicalKnowledge),
             },
             isRendered: true,
             artifacts: { audio: wavOutputPath },
@@ -493,6 +502,7 @@ async function composeWithMusicGen(
         plannerVersion: request.plannerVersion ?? request.compositionPlan?.version,
         plannedSectionCount: request.compositionPlan?.sections.length,
         selectedModels: executionPlan.selectedModels,
+        classicalKnowledge: summarizeClassicalKnowledgePlan(request.classicalKnowledge ?? request.compositionPlan?.classicalKnowledge),
     };
 
     return {

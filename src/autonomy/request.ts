@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type {
     ComposeRequest,
     ComposeSource,
+    ClassicalKnowledgePlan,
     ExpressionGuidance,
     HarmonicColorCue,
     HarmonicPlan,
@@ -220,6 +221,65 @@ function summarizeLongSpanForm(longSpanForm: LongSpanFormPlan | undefined): Reco
     };
 }
 
+function summarizeClassicalKnowledge(classicalKnowledge: ClassicalKnowledgePlan | undefined): Record<string, unknown> | null {
+    if (!classicalKnowledge) {
+        return null;
+    }
+
+    return {
+        version: compact(classicalKnowledge.version),
+        domains: (classicalKnowledge.domains ?? []).map((domain) => compact(domain).toLowerCase()).sort(),
+        harmony: classicalKnowledge.harmony
+            ? {
+                language: compact(classicalKnowledge.harmony.language).toLowerCase(),
+                cadencePolicy: compact(classicalKnowledge.harmony.cadencePolicy).toLowerCase(),
+                modulationStrategy: compact(classicalKnowledge.harmony.modulationStrategy).toLowerCase(),
+                harmonicRhythm: compact(classicalKnowledge.harmony.harmonicRhythm).toLowerCase(),
+                colorPalette: (classicalKnowledge.harmony.colorPalette ?? []).map((item) => compact(item).toLowerCase()).sort(),
+            }
+            : null,
+        counterpoint: classicalKnowledge.counterpoint
+            ? {
+                voiceLeading: compact(classicalKnowledge.counterpoint.voiceLeading).toLowerCase(),
+                imitation: compact(classicalKnowledge.counterpoint.imitation).toLowerCase(),
+                dissonanceTreatment: compact(classicalKnowledge.counterpoint.dissonanceTreatment).toLowerCase(),
+                preferredVoiceCount: classicalKnowledge.counterpoint.preferredVoiceCount ?? null,
+            }
+            : null,
+        form: classicalKnowledge.form
+            ? {
+                architecture: compact(classicalKnowledge.form.architecture).toLowerCase(),
+                phraseModel: compact(classicalKnowledge.form.phraseModel).toLowerCase(),
+                developmentPriority: compact(classicalKnowledge.form.developmentPriority).toLowerCase(),
+                returnStrategy: compact(classicalKnowledge.form.returnStrategy).toLowerCase(),
+            }
+            : null,
+        notation: classicalKnowledge.notation
+            ? {
+                phraseMarkingDensity: compact(classicalKnowledge.notation.phraseMarkingDensity).toLowerCase(),
+                marks: classicalKnowledge.notation.marks
+                    .map((mark) => [
+                        compact(mark.category).toLowerCase(),
+                        compact(mark.mark).toLowerCase(),
+                        compact(mark.scope).toLowerCase(),
+                        compact(mark.sectionId).toLowerCase(),
+                        mark.startMeasure ?? "",
+                        mark.endMeasure ?? "",
+                    ].join(":"))
+                    .sort(),
+            }
+            : null,
+        performance: classicalKnowledge.performance
+            ? {
+                humanizationStyle: compact(classicalKnowledge.performance.humanizationStyle).toLowerCase(),
+                rubato: compact(classicalKnowledge.performance.rubato).toLowerCase(),
+                dynamicArc: compact(classicalKnowledge.performance.dynamicArc).toLowerCase(),
+            }
+            : null,
+        constraints: (classicalKnowledge.constraints ?? []).map((item) => compact(item).toLowerCase()).sort(),
+    };
+}
+
 function summarizeCompositionPlan(request: Pick<ComposeRequest, "compositionPlan">): Record<string, unknown> | null {
     const plan = request.compositionPlan;
     if (!plan) {
@@ -266,6 +326,7 @@ function summarizeCompositionPlan(request: Pick<ComposeRequest, "compositionPlan
             : null,
         longSpanForm: summarizeLongSpanForm(plan.longSpanForm),
         orchestration: summarizeOrchestrationPlan(plan.orchestration),
+        classicalKnowledge: summarizeClassicalKnowledge(plan.classicalKnowledge),
         sections: plan.sections.map((section) => ({
             id: compact(section.id),
             role: compact(section.role),
@@ -288,7 +349,7 @@ function summarizeCompositionPlan(request: Pick<ComposeRequest, "compositionPlan
 }
 
 export function computePromptHash(
-    request: Pick<ComposeRequest, "prompt" | "key" | "tempo" | "form" | "durationSec" | "workflow" | "plannerVersion" | "selectedModels" | "compositionPlan" | "qualityPolicy" | "revisionDirectives" | "candidateCount" | "localizedRewriteBranches" | "attemptIndex">,
+    request: Pick<ComposeRequest, "prompt" | "key" | "tempo" | "form" | "durationSec" | "workflow" | "plannerVersion" | "selectedModels" | "compositionPlan" | "classicalKnowledge" | "qualityPolicy" | "revisionDirectives" | "candidateCount" | "localizedRewriteBranches" | "attemptIndex">,
 ): string {
     const payload = {
         prompt: compact(request.prompt),
@@ -302,6 +363,9 @@ export function computePromptHash(
         localizedRewriteBranches: request.localizedRewriteBranches ?? null,
         selectedModels: summarizeSelectedModels(request),
         compositionPlan: summarizeCompositionPlan(request),
+        classicalKnowledge: request.compositionPlan?.classicalKnowledge
+            ? null
+            : summarizeClassicalKnowledge(request.classicalKnowledge),
         qualityPolicy: summarizeQualityPolicy(request),
         revisionDirectives: summarizeRevisionDirectives(request),
     };

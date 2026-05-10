@@ -71,6 +71,7 @@ import { buildFallbackSectionsForForm, buildFormGuidance, coerceComposeWorkflowF
 import { APPROVAL_REVIEW_RUBRIC_VERSION } from "../pipeline/learnedSymbolicContract.js";
 import { summarizeLongSpanDivergence } from "../pipeline/longSpan.js";
 import { defaultModelBindings } from "../pipeline/modelBindings.js";
+import { ensureClassicalKnowledgePlan, normalizeClassicalKnowledgePlan } from "../pipeline/classicalKnowledge.js";
 import { ensureCompositionPlanOrchestration, summarizeOrchestrationPlan } from "../pipeline/orchestrationPlan.js";
 import { buildRecommendedQualityPolicy, classifyQualityProfile } from "../pipeline/quality.js";
 import { checkOllamaReachable } from "../overseer/index.js";
@@ -1847,7 +1848,7 @@ function buildFallbackCompositionPlan(
         finalHumanizationStyle,
     );
 
-    return ensureCompositionPlanOrchestration({
+    return ensureClassicalKnowledgePlan(ensureCompositionPlanOrchestration({
         version: request.plannerVersion ?? DEFAULT_PLANNER_VERSION,
         titleHint: undefined,
         brief,
@@ -1872,7 +1873,7 @@ function buildFallbackCompositionPlan(
         motifPolicy: parseMotifPolicy(undefined),
         sections,
         rationale,
-    });
+    }));
 }
 
 function parseCompositionPlan(
@@ -1912,8 +1913,9 @@ function parseCompositionPlan(
         humanizationStyle,
     );
     const orchestration = parseOrchestrationPlan(value.orchestration);
+    const classicalKnowledge = normalizeClassicalKnowledgePlan(value.classicalKnowledge ?? value.knowledgePlan);
 
-    return ensureCompositionPlanOrchestration({
+    return ensureClassicalKnowledgePlan(ensureCompositionPlanOrchestration({
         version: compact(value.version) || request.plannerVersion || DEFAULT_PLANNER_VERSION,
         titleHint: compact(value.titleHint) || undefined,
         brief: compact(value.brief) || compact(request.prompt) || "Planned AXIOM composition",
@@ -1940,9 +1942,10 @@ function parseCompositionPlan(
         sketch: parseCompositionSketch(value.sketch),
         longSpanForm: parseLongSpanFormPlan(value.longSpanForm ?? value.longRangeForm),
         ...(orchestration ? { orchestration } : {}),
+        ...(classicalKnowledge ? { classicalKnowledge } : {}),
         sections,
         rationale: compact(value.rationale) || rationale,
-    });
+    }));
 }
 
 function summarizePlannerPlan(
@@ -2472,6 +2475,16 @@ Required JSON schema:
     "tempoMotionDefaults": [{ "tag": "ritardando", "startMeasure": 13, "endMeasure": 16, "intensity": 0.55, "notes": ["Broaden into the cadence."] }],
     "ornamentDefaults": [{ "tag": "fermata", "startMeasure": 16, "targetBeat": 4, "intensity": 0.8, "notes": ["Hold the final cadence."] }],
     "motifPolicy": { "reuseRequired": true, "inversionAllowed": true, "augmentationAllowed": true, "diminutionAllowed": false, "sequenceAllowed": true },
+    "classicalKnowledge": {
+        "version": "classical-knowledge-v1",
+        "domains": ["harmony", "counterpoint", "form", "notation", "performance"],
+        "harmony": { "language": "common_practice", "cadencePolicy": "structural", "modulationStrategy": "sectional", "harmonicRhythm": "medium", "colorPalette": ["suspension"] },
+        "counterpoint": { "voiceLeading": "guided", "imitation": "occasional", "dissonanceTreatment": "prepared", "preferredVoiceCount": 2 },
+        "form": { "architecture": "string", "phraseModel": "period", "developmentPriority": "medium", "returnStrategy": "recognizable" },
+        "notation": { "phraseMarkingDensity": "balanced", "marks": [{ "category": "dynamic", "mark": "p", "scope": "global" }, { "category": "articulation", "mark": "legato", "scope": "global" }, { "category": "technique", "mark": "una corda", "scope": "section", "sectionId": "s1" }] },
+        "performance": { "humanizationStyle": "restrained", "rubato": "restrained", "dynamicArc": "phrased" },
+        "constraints": ["Keep notation intent even when a mark is not yet fully realized by the worker."]
+    },
     "longSpanForm": {
         "expositionStartSectionId": "s1",
         "expositionEndSectionId": "s2",
@@ -2504,6 +2517,7 @@ Constraints:
 - plan.inspirationThread should state what this piece is trying to learn, refine, or contrast from recent work.
 - plan.humanizationStyle should match the intended phrasing character.
 - plan.expressionDefaults should describe the global dynamics, articulation, and character intent instead of relying on humanizationStyle alone.
+- plan.classicalKnowledge should state the explicit classical-theory contract for this request: harmony, counterpoint, form, notation, and performance. Use notation.marks for any expressive or technique marks that matter even if the current renderer can only realize a subset.
 - Use harmonicPlan.colorCues only for the first narrow harmonic-color tags mixture|applied_dominant|predominant_color|suspension; use keyTarget for applied-dominant targets, resolutionMeasure for suspension release, and keep pedal or deceptive behavior in existing prolongationMode or cadence fields.
 - plan.tempoMotionDefaults and section tempoMotion should only be used for musically intentional local motion; section-level measure windows are relative to the section and may be omitted when the cue spans the whole section.
 - plan.ornamentDefaults and section ornaments may use only supported ornament tags grace_note|trill|mordent|turn|arpeggio|fermata; use fermata for audible local-hold cues, arpeggio for explicit rolled chord arrivals, grace_note for short lead-ins on note-bearing arrivals, and trill for short upper-neighbor oscillation on note-bearing arrivals because the current runtime explicitly realizes those four tags first.

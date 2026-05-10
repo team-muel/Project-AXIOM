@@ -73,6 +73,10 @@ const SOFT_ISSUE_PREFIXES = [
     "Section harmonic color target or resolution drifts away from the planned local event",
     "Section prolongation stays too static for the planned harmonic roles",
     "Section prolongation stays too static for its planned harmonic role",
+    "Classical notation intent is not preserved",
+    "Strict counterpoint contract is weakened",
+    "Architectural cadence contract is not yet held",
+    "Classical development contract is not yet held",
 ];
 const HARD_ISSUE_PREFIXES = ["Too few notes", "Piece too short"];
 const DYNAMIC_LEVELS = ["pp", "p", "mp", "mf", "f", "ff"] as const;
@@ -282,6 +286,93 @@ function appendDirective(
 
 function uniqueNotes(notes: string[] | undefined, additions: string[]): string[] {
     return Array.from(new Set([...(notes ?? []), ...additions.map((value) => value.trim()).filter(Boolean)]));
+}
+
+type ClassicalKnowledgeRevisionPlan = NonNullable<NonNullable<ComposeRequest["compositionPlan"]>["classicalKnowledge"]>;
+
+function uniqueDomains(
+    domains: ClassicalKnowledgeRevisionPlan["domains"] | undefined,
+    additions: ClassicalKnowledgeRevisionPlan["domains"],
+): ClassicalKnowledgeRevisionPlan["domains"] {
+    return Array.from(new Set([...(domains ?? []), ...additions]));
+}
+
+function reinforceClassicalKnowledgeForRevision(
+    classicalKnowledge: ClassicalKnowledgeRevisionPlan | undefined,
+    directives: RevisionDirective[],
+): ClassicalKnowledgeRevisionPlan | undefined {
+    if (!classicalKnowledge) {
+        return undefined;
+    }
+
+    const kinds = new Set(directives.map((directive) => directive.kind));
+    const revised: ClassicalKnowledgeRevisionPlan = JSON.parse(JSON.stringify(classicalKnowledge)) as ClassicalKnowledgeRevisionPlan;
+
+    if (kinds.has("strengthen_cadence") || kinds.has("stabilize_harmony") || kinds.has("clarify_harmonic_color")) {
+        revised.domains = uniqueDomains(revised.domains, ["harmony"]);
+        revised.harmony = {
+            ...(revised.harmony ?? {}),
+            cadencePolicy: kinds.has("strengthen_cadence")
+                ? "architectural"
+                : (revised.harmony?.cadencePolicy ?? "structural"),
+            modulationStrategy: revised.harmony?.modulationStrategy ?? "sectional",
+            notes: uniqueNotes(revised.harmony?.notes, [
+                "Revision must make harmonic function explicit enough for cadences, modulation route, and tonal return to be evaluated.",
+            ]),
+        };
+    }
+
+    if (kinds.has("clarify_texture_plan") || kinds.has("reduce_large_leaps")) {
+        revised.domains = uniqueDomains(revised.domains, ["counterpoint"]);
+        revised.counterpoint = {
+            ...(revised.counterpoint ?? {}),
+            voiceLeading: "strict",
+            dissonanceTreatment: revised.counterpoint?.dissonanceTreatment ?? "prepared",
+            preferredVoiceCount: Math.max(revised.counterpoint?.preferredVoiceCount ?? 2, 2),
+            notes: uniqueNotes(revised.counterpoint?.notes, [
+                "Revision must prefer controlled contrary or oblique motion, stepwise recovery, and independent line behavior.",
+            ]),
+        };
+    }
+
+    if (kinds.has("clarify_narrative_arc") || kinds.has("increase_pitch_variety")) {
+        revised.domains = uniqueDomains(revised.domains, ["form"]);
+        revised.form = {
+            ...(revised.form ?? {}),
+            developmentPriority: "high",
+            returnStrategy: revised.form?.returnStrategy ?? "recognizable",
+            notes: uniqueNotes(revised.form?.notes, [
+                "Revision must make development audible through motivic transformation, harmonic pressure, and prepared return.",
+            ]),
+        };
+    }
+
+    if (kinds.has("clarify_expression") || kinds.has("shape_dynamics") || kinds.has("shape_tempo_motion") || kinds.has("shape_ornament_hold")) {
+        revised.domains = uniqueDomains(revised.domains, ["notation", "performance"]);
+        revised.notation = {
+            ...(revised.notation ?? { marks: [] }),
+            marks: [...(revised.notation?.marks ?? [])],
+            notes: uniqueNotes(revised.notation?.notes, [
+                "Revision must preserve requested dynamics, articulation, tempo motion, ornaments, and unsupported technique text as explicit intent.",
+            ]),
+        };
+        revised.performance = {
+            ...(revised.performance ?? {}),
+            dynamicArc: revised.performance?.dynamicArc ?? "phrased",
+            rubato: revised.performance?.rubato ?? "restrained",
+            notes: uniqueNotes(revised.performance?.notes, [
+                "Revision must keep expression markings audible through phrase-level shaping rather than metadata only.",
+            ]),
+        };
+    }
+
+    if (directives.length > 0) {
+        revised.constraints = uniqueNotes(revised.constraints, [
+            "Do not drop the classical knowledge contract during revision; use it as a hard planning constraint for the next attempt.",
+        ]);
+    }
+
+    return revised;
 }
 
 function hasIssuePrefix(issue: string, prefixes: string[]): boolean {
@@ -2696,6 +2787,60 @@ export function buildStructureRevisionDirectives(
             });
         }
 
+        if (issue.startsWith("Classical notation intent is not preserved")) {
+            appendDirective(directives, {
+                kind: "clarify_expression",
+                priority: 86,
+                reason: "Carry the requested classical markings into section expression, tempo, ornament, and technique intent so notation survives realization.",
+                sourceIssue: issue,
+            });
+            appendDirective(directives, {
+                kind: "shape_dynamics",
+                priority: 78,
+                reason: "Restate dynamic and phrase-shaping marks explicitly where the notation contract is being dropped.",
+                sourceIssue: issue,
+            });
+        }
+
+        if (issue.startsWith("Strict counterpoint contract is weakened")) {
+            appendDirective(directives, {
+                kind: "clarify_texture_plan",
+                priority: 88,
+                reason: "Tighten independent line planning so strict voice-leading, contrary motion, and controlled leaps survive the next symbolic pass.",
+                sourceIssue: issue,
+            });
+            appendDirective(directives, {
+                kind: "reduce_large_leaps",
+                priority: 82,
+                reason: "Reduce unsupported melodic leaps where the strict counterpoint contract is at risk.",
+                sourceIssue: issue,
+            });
+        }
+
+        if (issue.startsWith("Architectural cadence contract is not yet held")) {
+            appendDirective(directives, {
+                kind: "strengthen_cadence",
+                priority: 96,
+                reason: "Make major formal arrivals depend on clearer dominant preparation, bass approach, and tonic release.",
+                sourceIssue: issue,
+            });
+        }
+
+        if (issue.startsWith("Classical development contract is not yet held")) {
+            appendDirective(directives, {
+                kind: "clarify_narrative_arc",
+                priority: 88,
+                reason: "Increase motivic transformation and harmonic pressure in development-class spans before the return.",
+                sourceIssue: issue,
+            });
+            appendDirective(directives, {
+                kind: "increase_pitch_variety",
+                priority: 76,
+                reason: "Use more intervallic transformation so the development contract is audible, not only labeled.",
+                sourceIssue: issue,
+            });
+        }
+
         if (issue.startsWith("Section expression drift weakens the planned dynamic and articulation profile")) {
             appendDirective(directives, {
                 kind: "shape_dynamics",
@@ -3539,6 +3684,13 @@ export function applyRevisionDirectives(
             ),
         }
         : undefined;
+    const revisedClassicalKnowledge = reinforceClassicalKnowledgeForRevision(
+        revisedPlan?.classicalKnowledge ?? request.classicalKnowledge,
+        directives,
+    );
+    if (revisedPlan && revisedClassicalKnowledge) {
+        revisedPlan.classicalKnowledge = revisedClassicalKnowledge;
+    }
 
     if (revisedPlan && directives.some((directive) => directive.kind === "extend_length")) {
         const totalMeasures = revisedPlan.sections.reduce((sum, section) => sum + section.measures, 0);
@@ -3574,6 +3726,7 @@ export function applyRevisionDirectives(
         durationSec: revisedDuration,
         compositionProfile: Object.keys(nextProfile).length > 0 ? nextProfile : undefined,
         compositionPlan: revisedPlan,
+        classicalKnowledge: revisedClassicalKnowledge ?? request.classicalKnowledge,
         revisionDirectives: directives,
         attemptIndex: nextAttemptIndex,
         promptHash: undefined,

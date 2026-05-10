@@ -42,6 +42,7 @@ import {
 import { resolveStructureRerankerPromotion } from "./structureRerankerPromotion.js";
 import { runStructureRerankerShadowScoring } from "./structureShadowReranker.js";
 import { buildExpressionPlanSidecar, mergeExpressionPlanIntoRequest } from "./expressionPlan.js";
+import { cloneClassicalKnowledgePlan, summarizeClassicalKnowledgePlan } from "./classicalKnowledge.js";
 import { evaluateCompletedManifest, updateAutonomyPreferencesFromManifest } from "../autonomy/service.js";
 import { computePromptHash, ensureComposeRequestMetadata } from "../autonomy/request.js";
 import { buildExecutionPlan, compose, readComposeProgress } from "../composer/index.js";
@@ -370,6 +371,7 @@ function syncRequestWithCompositionPlan(request: ComposeRequest): ComposeRequest
         workflow: request.workflow ?? plan.workflow,
         plannerVersion: request.plannerVersion ?? plan.version,
         targetInstrumentation: request.targetInstrumentation ?? plan.instrumentation,
+        classicalKnowledge: request.classicalKnowledge ?? plan.classicalKnowledge,
     };
 }
 
@@ -396,6 +398,8 @@ function applyPlanningMetadata(
     manifest.meta.riskProfile = plan?.riskProfile ?? manifest.meta.riskProfile;
     manifest.meta.structureVisibility = plan?.structureVisibility ?? manifest.meta.structureVisibility;
     manifest.meta.humanizationStyle = plan?.humanizationStyle ?? manifest.meta.humanizationStyle;
+    manifest.classicalKnowledge = cloneClassicalKnowledgePlan(plan?.classicalKnowledge ?? request.classicalKnowledge) ?? manifest.classicalKnowledge;
+    manifest.meta.classicalKnowledge = summarizeClassicalKnowledgePlan(manifest.classicalKnowledge) ?? manifest.meta.classicalKnowledge;
     manifest.expressionPlan = buildExpressionPlanSidecar(plan);
     manifest.compositionSketch = plan?.sketch ?? manifest.compositionSketch;
 }
@@ -1059,6 +1063,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             expressionDefaults: candidateCompositionPlan?.expressionDefaults,
                             longSpanForm: candidateCompositionPlan?.longSpanForm,
                             orchestration: candidateCompositionPlan?.orchestration,
+                            classicalKnowledge: candidateCompositionPlan?.classicalKnowledge ?? candidateVariant.request.classicalKnowledge,
                         });
                         const candidateQualityPolicy = manifest.qualityControl?.policy ?? resolveQualityPolicy(candidateVariant.request, candidateExecutionPlan);
                         const candidateRetryNeeded = shouldRetryStructureAttempt(
@@ -1261,6 +1266,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             expressionDefaults: branchCompositionPlan?.expressionDefaults,
                             longSpanForm: branchCompositionPlan?.longSpanForm,
                             orchestration: branchCompositionPlan?.orchestration,
+                            classicalKnowledge: branchCompositionPlan?.classicalKnowledge ?? branchRequest.classicalKnowledge,
                         });
                         const branchQualityPolicy = manifest.qualityControl?.policy ?? resolveQualityPolicy(branchRequest, branchExecutionPlan);
 
