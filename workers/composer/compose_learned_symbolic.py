@@ -71,7 +71,9 @@ def _write_feedback_evidence(
             "planSignature": plan_signature,
             "lane": lane,
             "candidatePool": candidate_pool,
-            "selectedCandidateId": candidate_pool[0]["candidateId"] if candidate_pool else "v0",
+            "selectedCandidateId": candidate_pool[0]["candidateId"]
+            if candidate_pool
+            else "v0",
             "attemptIndex": attempt_index,
             "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
         }

@@ -21,6 +21,7 @@ import { config } from "../config.js";
 import { logger } from "../logging/logger.js";
 import { checkOllamaReachable } from "../overseer/index.js";
 import type { AutonomyReviewFeedbackInput } from "../autonomy/types.js";
+import type { ListenerFeedback } from "../pipeline/types.js";
 
 const router = Router();
 
@@ -42,6 +43,14 @@ function finiteNumber(value: unknown): number | undefined {
     return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function ratingField(value: unknown): 1 | 2 | 3 | 4 | 5 | undefined {
+    const n = finiteNumber(value);
+    if (n === undefined) return undefined;
+    const rounded = Math.round(n);
+    if (rounded >= 1 && rounded <= 5) return rounded as 1 | 2 | 3 | 4 | 5;
+    return undefined;
+}
+
 type AutonomyReviewRequestBody = {
     note?: string;
     reason?: string;
@@ -53,6 +62,13 @@ type AutonomyReviewRequestBody = {
     strongestDimension?: string;
     weakestDimension?: string;
     comparisonReference?: string;
+    /** Per-dimension listener rating (1–5) */
+    appeal?: number | string;
+    memorability?: number | string;
+    coherence?: number | string;
+    emotionalImpact?: number | string;
+    listenerNotes?: string;
+    comparisonCandidateId?: string;
 };
 
 type AutonomyMutationRequestBody = {
@@ -62,13 +78,42 @@ type AutonomyMutationRequestBody = {
     manualRecoveryNote?: string;
 };
 
+function parseListenerFeedback(body: AutonomyReviewRequestBody | undefined): ListenerFeedback | undefined {
+    const appeal = ratingField(body?.appeal);
+    if (appeal === undefined) {
+        return undefined;
+    }
+
+    const feedback: ListenerFeedback = { appeal };
+    const memorability = ratingField(body?.memorability);
+    if (memorability !== undefined) feedback.memorability = memorability;
+    const coherence = ratingField(body?.coherence);
+    if (coherence !== undefined) feedback.coherence = coherence;
+    const emotionalImpact = ratingField(body?.emotionalImpact);
+    if (emotionalImpact !== undefined) feedback.emotionalImpact = emotionalImpact;
+
+    const strongestDimension = compact(body?.strongestDimension) as ListenerFeedback["strongestDimension"] || undefined;
+    if (strongestDimension) feedback.strongestDimension = strongestDimension;
+    const weakestDimension = compact(body?.weakestDimension) as ListenerFeedback["weakestDimension"] || undefined;
+    if (weakestDimension) feedback.weakestDimension = weakestDimension;
+
+    const notes = compact(body?.listenerNotes) || undefined;
+    if (notes) feedback.notes = notes;
+    const comparisonCandidateId = compact(body?.comparisonCandidateId) || undefined;
+    if (comparisonCandidateId) feedback.comparisonCandidateId = comparisonCandidateId;
+
+    return feedback;
+}
+
 function parseReviewFeedback(body: AutonomyReviewRequestBody | undefined, noteValue: unknown): AutonomyReviewFeedbackInput {
+    const listenerFeedback = parseListenerFeedback(body);
     return {
         note: compact(noteValue) || undefined,
         appealScore: finiteNumber(body?.appealScore),
         strongestDimension: compact(body?.strongestDimension) || undefined,
         weakestDimension: compact(body?.weakestDimension) || undefined,
         comparisonReference: compact(body?.comparisonReference) || undefined,
+        ...(listenerFeedback ? { listenerFeedback } : {}),
     };
 }
 

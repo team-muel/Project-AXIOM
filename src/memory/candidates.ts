@@ -7,6 +7,7 @@ import type {
     ComposeExecutionPlan,
     ComposeQualityPolicy,
     CompositionPlan,
+    ListenerFeedback,
     RevisionDirective,
     SectionArtifactSummary,
     SectionTonalitySummary,
@@ -82,6 +83,12 @@ export interface StructureCandidateManifest {
     sectionTransforms?: SectionTransformSummary[];
     shadowReranker?: StructureCandidateShadowSummary;
     rerankerPromotion?: StructureCandidatePromotionSummary;
+    /** Internal proxy metric scores (craftScoreSummary dimensions and overall score) */
+    internalScores?: Record<string, number>;
+    /** Structured per-dimension listener scores written at approval/rejection time */
+    listenerScores?: Record<string, number>;
+    /** Full structured listener feedback attached when a human approves or rejects this candidate */
+    listenerFeedback?: ListenerFeedback;
     artifacts: {
         midi?: string;
         sectionArtifacts?: string;
@@ -408,4 +415,59 @@ export function saveStructureCandidateRerankerScore(score: StructureCandidateRer
         : entry);
     index.updatedAt = new Date().toISOString();
     saveStructureCandidateIndex(index);
+}
+
+/**
+ * Saves listener feedback (and internalScores/listenerScores derived from it)
+ * to the selected candidate's sidecar manifest for a given song.
+ * No-ops gracefully when the candidate index or manifest is missing.
+ */
+export function saveListenerFeedbackToSelectedCandidate(
+    songId: string,
+    feedback: ListenerFeedback,
+    internalScores?: Record<string, number>,
+): void {
+    const index = loadStructureCandidateIndex(songId);
+    const selectedId = index.selectedCandidateId;
+    if (!selectedId) {
+        return;
+    }
+
+    const candidateManifestPath = structureCandidateManifestPath(songId, selectedId);
+    const candidateManifest = readJsonFile<StructureCandidateManifest>(candidateManifestPath);
+    if (!candidateManifest) {
+        return;
+    }
+
+    candidateManifest.listenerFeedback = cloneJson(feedback);
+
+    // Build a flat listenerScores record from numeric feedback dimensions
+    const listenerScores: Record<string, number> = {};
+    if (typeof feedback.appeal === "number") listenerScores["appeal"] = feedback.appeal;
+    if (typeof feedback.memorability === "number") listenerScores["memorability"] = feedback.memorability;
+    if (typeof feedback.coherence === "number") listenerScores["coherence"] = feedback.coherence;
+    if (typeof feedback.emotionalImpact === "number") listenerScores["emotionalImpact"] = feedback.emotionalImpact;
+    candidateManifest.listenerScores = listenerScores;
+
+    if (internalScores) {
+        candidateManifest.internalScores = { ...internalScores };
+    } else {
+        // Derive from craftScoreSummary if available
+        const craft = candidateManifest.structureEvaluation?.craftScoreSummary;
+        if (craft) {
+            candidateManifest.internalScores = {
+                syntaxValidity: craft.syntaxValidity,
+                sectionContractFit: craft.sectionContractFit,
+                cadenceStrength: craft.cadenceStrength,
+                tonalReturn: craft.tonalReturn,
+                motifSurvival: craft.motifSurvival,
+                voiceIndependence: craft.voiceIndependence,
+                phraseShape: craft.phraseShape,
+                registerIdiomaticFit: craft.registerIdiomaticFit,
+                finalCraftScore: craft.finalCraftScore,
+            };
+        }
+    }
+
+    writeJsonFile(candidateManifestPath, candidateManifest);
 }

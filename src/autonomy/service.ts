@@ -13,6 +13,7 @@ import {
     saveAutonomyPreferences,
     saveManifest,
 } from "../memory/manifest.js";
+import { saveListenerFeedbackToSelectedCandidate } from "../memory/candidates.js";
 import { collectRecentAxiomContext, generateOllamaText } from "../overseer/index.js";
 import type {
     ArticulationTag,
@@ -38,6 +39,7 @@ import type {
     HumanizationStyle,
     InstrumentAssignment,
     JobManifest,
+    ListenerFeedback,
     LongSpanFormPlan,
     LongSpanPressure,
     ModelBinding,
@@ -4087,6 +4089,7 @@ function updateApprovalState(
                 ? reviewFeedback.appealScore
                 : undefined;
             const reviewRubricVersion = compact(reviewFeedback?.reviewRubricVersion) || APPROVAL_REVIEW_RUBRIC_VERSION;
+            const listenerFeedback: ListenerFeedback | undefined = reviewFeedback?.listenerFeedback ?? undefined;
 
             const normalized: AutonomyReviewFeedbackInput = {
                 reviewRubricVersion,
@@ -4095,6 +4098,7 @@ function updateApprovalState(
                 ...(strongestDimension ? { strongestDimension } : {}),
                 ...(weakestDimension ? { weakestDimension } : {}),
                 ...(comparisonReference ? { comparisonReference } : {}),
+                ...(listenerFeedback ? { listenerFeedback } : {}),
             };
 
             return normalized;
@@ -4116,6 +4120,18 @@ function updateApprovalState(
             .join("\n\n");
     }
     saveManifest(manifest);
+
+    // Persist listener feedback to the selected candidate sidecar when provided
+    const feedbackToStore = typeof reviewFeedback !== "string"
+        ? reviewFeedback?.listenerFeedback
+        : undefined;
+    if (feedbackToStore) {
+        try {
+            saveListenerFeedbackToSelectedCandidate(songId, feedbackToStore);
+        } catch (err) {
+            logger.warn("Failed to save listener feedback to candidate sidecar", { songId, err });
+        }
+    }
 
     const nextPreferences = {
         ...currentPreferences,

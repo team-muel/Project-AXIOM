@@ -6,6 +6,7 @@ import type {
     ComposeWorkflow,
     HarmonicPlan,
     HumanizationStyle,
+    ListenerFeedback,
     LongSpanDivergenceSummary,
     LongSpanEvaluationSummary,
     LongSpanPressure,
@@ -105,7 +106,10 @@ export interface AutonomyHumanFeedbackHighlights {
     comparisonReferences: string[];
 }
 
-export interface AutonomyReviewFeedbackInput extends ReviewFeedback { }
+export interface AutonomyReviewFeedbackInput extends ReviewFeedback {
+    /** Structured per-dimension listener scores attached at approval/rejection time */
+    listenerFeedback?: ListenerFeedback;
+}
 
 export interface AutonomySuccessPattern {
     form?: string;

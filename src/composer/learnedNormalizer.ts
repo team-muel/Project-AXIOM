@@ -132,7 +132,7 @@ export function normalizeLearnedSymbolicResponse(
                 ...(typeof entry.noteCount === "number" ? { noteCount: entry.noteCount } : {}),
                 ...(typeof entry.measureCount === "number" ? { measureCount: entry.measureCount } : {}),
                 ...(typeof entry.rewriteApplied === "boolean" ? { rewriteApplied: entry.rewriteApplied } : {}),
-              }))
+            }))
             : undefined;
 
     // Derive candidateIndex from variant key (learned-N → N-1 zero-based)

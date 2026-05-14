@@ -32,3 +32,4 @@ import "./abc-projection-pipeline.test.mjs";
 import "./learned-multi-candidate.test.mjs";
 import "./learned-localized-rewrite.test.mjs";
 import "./craft-score.test.mjs";
+import "./listener-feedback.test.mjs";

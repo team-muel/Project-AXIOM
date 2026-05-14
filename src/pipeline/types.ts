@@ -48,6 +48,20 @@ export type ComposeSource = "api" | "autonomy";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "not_required";
 
+export interface ListenerFeedback {
+    /** Overall appeal rating: 1 (poor) – 5 (excellent) */
+    appeal: 1 | 2 | 3 | 4 | 5;
+    memorability?: 1 | 2 | 3 | 4 | 5;
+    coherence?: 1 | 2 | 3 | 4 | 5;
+    emotionalImpact?: 1 | 2 | 3 | 4 | 5;
+    strongestDimension?: "melody" | "harmony" | "form" | "texture" | "expression" | "orchestration";
+    weakestDimension?: "melody" | "harmony" | "form" | "texture" | "expression" | "orchestration";
+    /** Free-form listener observation */
+    notes?: string;
+    /** Id of another candidate this piece was compared against */
+    comparisonCandidateId?: string;
+}
+
 export interface ReviewFeedback {
     reviewRubricVersion?: string;
     note?: string;
@@ -55,6 +69,8 @@ export interface ReviewFeedback {
     strongestDimension?: string;
     weakestDimension?: string;
     comparisonReference?: string;
+    /** Structured per-dimension listener rating attached at approval/rejection time */
+    listenerFeedback?: ListenerFeedback;
 }
 
 export interface SelfAssessment {
