@@ -42,6 +42,13 @@ export interface LearnedSymbolicProposalResponse {
         normalizationWarnings?: string[];
     };
     proposalSections?: LearnedSymbolicProposalSection[];
+    proposalCandidatePool?: Array<{
+        candidateId: string;
+        variantIndex: number;
+        noteCount?: number;
+        measureCount?: number;
+        rewriteApplied?: boolean;
+    }>;
     error?: string;
 }
 

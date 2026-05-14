@@ -15,10 +15,32 @@ export interface LearnedNotagenProviderRequest {
     planSignature: string;
     conditioningText: string;
     controlLines: string[];
+    abcHeader?: string;
 }
 
 function normalizeText(value: string | undefined): string {
     return String(value ?? "").trim().replace(/\s+/g, " ");
+}
+
+function resolveAbcKey(keyLabel: string): string {
+    const m = /^([A-G][#b]?)\s+(major|minor)$/i.exec(keyLabel.trim());
+    if (!m) return "C";
+    return m[2].toLowerCase() === "major" ? m[1] : `${m[1]}min`;
+}
+
+function buildAbcHeader(promptPack: LearnedSymbolicPromptPack): string {
+    const { styleCue } = promptPack;
+    const key = resolveAbcKey(styleCue.key ?? "C major");
+    const tempo = styleCue.tempo ?? 92;
+    const title = normalizeText(styleCue.brief).slice(0, 80) || "Untitled";
+    return [
+        "X:1",
+        `T:${title}`,
+        "M:4/4",
+        "L:1/8",
+        `Q:1/4=${tempo}`,
+        `K:${key}`,
+    ].join("\n") + "\n";
 }
 
 function resolveStructureBinding(selectedModels: ModelBinding[] | undefined): ModelBinding | undefined {
@@ -106,5 +128,6 @@ export function buildLearnedNotagenProviderRequest(
         planSignature: promptPack.planSignature,
         conditioningText,
         controlLines,
+        abcHeader: buildAbcHeader(promptPack),
     };
 }

@@ -21,10 +21,7 @@ from learned_symbolic.prompt_packing import (
     resolve_tempo,
     supports_narrow_lane,
 )
-from learned_symbolic.symbolic_projection import (
-    parse_key_signature,
-    project_symbolic_sections,
-)
+from learned_symbolic.symbolic_projection import parse_key_signature
 
 
 def read_payload() -> dict[str, Any]:
@@ -75,6 +72,86 @@ def add_part(
     score.append(part)
 
 
+def _resolve_backend() -> Any:
+    """Select the symbolic generation backend from AXIOM_LEARNED_BACKEND env var.
+
+    Supported values (case-insensitive):
+      "mock"    — plan-conditioned template, current default behavior
+      "notagen" — NotaGen-class inference (requires checkpoint)
+
+    Unset or empty → "mock".
+    """
+    backend_name = os.environ.get("AXIOM_LEARNED_BACKEND", "mock").strip().lower()
+    if backend_name == "notagen":
+        from learned_symbolic.notagen_backend import NotagenBackend
+
+        return NotagenBackend()
+    from learned_symbolic.mock_backend import MockBackend
+
+    return MockBackend()
+
+
+def _derive_variant_payload(
+    payload: dict[str, Any], variant_index: int
+) -> dict[str, Any]:
+    """Return a payload with a perturbed stable seed for candidate diversity."""
+    import hashlib
+
+    if variant_index == 0:
+        return payload
+    base_seed = payload.get("stableSeed")
+    if not isinstance(base_seed, (int, float)):
+        return payload
+    variant_seed = int(
+        hashlib.sha256(
+            f"{int(base_seed)}|variant_{variant_index}".encode()
+        ).hexdigest()[:8],
+        16,
+    )
+    return {**payload, "stableSeed": variant_seed}
+
+
+def _write_feedback_evidence(
+    output_path: str,
+    plan_signature: str,
+    lane: str,
+    candidate_pool: list[dict[str, Any]],
+    attempt_index: int,
+) -> None:
+    """Append feedback evidence for future reranker / fine-tuning data collection."""
+    import datetime
+
+    try:
+        song_dir = os.path.dirname(output_path)
+        base_dir = os.path.dirname(song_dir)
+        song_id = os.path.basename(song_dir)
+        system_dir = os.path.join(base_dir, "_system", song_id)
+        os.makedirs(system_dir, exist_ok=True)
+        evidence_path = os.path.join(system_dir, "feedback_evidence.json")
+        entry: dict[str, Any] = {
+            "planSignature": plan_signature,
+            "lane": lane,
+            "candidatePool": candidate_pool,
+            "selectedCandidateId": candidate_pool[0]["candidateId"] if candidate_pool else "v0",
+            "attemptIndex": attempt_index,
+            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+        }
+        existing: list[dict[str, Any]] = []
+        if os.path.exists(evidence_path):
+            try:
+                with open(evidence_path, "r", encoding="utf-8") as fh:
+                    existing = json.load(fh)
+                if not isinstance(existing, list):
+                    existing = []
+            except Exception:
+                existing = []
+        existing.append(entry)
+        with open(evidence_path, "w", encoding="utf-8") as fh:
+            json.dump(existing, fh, indent=2)
+    except Exception:
+        pass  # Evidence write is best-effort; never block the main response.
+
+
 def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     plan = as_record(payload.get("compositionPlan")) or {}
     prompt_pack = get_prompt_pack(payload)
@@ -106,15 +183,52 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     score = stream.Score(id="learned-symbolic")
     score.append(tempo_module.MetronomeMark(number=tempo))
 
-    projection = project_symbolic_sections(
-        payload,
-        sections,
-        tonic_key,
-        normalized_attempt_index,
-        provider_prompt_context["warnings"]
-        if provider_prompt_context is not None
-        else None,
-    )
+    backend = _resolve_backend()
+    candidate_count = max(1, min(4, int(payload.get("candidateCount") or 1)))
+    candidate_pool: list[dict[str, Any]] = []
+    projection = None
+    normalization_warnings: list[str] = []
+
+    for variant_index in range(candidate_count):
+        variant_payload = _derive_variant_payload(payload, variant_index)
+        try:
+            proj = backend.generate(
+                payload=variant_payload,
+                sections=sections,
+                tonic_key=tonic_key,
+                attempt_index=normalized_attempt_index,
+                context=provider_prompt_context,
+            )
+        except NotImplementedError as exc:
+            # NotaGen checkpoint absent — fall back to mock transparently.
+            from learned_symbolic.mock_backend import MockBackend
+
+            proj = MockBackend().generate(
+                payload=variant_payload,
+                sections=sections,
+                tonic_key=tonic_key,
+                attempt_index=normalized_attempt_index,
+                context=provider_prompt_context,
+            )
+            proj["normalizationWarnings"].insert(
+                0,
+                f"notagen backend unavailable ({exc}); fell back to mock",
+            )
+
+        candidate_pool.append(
+            {
+                "candidateId": f"v{variant_index}",
+                "variantIndex": variant_index,
+                "noteCount": proj["totalNoteCount"],
+                "measureCount": proj["totalMeasureCount"],
+                "rewriteApplied": proj["rewriteApplied"],
+            }
+        )
+        if projection is None:
+            projection = proj
+            normalization_warnings = proj["normalizationWarnings"]
+
+    assert projection is not None
     proposal_sections = projection["proposalSections"]
     violin_measures = projection["violinMeasures"]
     viola_measures = projection["violaMeasures"]
@@ -128,7 +242,19 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     add_part(score, "Cello", instrument.Violoncello(), cello_measures)
     score.write("midi", fp=output_path)
 
-    return {
+    _write_feedback_evidence(
+        output_path=output_path,
+        plan_signature=provider_prompt_context["planSignature"]
+        if provider_prompt_context is not None
+        else "",
+        lane=provider_prompt_context["lane"]
+        if provider_prompt_context is not None and provider_prompt_context["lane"] is not None
+        else "string_trio_symbolic",
+        candidate_pool=candidate_pool,
+        attempt_index=normalized_attempt_index,
+    )
+
+    response: dict[str, Any] = {
         "ok": True,
         "proposalMidiPath": output_path,
         "proposalSummary": {
@@ -163,6 +289,9 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
         },
         "proposalSections": proposal_sections,
     }
+    if len(candidate_pool) > 1:
+        response["proposalCandidatePool"] = candidate_pool
+    return response
 
 
 def main() -> None:

@@ -1169,6 +1169,14 @@ export interface ComposeProposalEvidenceSummary {
     form?: string;
 }
 
+export interface CandidatePoolEntry {
+    candidateId: string;
+    variantIndex: number;
+    noteCount?: number;
+    measureCount?: number;
+    rewriteApplied?: boolean;
+}
+
 export interface ComposeProposalEvidence {
     worker: ComposeWorkerName;
     lane?: string;
@@ -1181,6 +1189,7 @@ export interface ComposeProposalEvidence {
     generationMode?: string;
     confidence?: number;
     normalizationWarnings?: string[];
+    candidatePool?: CandidatePoolEntry[];
     summary?: ComposeProposalEvidenceSummary;
 }
 

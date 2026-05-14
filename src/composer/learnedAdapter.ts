@@ -108,6 +108,7 @@ export interface LearnedSymbolicWorkerPayload {
     tempo?: number;
     form?: string;
     attemptIndex?: number;
+    candidateCount?: number;
     revisionDirectives?: ComposeRequest["revisionDirectives"];
     sectionArtifacts?: ComposeRequest["sectionArtifacts"];
     compositionPlan?: ComposeRequest["compositionPlan"];
