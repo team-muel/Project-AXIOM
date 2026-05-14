@@ -173,3 +173,46 @@ MCP에서도 같은 정보와 제어를 쓸 수 있다.
 원격 운영 기준으로는 `ops`를 먼저 확인하고, 허용된 mutation만 MCP surface에서 호출한다. `trigger`는 아직 shared remote operator lane의 승인 대상이 아니므로, stale lock recovery 직후에도 routine path로 이어서 호출하지 않는다.
 
 승인 또는 recovery를 호출했다면 후속 검증에서 `outputs/_system/operator-actions/latest.json` 또는 당일 `history` JSONL도 함께 확인하는 편이 안전하다.
+
+## NotaGen Backend 운영 (Phase H)
+
+### 환경 변수
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `NOTAGEN_BACKEND_MODE` | `disabled` | `disabled` \| `mock` \| `local` |
+| `NOTAGEN_MODEL_PATH` | _(없음)_ | local 모드 전용: checkpoint 디렉터리 또는 `.pt` 파일 경로 |
+| `NOTAGEN_TOKENIZER_PATH` | _(없음)_ | local 모드 전용: tokenizer 경로 (미설정 시 `NOTAGEN_MODEL_PATH` 공유) |
+| `NOTAGEN_DEVICE` | `cpu` | `cpu` \| `cuda` \| `mps` |
+| `NOTAGEN_MAX_TOKENS` | `2048` | 모델이 생성할 최대 토큰 수 |
+| `NOTAGEN_TIMEOUT_MS` | `120000` | inference 전체 타임아웃 (ms) |
+| `NOTAGEN_RESAMPLE_BUDGET` | `2` | Phase C 검증 실패 시 추가 재시도 횟수 |
+
+### 모드별 동작
+
+- **`disabled` (기본값)**: NotaGen backend는 즉시 `ok=false`를 반환한다. music21 symbolic path는 영향받지 않으며 계속 주 경로로 동작한다.
+- **`mock`**: 모델을 로드하지 않고 deterministic mock ABC를 반환한다. CI/CD 및 통합 테스트에 사용한다.
+- **`local`**: `NOTAGEN_MODEL_PATH`의 checkpoint를 lazy-load singleton으로 관리하며 실제 inference를 수행한다. inference 실패는 `ok=false`로 반환하여 worker process crash를 방지한다.
+
+### Readiness 신호
+
+`GET /ready` 응답의 `capabilities.notagenBackend`와 `checks.notagenBackend`에서 NotaGen 상태를 확인할 수 있다.
+
+- `mode=disabled` → `available=false` (의도된 비활성화; degraded reason에 포함되지 않음)
+- `mode=mock` → `available=true`
+- `mode=local` → `available=true` only when `NOTAGEN_MODEL_PATH`가 존재하고 torch/transformers/accelerate가 설치됨
+
+`mode=local`이고 model path가 없거나 inference stack이 미설치된 경우 `/ready`는 `ready_degraded`를 반환한다. **단, music21 symbolic path가 ready라면 `not_ready`로 내려가지 않는다.**
+
+### 설치 (local 모드)
+
+```bash
+pip install -r workers/requirements-notagen.txt
+export NOTAGEN_BACKEND_MODE=local
+export NOTAGEN_MODEL_PATH=/path/to/notagen-checkpoint
+```
+
+### Resample 정책
+
+Phase C validation pipeline (ABC syntax, voice synchronization, section measure count 등)에서 실패한 inference 결과는 자동 폐기되고, `NOTAGEN_RESAMPLE_BUDGET`만큼 재시도한다. 재시도 시 각 시도마다 seed가 변경되어 다른 생성 결과를 유도한다. resample 후 성공한 candidate에는 `abc_resampled_after_N_failed_validation_attempts` warning이 붙는다.
+

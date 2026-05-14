@@ -33,3 +33,5 @@ import "./learned-multi-candidate.test.mjs";
 import "./learned-localized-rewrite.test.mjs";
 import "./craft-score.test.mjs";
 import "./listener-feedback.test.mjs";
+import "./notagen-backend.test.mjs";
+

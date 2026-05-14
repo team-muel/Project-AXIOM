@@ -53,4 +53,17 @@ export const config = {
     structureRerankerShadowEnabled: envBool("STRUCTURE_RERANKER_SHADOW_ENABLED", false),
     structureRerankerShadowSnapshot: env("STRUCTURE_RERANKER_SHADOW_SNAPSHOT", ""),
     structureRerankerPromotionEnabled: envBool("STRUCTURE_RERANKER_PROMOTION_ENABLED", false),
+    // NotaGen backend configuration
+    // NOTAGEN_BACKEND_MODE: "disabled" | "mock" | "local"
+    //   disabled – backend always returns unavailable error; music21 path is unaffected
+    //   mock     – deterministic mock ABC returned without loading a model
+    //   local    – real model inference using the configured checkpoint
+    notagenBackendMode: env("NOTAGEN_BACKEND_MODE", "disabled") as "disabled" | "mock" | "local",
+    notagenModelPath: env("NOTAGEN_MODEL_PATH", ""),
+    notagenTokenizerPath: env("NOTAGEN_TOKENIZER_PATH", ""),
+    notagenDevice: env("NOTAGEN_DEVICE", "cpu") as "cpu" | "cuda" | "mps",
+    notagenMaxTokens: envInt("NOTAGEN_MAX_TOKENS", 2048),
+    notagenTimeoutMs: envInt("NOTAGEN_TIMEOUT_MS", 120_000),
+    // Maximum number of additional inference attempts when ABC validation fails
+    notagenResampleBudget: envInt("NOTAGEN_RESAMPLE_BUDGET", 2),
 } as const;

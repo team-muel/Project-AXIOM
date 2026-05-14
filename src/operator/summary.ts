@@ -900,6 +900,28 @@ export function getRuntimeReadinessSummary(): RuntimeReadinessSummary {
     checks.fluidsynth = checkExecutable("fluidsynth", LOCAL_FLUIDSYNTH_CANDIDATES);
     checks.ffmpeg = checkExecutable(config.ffmpegBin, LOCAL_FFMPEG_CANDIDATES);
 
+    // NotaGen backend availability check
+    const notagenMode = config.notagenBackendMode;
+    const notagenModelPathSet = Boolean(config.notagenModelPath);
+    const notagenModelExists = notagenModelPathSet && fs.existsSync(config.notagenModelPath);
+    const notagenInferenceStack = pythonModules.torch && pythonModules.transformers && pythonModules.accelerate;
+    const notagenBackend = {
+        mode: notagenMode,
+        // "available" means inference can actually run end-to-end:
+        //   disabled → false (intentionally off)
+        //   mock     → true  (no model needed)
+        //   local    → true only when model path exists AND inference stack installed
+        available: notagenMode === "mock"
+            ? true
+            : notagenMode === "local"
+                ? Boolean(notagenModelExists && notagenInferenceStack)
+                : false,
+        modelPathSet: notagenModelPathSet,
+        modelPathExists: notagenMode === "local" ? notagenModelExists : null,
+        inferenceStackReady: notagenMode === "local" ? Boolean(notagenInferenceStack) : null,
+    };
+    checks.notagenBackend = notagenBackend;
+
     const capabilities = {
         symbolicCompose: checks.python === true && pythonModules.music21 && workerScripts.symbolicCompose === true,
         symbolicHumanize: checks.python === true && pythonModules.music21 && workerScripts.symbolicHumanize === true,
@@ -920,6 +942,9 @@ export function getRuntimeReadinessSummary(): RuntimeReadinessSummary {
             && pythonModules.transformers
             && pythonModules.accelerate
             && workerScripts.styledAudioRender === true,
+        // NotaGen availability as a capability signal (never affects not_ready gate —
+        // the music21 symbolic path must remain ready independently)
+        notagenBackend: notagenBackend.available,
     };
 
     const degradedReasons = [
@@ -931,6 +956,10 @@ export function getRuntimeReadinessSummary(): RuntimeReadinessSummary {
         !capabilities.audioRender ? "audio render unavailable (soundfont or FluidSynth/midi2audio missing)" : null,
         !capabilities.previewVideo ? "preview video unavailable (ffmpeg missing or audio render unavailable)" : null,
         !capabilities.musicgenCompose ? "MusicGen unavailable (torch/transformers/scipy/accelerate stack missing)" : null,
+        // NotaGen degraded only when LOCAL mode is requested but cannot run
+        notagenMode === "local" && !notagenBackend.available
+            ? `NotaGen local inference degraded: ${!notagenModelExists ? "model path missing or not found" : "torch/transformers/accelerate stack not installed"}`
+            : null,
     ].filter((value): value is string => Boolean(value));
 
     const symbolicReady = capabilities.symbolicCompose && capabilities.symbolicHumanize && capabilities.symbolicRenderPreview;

@@ -1,0 +1,13 @@
+# NotaGen inference stack — install when NOTAGEN_BACKEND_MODE=local
+# These packages are NOT required for NOTAGEN_BACKEND_MODE=disabled (default) or =mock.
+#
+# Install:
+#   pip install -r workers/requirements-notagen.txt
+#
+# Note: torch version and CUDA variant should match your hardware.
+# See https://pytorch.org/get-started/locally/ for platform-specific instructions.
+
+torch>=2.1.0
+transformers>=4.38.0
+sentencepiece>=0.1.99
+accelerate>=0.26.0
