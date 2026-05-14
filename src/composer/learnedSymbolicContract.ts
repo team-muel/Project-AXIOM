@@ -19,6 +19,19 @@ export interface LearnedSymbolicProposalSection {
     supportEvents: LearnedSymbolicProposalEvent[];
     noteHistory: number[];
     transform?: SectionTransformSummary;
+    // evidence fields for craftScoring.ts
+    cadenceApproach?: "dominant" | "plagal" | "tonic" | "other";
+    lastInterval?: number;
+    bassMotionProfile?: "pedal" | "stepwise" | "mixed" | "leaping";
+    textureContraryMotionRate?: number;
+    textureIndependentMotionRate?: number;
+    melodyPitchMin?: number;
+    melodyPitchMax?: number;
+    bassPitchMin?: number;
+    bassPitchMax?: number;
+    phrasePeaks?: number[];
+    secondaryLineMotif?: number[];
+    rhythmicDensity?: number;
 }
 
 export interface LearnedSymbolicProposalResponse {

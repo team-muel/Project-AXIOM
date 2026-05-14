@@ -92,6 +92,19 @@ export function normalizeLearnedSymbolicResponse(
             ? (response.proposalMetadata?.generationMode ?? "learned_symbolic_proposal")
             : "plan_conditioned_trio_template",
         ...(section.transform ? { transform: { ...section.transform } } : {}),
+        // evidence fields pass-through for craftScoring.ts
+        ...(section.cadenceApproach !== undefined ? { cadenceApproach: section.cadenceApproach } : {}),
+        ...(section.lastInterval !== undefined ? { lastInterval: section.lastInterval } : {}),
+        ...(section.bassMotionProfile !== undefined ? { bassMotionProfile: section.bassMotionProfile } : {}),
+        ...(section.textureContraryMotionRate !== undefined ? { textureContraryMotionRate: section.textureContraryMotionRate } : {}),
+        ...(section.textureIndependentMotionRate !== undefined ? { textureIndependentMotionRate: section.textureIndependentMotionRate } : {}),
+        ...(section.melodyPitchMin !== undefined ? { melodyPitchMin: section.melodyPitchMin } : {}),
+        ...(section.melodyPitchMax !== undefined ? { melodyPitchMax: section.melodyPitchMax } : {}),
+        ...(section.bassPitchMin !== undefined ? { bassPitchMin: section.bassPitchMin } : {}),
+        ...(section.bassPitchMax !== undefined ? { bassPitchMax: section.bassPitchMax } : {}),
+        ...(Array.isArray(section.phrasePeaks) && section.phrasePeaks.length > 0 ? { phrasePeaks: [...section.phrasePeaks] } : {}),
+        ...(Array.isArray(section.secondaryLineMotif) && section.secondaryLineMotif.length > 0 ? { secondaryLineMotif: [...section.secondaryLineMotif] } : {}),
+        ...(section.rhythmicDensity !== undefined ? { rhythmicDensity: section.rhythmicDensity } : {}),
     }));
     const sectionTransforms = (response.proposalSections ?? [])
         .filter((section): section is LearnedSymbolicProposalSection & { transform: SectionTransformSummary } => Boolean(section.transform))

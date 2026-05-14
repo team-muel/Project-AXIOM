@@ -687,3 +687,129 @@ test("Phase C-2 abc_project: voice_sync_mismatch surfaces in normalization_warni
     );
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// F. Phase C-3: evidence field projection
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Run abc_to_events helpers directly and return evidence for the first section.
+ */
+function runEvidenceProjection(abcText, sections) {
+    const script = `
+import sys, json
+sys.path.insert(0, "workers/composer")
+data = json.load(sys.stdin)
+from learned_symbolic.abc_to_events import convert
+mats, warns = convert(data["abc"], data["sections"])
+out = []
+for m in mats:
+    ev = {k: v for k, v in m.items() if k not in ("leadEvents", "supportEvents")}
+    out.append(ev)
+sys.stdout.write(json.dumps({"sections": out, "warnings": warns}))
+`.trim();
+    const input = JSON.stringify({ abc: abcText, sections });
+    const res = runPython(script, input);
+    if (!res.stdout.trim()) throw new Error(`Python error:\n${res.stderr}`);
+    return JSON.parse(res.stdout);
+}
+
+// 3-voice ABC: D major, descending bass — gives dominant cadence
+const ABC_EVIDENCE_3VOICE = `X:1
+T:EvidenceTest
+M:4/4
+L:1/4
+K:D
+V:1 clef=treble
+d c B A | G F E D |
+V:2 clef=treble
+F E D C | B, A, G, F, |
+V:3 clef=bass
+D, E, F, G, | A, B, C D |`;
+
+const EVIDENCE_SECTIONS = [
+    { id: "s1", role: "theme_a", measures: 2, harmonicPlan: { tonalCenter: "D major" } },
+];
+
+test("Phase C-3 evidence: melodyPitchMin/Max present and ordered", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    assert.ok(typeof sec.melodyPitchMin === "number", "melodyPitchMin should be a number");
+    assert.ok(typeof sec.melodyPitchMax === "number", "melodyPitchMax should be a number");
+    assert.ok(sec.melodyPitchMin <= sec.melodyPitchMax, "min <= max");
+});
+
+test("Phase C-3 evidence: bassPitchMin/Max present and ordered", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    assert.ok(typeof sec.bassPitchMin === "number", "bassPitchMin should be a number");
+    assert.ok(typeof sec.bassPitchMax === "number", "bassPitchMax should be a number");
+    assert.ok(sec.bassPitchMin <= sec.bassPitchMax, "min <= max");
+});
+
+test("Phase C-3 evidence: cadenceApproach is one of the four allowed values", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    assert.ok(
+        ["dominant", "plagal", "tonic", "other"].includes(sec.cadenceApproach),
+        `unexpected cadenceApproach: ${sec.cadenceApproach}`,
+    );
+});
+
+test("Phase C-3 evidence: bassMotionProfile is one of the four allowed values", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    assert.ok(
+        ["pedal", "stepwise", "mixed", "leaping"].includes(sec.bassMotionProfile),
+        `unexpected bassMotionProfile: ${sec.bassMotionProfile}`,
+    );
+});
+
+test("Phase C-3 evidence: texture rates are numbers in [0,1]", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    assert.ok(typeof sec.textureContraryMotionRate === "number", "contrary rate should be number");
+    assert.ok(typeof sec.textureIndependentMotionRate === "number", "independent rate should be number");
+    assert.ok(sec.textureContraryMotionRate >= 0 && sec.textureContraryMotionRate <= 1, `contrary [0,1]: ${sec.textureContraryMotionRate}`);
+    assert.ok(sec.textureIndependentMotionRate >= 0 && sec.textureIndependentMotionRate <= 1, `independent [0,1]: ${sec.textureIndependentMotionRate}`);
+});
+
+test("Phase C-3 evidence: rhythmicDensity > 0 for non-empty section", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    assert.ok(typeof sec.rhythmicDensity === "number" && sec.rhythmicDensity > 0, `rhythmicDensity should be > 0: ${sec.rhythmicDensity}`);
+});
+
+test("Phase C-3 evidence: phrasePeaks is a non-empty array of numbers", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    assert.ok(Array.isArray(sec.phrasePeaks), "phrasePeaks should be an array");
+    assert.ok(sec.phrasePeaks.every((p) => typeof p === "number"), "phrasePeaks entries should be numbers");
+});
+
+test("Phase C-3 evidence: secondaryLineMotif present with up to 6 MIDI pitches", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    assert.ok(Array.isArray(sec.secondaryLineMotif), "secondaryLineMotif should be an array");
+    assert.ok(sec.secondaryLineMotif.length <= 6, `at most 6 entries; got ${sec.secondaryLineMotif.length}`);
+    assert.ok(sec.secondaryLineMotif.every((p) => typeof p === "number"), "entries should be numbers");
+});
+
+test("Phase C-3 evidence: runProjection pipeline includes evidence fields in proposal_sections", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS, MINIMAL_PR);
+    assert.ok(r.ok, `pipeline should succeed; error: ${r.error}`);
+    const sec = r.proposal_sections?.[0];
+    assert.ok(sec, "should have at least one proposal section");
+    assert.ok("cadenceApproach" in sec, "proposal section should carry cadenceApproach");
+    assert.ok("rhythmicDensity" in sec, "proposal section should carry rhythmicDensity");
+    assert.ok("textureContraryMotionRate" in sec, "proposal section should carry textureContraryMotionRate");
+});
+
