@@ -446,15 +446,16 @@ class NotagenBackend:
 
         note_ct = sum(len(s.get("noteHistory") or []) for s in result.proposal_sections)
         bar_ct = sum(s.get("measureCount") or 0 for s in result.proposal_sections)
+        mock_warnings = ["mock_backend_not_for_quality_eval", *result.normalization_warnings]
         return LearnedSymbolicBackendResult(
             ok=True,
             provider=PROVIDER,
             model=model,
-            generation_mode=generation_mode,
+            generation_mode="mock_notagen_abc",
             abc_text=mock_abc,
             midi_path=result.midi_path,
             proposal_sections=result.proposal_sections,
-            warnings=result.normalization_warnings,
+            warnings=mock_warnings,
             note_count=note_ct,
             measure_count=bar_ct,
             key_name=str(provider_request.get("key") or ""),

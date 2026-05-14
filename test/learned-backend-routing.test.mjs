@@ -8,7 +8,8 @@
  *   3. LEARNED_SYMBOLIC_BACKEND=notagen_local returns ok:false with a clear error
  *      (no model available in CI — explicit failure, NOT silent fallback).
  *   4. Worker never returns proposalCandidatePool — TS orchestrator owns the candidate pool.
- *   5. Malformed providerRequest (missing required fields) returns validation error.
+ *   5. notagen_mock sets generationMode=mock_notagen_abc and warns mock_backend_not_for_quality_eval.
+ *   6. Malformed providerRequest (missing required fields) returns validation error.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -206,6 +207,29 @@ test("backend-routing: worker never returns proposalCandidatePool (TS orchestrat
         assert.ok(
             !("proposalCandidatePool" in result),
             "worker must not return proposalCandidatePool — candidate pool is TS orchestrator responsibility"
+        );
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test("backend-routing: notagen_mock sets generationMode=mock_notagen_abc and warns not-for-quality-eval", async (t) => {
+    if (!pythonBin) { t.skip("No Python binary available"); return; }
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
+    try {
+        const result = runLearnedWorker(buildMinimalPayload(tmpDir), {
+            LEARNED_SYMBOLIC_BACKEND: "notagen_mock",
+        });
+        assert.equal(result.ok, true, "notagen_mock should succeed");
+        assert.equal(
+            result.proposalMetadata?.generationMode,
+            "mock_notagen_abc",
+            "generationMode must be mock_notagen_abc, not a real inference mode"
+        );
+        assert.ok(
+            Array.isArray(result.proposalMetadata?.normalizationWarnings) &&
+            result.proposalMetadata.normalizationWarnings.includes("mock_backend_not_for_quality_eval"),
+            "normalizationWarnings must contain mock_backend_not_for_quality_eval"
         );
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
