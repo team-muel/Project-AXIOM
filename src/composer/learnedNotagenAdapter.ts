@@ -1,4 +1,4 @@
-import type { LearnedSamplingParams, ModelBinding } from "../pipeline/types.js";
+import type { LocalizedRewriteSpec, LearnedSamplingParams, ModelBinding } from "../pipeline/types.js";
 import { STRING_TRIO_SYMBOLIC_LANE } from "../pipeline/learnedSymbolicContract.js";
 import type {
     LearnedSymbolicPromptPack,
@@ -27,6 +27,8 @@ export interface LearnedNotagenProviderRequest {
     candidateIndex?: number;
     /** Sampling parameters forwarded to the NotaGen backend. */
     samplingParams?: LearnedSamplingParams;
+    /** When present, the backend performs a localized section rewrite instead of whole-piece generation. */
+    rewriteSpec?: LocalizedRewriteSpec;
 }
 
 function normalizeText(value: string | undefined): string {
@@ -146,6 +148,53 @@ function buildSamplingControlLine(p: LearnedSamplingParams): string {
 export interface LearnedNotagenProviderRequestOpts {
     candidateIndex?: number;
     samplingParams?: LearnedSamplingParams;
+    localizedRewriteSpec?: LocalizedRewriteSpec;
+}
+
+/** Maps RevisionDirectiveKind values to human-readable rewrite target descriptions. */
+const DIRECTIVE_KIND_TO_REWRITE_TARGETS: Record<string, string[]> = {
+    strengthen_cadence: ["strengthen contrary motion", "prepare dominant before recap", "clarify cadential arrival"],
+    stabilize_harmony: ["increase harmonic stability", "reinforce tonal center", "smooth harmonic route"],
+    clarify_texture_plan: ["clarify voice independence", "improve counterline contrast", "balance texture layers"],
+    clarify_phrase_rhetoric: ["clarify phrase contour", "add breath points", "sharpen rhetoric at phrase boundaries"],
+    clarify_harmonic_color: ["enrich local harmonic color", "introduce chromatic inflection", "vary chord qualities"],
+    reduce_large_leaps: ["reduce melodic leaps", "smooth melodic contour", "improve voice leading"],
+    increase_rhythm_variety: ["diversify rhythm cells", "introduce contrasting note values", "vary rhythmic texture"],
+};
+
+/**
+ * Build an `<AXIOM_REWRITE>` block for the NotaGen prompt from a `LocalizedRewriteSpec`.
+ */
+export function buildRewriteBlock(spec: LocalizedRewriteSpec): string {
+    const targets = new Set<string>();
+    for (const hint of spec.directives) {
+        const mappedTargets = DIRECTIVE_KIND_TO_REWRITE_TARGETS[hint.kind];
+        if (mappedTargets) {
+            for (const target of mappedTargets) {
+                targets.add(target);
+            }
+        } else {
+            targets.add(hint.reason);
+        }
+    }
+    targets.add("preserve meter and measure count");
+
+    const targetLines = [...targets].map((target) => `- ${target}`).join("\n");
+    const keepLine = spec.keepSectionIds.length > 0
+        ? `keep_sections=${spec.keepSectionIds.join(",")}`
+        : "";
+    const rewriteLine = `rewrite_sections=${spec.rewriteSectionIds.join(",")}`;
+
+    const innerLines = [
+        "mode=localized_section_rewrite",
+        keepLine,
+        rewriteLine,
+        `reason="${spec.reason.replace(/"/g, "'")}"`,
+        "target:",
+        targetLines,
+    ].filter(Boolean);
+
+    return `<AXIOM_REWRITE>\n${innerLines.join("\n")}\n</AXIOM_REWRITE>`;
 }
 
 export function buildLearnedNotagenProviderRequest(
@@ -235,5 +284,6 @@ export function buildLearnedNotagenProviderRequest(
         abcHeader: buildAbcHeader(promptPack),
         ...(opts?.candidateIndex !== undefined ? { candidateIndex: opts.candidateIndex } : {}),
         ...(opts?.samplingParams && hasSamplingParams(opts.samplingParams) ? { samplingParams: opts.samplingParams } : {}),
+        ...(opts?.localizedRewriteSpec ? { rewriteSpec: opts.localizedRewriteSpec } : {}),
     };
 }

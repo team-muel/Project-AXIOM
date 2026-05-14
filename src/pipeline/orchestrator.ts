@@ -21,6 +21,7 @@ import { buildAudioEvaluation, buildStructureEvaluation } from "./evaluation.js"
 import {
     applyRevisionDirectives,
     buildAudioRevisionDirectives,
+    buildLearnedLocalizedRewriteSpec,
     buildStructureRevisionDirectives,
     hasExplicitStructureTarget,
     meetsAudioTarget,
@@ -554,19 +555,26 @@ function collectSameAttemptLocalizedRewriteParents(
     targetStructureScore?: number,
 ): LocalizedRewriteBranchParent[] {
     const branchBudget = request.localizedRewriteBranches ?? 0;
-    if (branchBudget <= 0 || (request.candidateCount ?? 0) < 3 || (request.revisionDirectives?.length ?? 0) > 0) {
+    if (branchBudget <= 0 || (request.revisionDirectives?.length ?? 0) > 0) {
+        return [];
+    }
+
+    // Allow when using Phase D explicit candidate counts OR when legacy candidateCount >= 3
+    const hasExplicitLearnedCount = (request.learnedCandidateCount ?? 0) >= 1;
+    const hasLegacyCandidateCount = (request.candidateCount ?? 0) >= 3;
+    if (!hasExplicitLearnedCount && !hasLegacyCandidateCount) {
         return [];
     }
 
     return [...attemptCandidates]
-        .map((candidate) => ({
-            candidate,
-            revisionDirectives: buildStructureRevisionDirectives(
+        .map((candidate) => {
+            const sectionedDirectives = buildStructureRevisionDirectives(
                 candidate.structureEvaluation,
                 targetStructureScore,
                 candidate.request,
-            ).filter((directive) => (directive.sectionIds?.length ?? 0) > 0),
-        }))
+            ).filter((directive) => (directive.sectionIds?.length ?? 0) > 0);
+            return { candidate, revisionDirectives: sectionedDirectives };
+        })
         .filter((entry) => entry.revisionDirectives.length > 0)
         .sort((left, right) => compareStructureEvaluationsForCandidateSelection(
             right.candidate.structureEvaluation,
@@ -1185,6 +1193,20 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                     );
 
                     for (const [branchIndex, parent] of localizedRewriteParents.entries()) {
+                        const isLearnedSymbolicParent =
+                            parent.candidate.executionPlan.composeWorker === "learned_symbolic";
+
+                        // For learned_symbolic parents, inject a LocalizedRewriteSpec so the
+                        // backend can produce a targeted-section rewrite instead of a whole-piece gen.
+                        const learnedRewriteSpec = isLearnedSymbolicParent
+                            ? buildLearnedLocalizedRewriteSpec(
+                                parent.candidate.structureEvaluation,
+                                parent.candidate.compositionPlan,
+                                parent.revisionDirectives,
+                                qualityPolicy.targetStructureScore,
+                            )
+                            : undefined;
+
                         const branchRequestBase = applyRevisionDirectives({
                             ...parent.candidate.request,
                             workflow: parent.candidate.executionPlan.workflow,
@@ -1192,6 +1214,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             compositionPlan: parent.candidate.compositionPlan,
                             sectionArtifacts: parent.candidate.composeResult.sectionArtifacts?.map((entry) => ({ ...entry })),
                             plannerVersion: parent.candidate.request.plannerVersion ?? parent.candidate.compositionPlan?.version,
+                            ...(learnedRewriteSpec ? { localizedRewriteSpec: learnedRewriteSpec } : {}),
                         }, parent.revisionDirectives, symbolicAttempt);
                         const branchRequest = ensureComposeRequestMetadata(
                             materializeCompositionSketch({

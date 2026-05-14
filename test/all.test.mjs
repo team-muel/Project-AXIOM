@@ -30,3 +30,4 @@ import "./overseer-last-report.test.mjs";
 import "./learned-notagen-prompt.test.mjs";
 import "./abc-projection-pipeline.test.mjs";
 import "./learned-multi-candidate.test.mjs";
+import "./learned-localized-rewrite.test.mjs";

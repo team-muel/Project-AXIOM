@@ -121,15 +121,20 @@ def run_abc_projection_pipeline(
     sections: list[dict[str, Any]],
     provider_request: dict[str, Any],
     output_path: str | None = None,
+    keep_section_artifacts: list[dict[str, Any]] | None = None,
 ) -> AbcProjectionResult:
     """Run the full ABC validation/repair/projection pipeline.
 
     Args:
-        abc_text:         Raw ABC text from a NotaGen-class model.
-        sections:         AXIOM section list (id, role, measures, harmonicPlan).
-                          Used for section windowing during event projection.
-        provider_request: providerRequest dict (controlLines for meter/tempo/voices).
-        output_path:      If provided, write a MIDI file here. None = no MIDI output.
+        abc_text:               Raw ABC text from a NotaGen-class model.
+        sections:               AXIOM section list (id, role, measures, harmonicPlan).
+                                Used for section windowing during event projection.
+        provider_request:       providerRequest dict (controlLines for meter/tempo/voices).
+        output_path:            If provided, write a MIDI file here. None = no MIDI output.
+        keep_section_artifacts: Optional list of proposal section dicts from a prior
+                                candidate run.  When given, sections whose IDs appear in
+                                this list are substituted with the preserved artifacts
+                                instead of being reprojected (event-stable preservation).
 
     Returns:
         AbcProjectionResult.  ok=True with proposal_sections on success.
@@ -212,6 +217,16 @@ def run_abc_projection_pipeline(
             normalization_warnings=warnings,
             error="All voices produced no events after ABC conversion",
         )
+
+    # ── Substitute preserved section artifacts (event-stable localized rewrite) ─
+    if keep_section_artifacts:
+        kept_by_id: dict[str, dict[str, Any]] = {
+            str(s.get("sectionId") or ""): s for s in keep_section_artifacts
+        }
+        proposal_sections = [
+            kept_by_id.get(str(s.get("sectionId") or ""), s)
+            for s in proposal_sections
+        ]
 
     # ── Infer missing tonal centers ───────────────────────────────────────────
     global_tonal_center = _infer_tonal_center(provider_request)

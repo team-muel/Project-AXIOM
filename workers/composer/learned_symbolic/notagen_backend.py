@@ -28,6 +28,7 @@ from .abc_conditioning import build_abc_header
 from .abc_project import run_abc_projection_pipeline  # Phase C pipeline
 from .abc_to_events import ABC_PIPELINE_AVAILABLE
 from .backends import LearnedSymbolicBackendResult
+from .localized_rewrite import build_rewrite_prompt_block
 from .prompt_packing import ProviderPromptPackingContext
 
 PROVIDER = "notagen"
@@ -55,7 +56,9 @@ class NotagenBackend:
         # candidateIndex: 0-based index of this candidate in the learned pool.
         # sampling_params: forwarded from learnedSampling on the ComposeRequest.
         candidate_index = int(provider_request.get("candidateIndex") or 0)
-        sampling_params: dict[str, Any] = dict(provider_request.get("samplingParams") or {})
+        sampling_params: dict[str, Any] = dict(
+            provider_request.get("samplingParams") or {}
+        )
         temperature: float = float(sampling_params.get("temperature") or 0.9)
         top_p: float = float(sampling_params.get("topP") or 0.95)
         top_k: int = int(sampling_params.get("topK") or 50)
@@ -64,13 +67,26 @@ class NotagenBackend:
         #   stable_seed  = payload.get("stableSeed", 0)
         #   candidate_seed = stable_seed + candidate_index + seed_offset
 
+        # ── Phase E: extract localized rewrite spec ───────────────────────────
+        rewrite_spec: dict[str, Any] | None = (
+            provider_request.get("rewriteSpec") or None
+        )
+        is_localized_rewrite = bool(
+            isinstance(rewrite_spec, dict) and rewrite_spec.get("rewriteSectionIds")
+        )
+        generation_mode = (
+            "targeted_section_rewrite"
+            if is_localized_rewrite
+            else "notagen_abc_inference"
+        )
+
         # ── Check context ────────────────────────────────────────────────────
         if context is None:
             return LearnedSymbolicBackendResult(
                 ok=False,
                 provider=PROVIDER,
                 model=model,
-                generation_mode="notagen_abc_inference",
+                generation_mode=generation_mode,
                 error=(
                     "NotaGen backend requires a valid ProviderPromptPackingContext "
                     "(providerRequest was absent or failed validation). "
@@ -84,6 +100,17 @@ class NotagenBackend:
             1 for line in abc_header.splitlines() if line.startswith("%% axiom_section")
         )
 
+        # When a localized rewrite spec is present, build the rewrite prompt block
+        # and annotate the conditioning header.
+        rewrite_block: str = ""
+        if is_localized_rewrite and rewrite_spec is not None:
+            rewrite_block = build_rewrite_prompt_block(
+                rewrite_section_ids=list(rewrite_spec.get("rewriteSectionIds") or []),
+                keep_section_ids=list(rewrite_spec.get("keepSectionIds") or []),
+                reason=str(rewrite_spec.get("reason") or ""),
+                directives=list(rewrite_spec.get("directives") or []),
+            )
+
         # ── Check checkpoint ─────────────────────────────────────────────────
         checkpoint_path = os.environ.get("AXIOM_NOTAGEN_CHECKPOINT_PATH", "").strip()
         if not checkpoint_path or not os.path.exists(checkpoint_path):
@@ -92,13 +119,21 @@ class NotagenBackend:
                 f"conditioning header: {len(abc_header)} chars, {section_count} section(s); "
                 f"candidate_index={candidate_index} temperature={temperature} "
                 f"top_p={top_p} top_k={top_k} seed_offset={seed_offset}"
+                + (
+                    f"; localized_rewrite sections={rewrite_spec.get('rewriteSectionIds')}"
+                    if is_localized_rewrite
+                    else ""
+                )
+            )
+            full_header = (
+                (abc_header + "\n" + rewrite_block) if rewrite_block else abc_header
             )
             return LearnedSymbolicBackendResult(
                 ok=False,
                 provider=PROVIDER,
                 model=model,
-                generation_mode="notagen_abc_inference",
-                abc_text=abc_header,  # conditioning header is ready for inspection
+                generation_mode=generation_mode,
+                abc_text=full_header,  # conditioning header (+ rewrite block) for inspection
                 error=(
                     "NotaGen checkpoint not connected. "
                     f"{pipeline_note}. "
@@ -113,28 +148,42 @@ class NotagenBackend:
         #
         #   stable_seed = payload.get("stableSeed", 0)
         #   candidate_seed = stable_seed + candidate_index + seed_offset
-        #   abc_body = notagen_inference(
-        #       abc_header, checkpoint_path,
-        #       seed=candidate_seed, temperature=temperature,
-        #       top_p=top_p, top_k=top_k,
-        #   )
-        #   abc_full = abc_header + "\n" + abc_body
         #
+        #   if is_localized_rewrite:
+        #       # Build a rewrite-scoped ABC prompt (only rewrite sections)
+        #       rewrite_sections = rewrite_spec.get("rewriteSectionIds") or []
+        #       keep_artifacts = payload.get("sectionArtifacts") or []
+        #       abc_body = notagen_rewrite_inference(
+        #           abc_header, rewrite_block, rewrite_sections, checkpoint_path,
+        #           seed=candidate_seed, temperature=temperature,
+        #           top_p=top_p, top_k=top_k,
+        #       )
+        #   else:
+        #       abc_body = notagen_inference(
+        #           abc_header, checkpoint_path,
+        #           seed=candidate_seed, temperature=temperature,
+        #           top_p=top_p, top_k=top_k,
+        #       )
+        #
+        #   abc_full = abc_header + "\n" + abc_body
         #   sections = payload.get("promptPack", {}).get("sections") or []
+        #   keep_artifacts = payload.get("sectionArtifacts") or [] if is_localized_rewrite else None
         #   result = run_abc_projection_pipeline(
-        #       abc_full, sections, provider_request, output_path=output_path
+        #       abc_full, sections, provider_request,
+        #       output_path=output_path,
+        #       keep_section_artifacts=keep_artifacts,
         #   )
         #   if not result.ok:
         #       return LearnedSymbolicBackendResult(
         #           ok=False, provider=PROVIDER, model=model,
-        #           generation_mode="notagen_abc_inference",
+        #           generation_mode=generation_mode,
         #           error=result.error,
         #       )
         #   note_ct  = sum(len(s.get("noteHistory", [])) for s in result.proposal_sections)
         #   bar_ct   = sum(s.get("measureCount", 0) for s in result.proposal_sections)
         #   return LearnedSymbolicBackendResult(
         #       ok=True, provider=PROVIDER, model=model,
-        #       generation_mode="notagen_abc_inference",
+        #       generation_mode=generation_mode,
         #       abc_text=abc_full,
         #       midi_path=result.midi_path,
         #       proposal_sections=result.proposal_sections,
@@ -147,12 +196,14 @@ class NotagenBackend:
         #
         # run_abc_projection_pipeline is imported above from abc_project.
         # ABC_PIPELINE_AVAILABLE confirms music21 is ready.
+        # For localized rewrites, keep_section_artifacts preserves event-stable
+        # sections from the parent candidate.
 
         return LearnedSymbolicBackendResult(
             ok=False,
             provider=PROVIDER,
             model=model,
-            generation_mode="notagen_abc_inference",
+            generation_mode=generation_mode,
             error=(
                 "NotaGen inference not yet implemented. "
                 "Checkpoint path is set but model inference code is pending (Phase 3+)."

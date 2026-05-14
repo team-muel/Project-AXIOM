@@ -6,6 +6,7 @@ import type {
     HarmonicPlan,
     InstrumentAssignment,
     LearnedSamplingParams,
+    LocalizedRewriteSpec,
     ModelBinding,
     MotifTransformPolicy,
     OrnamentPlan,
@@ -115,6 +116,8 @@ export interface LearnedSymbolicWorkerPayload {
     candidateIndex?: number;
     /** Sampling parameters forwarded to the NotaGen backend. */
     learnedSampling?: LearnedSamplingParams;
+    /** When present, instructs the backend to rewrite only the specified sections. */
+    localizedRewriteSpec?: LocalizedRewriteSpec;
     revisionDirectives?: ComposeRequest["revisionDirectives"];
     sectionArtifacts?: ComposeRequest["sectionArtifacts"];
     compositionPlan?: ComposeRequest["compositionPlan"];
@@ -468,6 +471,7 @@ export function buildLearnedSymbolicWorkerPayload(
     );
     const candidateIndex = deriveCandidateIndex(request.candidateVariantKey);
     const learnedSampling = request.learnedSampling;
+    const localizedRewriteSpec = request.localizedRewriteSpec;
 
     return {
         prompt: request.prompt,
@@ -479,6 +483,7 @@ export function buildLearnedSymbolicWorkerPayload(
         providerRequest: buildLearnedNotagenProviderRequest(promptPack, executionPlan.selectedModels, {
             candidateIndex,
             samplingParams: learnedSampling,
+            localizedRewriteSpec,
         }),
         ...(request.key ? { key: request.key } : {}),
         ...(request.tempo !== undefined ? { tempo: request.tempo } : {}),
@@ -486,6 +491,7 @@ export function buildLearnedSymbolicWorkerPayload(
         ...(request.attemptIndex !== undefined ? { attemptIndex: request.attemptIndex } : {}),
         ...(candidateIndex !== undefined ? { candidateIndex } : {}),
         ...(learnedSampling ? { learnedSampling } : {}),
+        ...(localizedRewriteSpec ? { localizedRewriteSpec } : {}),
         ...(request.revisionDirectives?.length ? { revisionDirectives: request.revisionDirectives } : {}),
         ...(request.sectionArtifacts?.length ? { sectionArtifacts: request.sectionArtifacts } : {}),
         ...(request.compositionPlan ? { compositionPlan: request.compositionPlan } : {}),

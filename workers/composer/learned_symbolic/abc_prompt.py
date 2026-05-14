@@ -115,6 +115,9 @@ def build_notagen_input_string(provider_request: dict[str, Any]) -> str:
     are present in the request they are appended inside a separate
     ``%%axiom_soft_begin`` / ``%%axiom_soft_end`` block.
 
+    When ``rewriteSpec`` is present in the request, an ``<AXIOM_REWRITE>``
+    block is appended after the soft-constraint block.
+
     Args:
         provider_request: The raw providerRequest dict (as serialised by
             ``buildLearnedNotagenProviderRequest`` in TypeScript).
@@ -125,6 +128,8 @@ def build_notagen_input_string(provider_request: dict[str, Any]) -> str:
     Raises:
         ValueError: If any required field is missing or malformed.
     """
+    from .localized_rewrite import build_rewrite_prompt_block
+
     conditioning_text, control_lines = _validate_provider_request(provider_request)
 
     lines: list[str] = [conditioning_text, ""]
@@ -148,6 +153,23 @@ def build_notagen_input_string(provider_request: dict[str, Any]) -> str:
             for line in soft_lines:
                 lines.append(line)
             lines.append("%%axiom_soft_end")
+
+    # Append <AXIOM_REWRITE> block when a localized rewrite spec is present
+    rewrite_spec = provider_request.get("rewriteSpec")
+    if isinstance(rewrite_spec, dict):
+        rewrite_section_ids = list(rewrite_spec.get("rewriteSectionIds") or [])
+        keep_section_ids = list(rewrite_spec.get("keepSectionIds") or [])
+        reason = _normalize(rewrite_spec.get("reason"))
+        directives = list(rewrite_spec.get("directives") or [])
+        if rewrite_section_ids:
+            rewrite_block = build_rewrite_prompt_block(
+                rewrite_section_ids=rewrite_section_ids,
+                keep_section_ids=keep_section_ids,
+                reason=reason,
+                directives=directives,
+            )
+            lines.append("")
+            lines.append(rewrite_block)
 
     return "\n".join(lines) + "\n"
 

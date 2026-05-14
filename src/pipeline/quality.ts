@@ -3,16 +3,19 @@ import type {
     AudioLongSpanEvaluationDimension,
     AudioEvaluationReport,
     CharacterTag,
+    CompositionPlan,
     ComposeExecutionPlan,
     ComposeQualityPolicy,
     ComposeRequest,
     ComposeWorkflow,
     ExpressionGuidance,
     HarmonicColorCue,
+    LocalizedRewriteSpec,
     OrnamentPlan,
     PhraseFunction,
     PlanRiskProfile,
     RevisionDirective,
+    RevisionDirectiveKind,
     SectionArtifactSummary,
     SectionPlan,
     LongSpanDivergenceSummary,
@@ -3732,3 +3735,93 @@ export function applyRevisionDirectives(
         promptHash: undefined,
     };
 }
+
+/** RevisionDirectiveKind values that apply to NotaGen localized section rewrites. */
+const LEARNED_REWRITE_DIRECTIVE_KINDS: ReadonlySet<RevisionDirectiveKind> = new Set([
+    "strengthen_cadence",
+    "stabilize_harmony",
+    "clarify_texture_plan",
+    "clarify_phrase_rhetoric",
+    "clarify_harmonic_color",
+    "reduce_large_leaps",
+    "increase_rhythm_variety",
+]);
+
+/**
+ * Build a `LocalizedRewriteSpec` for a `learned_symbolic` candidate by identifying
+ * sections whose score is meaningfully below target and whose issues are rewrite-able.
+ *
+ * Returns `undefined` if no weak sections are found or if the plan has no sections.
+ */
+export function buildLearnedLocalizedRewriteSpec(
+    evaluation: StructureEvaluationReport,
+    compositionPlan: CompositionPlan | undefined,
+    directives: RevisionDirective[],
+    targetScore?: number,
+): LocalizedRewriteSpec | undefined {
+    const allPlanSectionIds = (compositionPlan?.sections ?? [])
+        .map((section) => section.id)
+        .filter(Boolean) as string[];
+    if (allPlanSectionIds.length === 0) {
+        return undefined;
+    }
+
+    const effectiveTarget = targetScore ?? 78;
+    const findings = evaluation.sectionFindings ?? evaluation.weakestSections ?? [];
+    if (findings.length === 0) {
+        return undefined;
+    }
+
+    // Pick sections that are below target threshold and have rewrite-able issues
+    const weakThreshold = effectiveTarget * 0.9;
+    const weakFindings = findings
+        .filter((finding) => finding.score < weakThreshold || finding.issues.length >= 2)
+        .sort((left, right) => left.score - right.score)
+        .slice(0, Math.ceil(allPlanSectionIds.length / 2));
+
+    if (weakFindings.length === 0) {
+        return undefined;
+    }
+
+    const rewriteSectionIds = weakFindings
+        .map((finding) => finding.sectionId)
+        .filter((id) => allPlanSectionIds.includes(id));
+    if (rewriteSectionIds.length === 0) {
+        return undefined;
+    }
+
+    const keepSectionIds = allPlanSectionIds.filter((id) => !rewriteSectionIds.includes(id));
+
+    // Build per-section directive hints from section-scoped directives
+    const sectionedDirectives = directives.filter(
+        (directive) =>
+            LEARNED_REWRITE_DIRECTIVE_KINDS.has(directive.kind)
+            && (directive.sectionIds?.length ?? 0) > 0,
+    );
+    const perSectionHints = sectionedDirectives.flatMap((directive) =>
+        (directive.sectionIds ?? [])
+            .filter((id) => rewriteSectionIds.includes(id))
+            .map((sectionId) => ({
+                sectionId,
+                kind: directive.kind,
+                reason: directive.reason,
+            })),
+    );
+
+    // Collect unique issue reasons for the overall reason string
+    const allIssues = weakFindings
+        .flatMap((finding) => finding.issues)
+        .filter(Boolean)
+        .slice(0, 6);
+    const reason = allIssues.length > 0
+        ? allIssues.join("; ")
+        : `sections scored below target (${weakFindings.map((f) => `${f.sectionId}:${f.score}`).join(", ")})`;
+
+    return {
+        rewriteSectionIds,
+        keepSectionIds,
+        reason,
+        directives: perSectionHints,
+    };
+}
+
