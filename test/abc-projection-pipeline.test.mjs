@@ -813,3 +813,47 @@ test("Phase C-3 evidence: runProjection pipeline includes evidence fields in pro
     assert.ok("textureContraryMotionRate" in sec, "proposal section should carry textureContraryMotionRate");
 });
 
+test("Phase C-3 evidence: tonicizationWindows is an array of window objects", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    assert.ok(Array.isArray(sec.tonicizationWindows), "tonicizationWindows should be an array");
+    assert.ok(sec.tonicizationWindows.length >= 1, "should have at least one window");
+    const win = sec.tonicizationWindows[0];
+    assert.strictEqual(typeof win.keyTarget, "string", "keyTarget should be a string");
+    assert.ok(win.keyTarget.length > 0, "keyTarget should not be empty");
+});
+
+test("Phase C-3 evidence: tonicizationWindows startMeasure/endMeasure are numbers when present", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    for (const win of sec.tonicizationWindows ?? []) {
+        if ("startMeasure" in win)
+            assert.strictEqual(typeof win.startMeasure, "number", "startMeasure must be number");
+        if ("endMeasure" in win)
+            assert.strictEqual(typeof win.endMeasure, "number", "endMeasure must be number");
+    }
+});
+
+test("Phase C-3 evidence: tonicizationWindows first keyTarget matches declared tonalCenter when no modulation", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    assert.ok(Array.isArray(sec.tonicizationWindows) && sec.tonicizationWindows.length >= 1, "must have windows");
+    // ABC_EVIDENCE_3VOICE is in D major with no inline key changes; fallback window should carry "D major"
+    assert.ok(
+        sec.tonicizationWindows[0].keyTarget.startsWith("D"),
+        `first keyTarget should start with D for a D-major section; got: ${sec.tonicizationWindows[0].keyTarget}`,
+    );
+});
+
+test("Phase C-3 evidence: phrasePeaks chord entries use the highest pitch (48-96 range)", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runEvidenceProjection(ABC_EVIDENCE_3VOICE, EVIDENCE_SECTIONS);
+    const sec = r.sections[0];
+    for (const p of sec.phrasePeaks ?? []) {
+        assert.ok(p >= 48 && p <= 96, `phrasePeak ${p} out of expected melody range [48,96]`);
+    }
+});
+

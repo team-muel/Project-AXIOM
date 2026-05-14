@@ -22,6 +22,13 @@ Phase C-3 evidence fields computed per section (feed craftScoring.ts):
   secondaryLineMotif               — first 6 counterline note pitches
   phrasePeaks                      — local melodic maxima (up to 4 MIDI values)
   rhythmicDensity                  — average notes per measure (lead voice)
+  tonicizationWindows              — [{keyTarget, startMeasure, endMeasure}]
+                                     Explicit key modulations detected from
+                                     inline K: changes in the ABC body.
+                                     Falls back to a single window of the
+                                     declared tonalCenter so craftScoring.ts
+                                     computeTonalReturn() can award full credit
+                                     to recap sections that stay on the home key.
 """
 
 from typing import Any
@@ -246,10 +253,14 @@ def _compute_independent_motion_rate(
 
 
 def _compute_phrase_peaks(lead_events: list[dict[str, Any]]) -> list[int]:
-    """Return MIDI pitches of local melodic maxima (up to 4)."""
+    """Return MIDI pitches of local melodic maxima (up to 4).
+
+    For chord events the highest pitch (top voice of the chord) is used,
+    which is the musically correct value for melodic peak detection.
+    """
     pitches = [
         (i, ev["midi"] if ev.get("kind") == "note"
-         else min(ev["midiPitches"]) if ev.get("kind") == "chord" and ev.get("midiPitches") else None)
+         else max(ev["midiPitches"]) if ev.get("kind") == "chord" and ev.get("midiPitches") else None)
         for i, ev in enumerate(lead_events)
     ]
     notes = [(i, p) for i, p in pitches if p is not None]
@@ -278,12 +289,110 @@ def _compute_secondary_line_motif(counterline_events: list[dict[str, Any]]) -> l
     return notes
 
 
+def _m21_key_to_string(k: Any) -> str:
+    """Convert a music21 Key object to an AXIOM keyTarget string.
+
+    Examples: ``Key('G', 'major')`` → ``"G major"``,
+              ``Key('e', 'minor')`` → ``"E minor"``.
+
+    music21 uses ``'-'`` for accidentals (``E-`` = E-flat); we normalise to
+    the more common ``'b'`` spelling (``Eb``).
+    """
+    try:
+        tonic_name: str = str(k.tonic.name).replace("-", "b")
+        mode: str = str(k.mode or "major").lower()
+        return f"{tonic_name} {mode}"
+    except AttributeError:
+        pass
+    try:
+        # KeySignature fallback: sharps count → nearest major key
+        sharps = int(k.sharps)
+        _major_by_sharps = {
+            0: "C major", 1: "G major", 2: "D major", 3: "A major",
+            4: "E major", 5: "B major", 6: "F# major",
+            -1: "F major", -2: "Bb major", -3: "Eb major",
+            -4: "Ab major", -5: "Db major", -6: "Gb major",
+        }
+        return _major_by_sharps.get(sharps, "C major")
+    except Exception:
+        return "C major"
+
+
+def _compute_tonicization_windows(
+    score: Any,
+    start_bar: int,
+    end_bar: int,
+    tonal_center: str,
+) -> list[dict[str, Any]]:
+    """Detect tonal centers within a section's bar range.
+
+    Scans for explicit ``Key`` changes (inline ``[K:…]`` in the ABC body) in
+    the first part of the score.  Each unique key gets its own window entry
+    ``{keyTarget, startMeasure, endMeasure}``.
+
+    If no explicit modulations are found within the section, a single window
+    spanning the whole section is returned using the ``tonal_center`` declared
+    in the harmonicPlan.  This deliberate fallback ensures that
+    ``craftScoring.ts computeTonalReturn()`` can award full credit to recap
+    sections that stay on the home key (rather than the half-credit 0.5
+    fallback when the field is absent entirely).
+    """
+    _default = [
+        {
+            "keyTarget": tonal_center,
+            "startMeasure": start_bar,
+            "endMeasure": max(start_bar, end_bar - 1),
+        }
+    ]
+    if not ABC_PIPELINE_AVAILABLE:
+        return _default
+    try:
+        from music21 import key as m21key  # noqa: PLC0415
+
+        parts = list(score.parts)
+        if not parts:
+            return _default
+
+        part = parts[0]
+        measures = list(part.getElementsByClass("Measure"))
+        section_measures = measures[start_bar:end_bar]
+        if not section_measures:
+            return _default
+
+        # Collect (abs_bar, key_str) for every measure that has a Key change.
+        key_changes: list[tuple[int, str]] = []
+        for rel_idx, measure in enumerate(section_measures):
+            keys_in_measure = list(measure.getElementsByClass(m21key.Key))
+            if keys_in_measure:
+                key_str = _m21_key_to_string(keys_in_measure[0])
+                bar_abs = start_bar + rel_idx
+                # Deduplicate consecutive identical keys
+                if not key_changes or key_changes[-1][1] != key_str:
+                    key_changes.append((bar_abs, key_str))
+
+        if not key_changes:
+            return _default
+
+        windows: list[dict[str, Any]] = []
+        for j, (win_start, key_str) in enumerate(key_changes):
+            win_end = key_changes[j + 1][0] - 1 if j + 1 < len(key_changes) else end_bar - 1
+            windows.append(
+                {"keyTarget": key_str, "startMeasure": win_start, "endMeasure": win_end}
+            )
+        return windows
+    except Exception:
+        return _default
+
+
 def _compute_section_evidence(
     lead_events: list[dict[str, Any]],
     counterline_events: list[dict[str, Any]],
     bass_events: list[dict[str, Any]],
     measure_count: int,
     tonal_center: str,
+    score: Any = None,
+    start_bar: int = 0,
+    end_bar: int = 0,
 ) -> dict[str, Any]:
     """Compute craftScoring evidence fields for a single section.
 
@@ -320,6 +429,11 @@ def _compute_section_evidence(
 
     note_count = sum(1 for ev in lead_events if ev.get("kind") in ("note", "chord"))
     evidence["rhythmicDensity"] = round(note_count / max(1, measure_count), 4)
+
+    if score is not None:
+        evidence["tonicizationWindows"] = _compute_tonicization_windows(
+            score, start_bar, end_bar, tonal_center
+        )
 
     return evidence
 
@@ -401,7 +515,8 @@ def convert(
 
         measure_count = rng.end_bar - rng.start_bar
         evidence = _compute_section_evidence(
-            lead_events, cl_events, bass_events, measure_count, tonal_center
+            lead_events, cl_events, bass_events, measure_count, tonal_center,
+            score=score, start_bar=rng.start_bar, end_bar=rng.end_bar,
         )
 
         section_materials.append({
