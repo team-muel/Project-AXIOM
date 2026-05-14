@@ -42,6 +42,13 @@ const {
     scoreStructureEvaluationForCandidateSelection,
     craftScorePassesQualityGate,
     CRAFT_QUALITY_GATE,
+    CANDIDATE_GATE_VALIDITY,
+    CANDIDATE_GATE_CONTRACT,
+    CANDIDATE_GATE_CRAFT,
+    passesValidityGate,
+    passesContractGate,
+    passesCraftGate,
+    candidateGateTier,
 } = await import(
     "../dist/pipeline/structureSelection.js"
 );
@@ -491,5 +498,263 @@ test("gate-passer scores higher than gate-failer with identical structure evalua
         passerScore - failerScore >= 350,
         `Gate-passer (${passerScore}) should be >=350 pts ahead of gate-failer (${failerScore})`,
     );
+});
+
+// ---------------------------------------------------------------------------
+// 20. passesValidityGate: true when evaluation.passed && syntaxValidity ok
+// ---------------------------------------------------------------------------
+test("passesValidityGate returns true when evaluation passed and syntaxValidity >= threshold", () => {
+    const evaluation = makeEvaluation({ passed: true });
+    const craft = {
+        syntaxValidity: CANDIDATE_GATE_VALIDITY.syntaxValidity,
+        sectionContractFit: 0.5,
+        cadenceStrength: 0.4,
+        tonalReturn: 0.5,
+        motifSurvival: 0.5,
+        voiceIndependence: 0.2,
+        phraseShape: 0.5,
+        registerIdiomaticFit: 0.5,
+        finalCraftScore: 0.5,
+    };
+    assert.strictEqual(passesValidityGate(evaluation, craft), true);
+});
+
+test("passesValidityGate returns false when evaluation.passed is false", () => {
+    const evaluation = makeEvaluation({ passed: false });
+    const craft = {
+        syntaxValidity: 1.0,
+        sectionContractFit: 0.9,
+        cadenceStrength: 0.9,
+        tonalReturn: 0.9,
+        motifSurvival: 0.9,
+        voiceIndependence: 0.9,
+        phraseShape: 0.9,
+        registerIdiomaticFit: 0.9,
+        finalCraftScore: 0.9,
+    };
+    assert.strictEqual(passesValidityGate(evaluation, craft), false);
+});
+
+test("passesValidityGate returns false when syntaxValidity below threshold", () => {
+    const evaluation = makeEvaluation({ passed: true });
+    const craft = {
+        syntaxValidity: CANDIDATE_GATE_VALIDITY.syntaxValidity - 0.01,
+        sectionContractFit: 0.9,
+        cadenceStrength: 0.9,
+        tonalReturn: 0.9,
+        motifSurvival: 0.9,
+        voiceIndependence: 0.9,
+        phraseShape: 0.9,
+        registerIdiomaticFit: 0.9,
+        finalCraftScore: 0.9,
+    };
+    assert.strictEqual(passesValidityGate(evaluation, craft), false);
+});
+
+// ---------------------------------------------------------------------------
+// 21. passesContractGate
+// ---------------------------------------------------------------------------
+test("passesContractGate returns true when sectionContractFit meets threshold", () => {
+    const craft = {
+        syntaxValidity: 1,
+        sectionContractFit: CANDIDATE_GATE_CONTRACT.sectionContractFit,
+        cadenceStrength: 0.4,
+        tonalReturn: 0.5,
+        motifSurvival: 0.5,
+        voiceIndependence: 0.2,
+        phraseShape: 0.5,
+        registerIdiomaticFit: 0.5,
+        finalCraftScore: 0.5,
+    };
+    assert.strictEqual(passesContractGate(craft), true);
+});
+
+test("passesContractGate returns false when sectionContractFit below threshold", () => {
+    const craft = {
+        syntaxValidity: 1,
+        sectionContractFit: CANDIDATE_GATE_CONTRACT.sectionContractFit - 0.01,
+        cadenceStrength: 0.9,
+        tonalReturn: 0.9,
+        motifSurvival: 0.9,
+        voiceIndependence: 0.9,
+        phraseShape: 0.9,
+        registerIdiomaticFit: 0.9,
+        finalCraftScore: 0.9,
+    };
+    assert.strictEqual(passesContractGate(craft), false);
+});
+
+// ---------------------------------------------------------------------------
+// 22. passesCraftGate
+// ---------------------------------------------------------------------------
+test("passesCraftGate returns true when all three craft thresholds met", () => {
+    const craft = {
+        syntaxValidity: 1,
+        sectionContractFit: 0.9,
+        cadenceStrength: CANDIDATE_GATE_CRAFT.cadenceStrength,
+        tonalReturn: 0.8,
+        motifSurvival: 0.8,
+        voiceIndependence: CANDIDATE_GATE_CRAFT.voiceIndependence,
+        phraseShape: 0.8,
+        registerIdiomaticFit: CANDIDATE_GATE_CRAFT.registerIdiomaticFit,
+        finalCraftScore: 0.8,
+    };
+    assert.strictEqual(passesCraftGate(craft), true);
+});
+
+test("passesCraftGate returns false when cadenceStrength below threshold", () => {
+    const craft = {
+        syntaxValidity: 1,
+        sectionContractFit: 0.9,
+        cadenceStrength: CANDIDATE_GATE_CRAFT.cadenceStrength - 0.01,
+        tonalReturn: 0.8,
+        motifSurvival: 0.8,
+        voiceIndependence: 0.9,
+        phraseShape: 0.8,
+        registerIdiomaticFit: CANDIDATE_GATE_CRAFT.registerIdiomaticFit,
+        finalCraftScore: 0.8,
+    };
+    assert.strictEqual(passesCraftGate(craft), false);
+});
+
+test("passesCraftGate returns false when voiceIndependence below threshold", () => {
+    const craft = {
+        syntaxValidity: 1,
+        sectionContractFit: 0.9,
+        cadenceStrength: 0.9,
+        tonalReturn: 0.8,
+        motifSurvival: 0.8,
+        voiceIndependence: CANDIDATE_GATE_CRAFT.voiceIndependence - 0.01,
+        phraseShape: 0.8,
+        registerIdiomaticFit: CANDIDATE_GATE_CRAFT.registerIdiomaticFit,
+        finalCraftScore: 0.8,
+    };
+    assert.strictEqual(passesCraftGate(craft), false);
+});
+
+// ---------------------------------------------------------------------------
+// 23. candidateGateTier progression
+// ---------------------------------------------------------------------------
+test("candidateGateTier returns 0 when validity fails (passed=false)", () => {
+    const evaluation = makeEvaluation({ passed: false });
+    const craft = {
+        syntaxValidity: 1, sectionContractFit: 1, cadenceStrength: 1,
+        tonalReturn: 1, motifSurvival: 1, voiceIndependence: 1,
+        phraseShape: 1, registerIdiomaticFit: 1, finalCraftScore: 1,
+    };
+    assert.strictEqual(candidateGateTier(evaluation, craft), 0);
+});
+
+test("candidateGateTier returns 1 when only validity passes", () => {
+    const evaluation = makeEvaluation({ passed: true });
+    const craft = {
+        syntaxValidity: CANDIDATE_GATE_VALIDITY.syntaxValidity,
+        sectionContractFit: CANDIDATE_GATE_CONTRACT.sectionContractFit - 0.01, // fails Gate 2
+        cadenceStrength: 0.9, tonalReturn: 0.9, motifSurvival: 0.9,
+        voiceIndependence: 0.9, phraseShape: 0.9,
+        registerIdiomaticFit: 0.9, finalCraftScore: 0.9,
+    };
+    assert.strictEqual(candidateGateTier(evaluation, craft), 1);
+});
+
+test("candidateGateTier returns 2 when validity + contract pass but craft fails", () => {
+    const evaluation = makeEvaluation({ passed: true });
+    const craft = {
+        syntaxValidity: CANDIDATE_GATE_VALIDITY.syntaxValidity,
+        sectionContractFit: CANDIDATE_GATE_CONTRACT.sectionContractFit,
+        cadenceStrength: CANDIDATE_GATE_CRAFT.cadenceStrength - 0.01, // fails Gate 3
+        tonalReturn: 0.8, motifSurvival: 0.8,
+        voiceIndependence: CANDIDATE_GATE_CRAFT.voiceIndependence,
+        phraseShape: 0.8,
+        registerIdiomaticFit: CANDIDATE_GATE_CRAFT.registerIdiomaticFit,
+        finalCraftScore: 0.8,
+    };
+    assert.strictEqual(candidateGateTier(evaluation, craft), 2);
+});
+
+test("candidateGateTier returns 3 when all gates pass", () => {
+    const evaluation = makeEvaluation({ passed: true });
+    const craft = {
+        syntaxValidity: CANDIDATE_GATE_VALIDITY.syntaxValidity,
+        sectionContractFit: CANDIDATE_GATE_CONTRACT.sectionContractFit,
+        cadenceStrength: CANDIDATE_GATE_CRAFT.cadenceStrength,
+        tonalReturn: 0.8, motifSurvival: 0.8,
+        voiceIndependence: CANDIDATE_GATE_CRAFT.voiceIndependence,
+        phraseShape: 0.8,
+        registerIdiomaticFit: CANDIDATE_GATE_CRAFT.registerIdiomaticFit,
+        finalCraftScore: 0.8,
+    };
+    assert.strictEqual(candidateGateTier(evaluation, craft), 3);
+});
+
+// ---------------------------------------------------------------------------
+// 24. Tier-3 scores higher than Tier-2, which scores higher than Tier-0
+// ---------------------------------------------------------------------------
+test("tier-3 candidate scores significantly higher than tier-2 (no craft gate)", () => {
+    const baseEval = makeEvaluation({ passed: true });
+    const baseCraft = {
+        tonalReturn: 0.8, motifSurvival: 0.8, phraseShape: 0.8,
+        finalCraftScore: 0.8,
+    };
+    const tier3 = {
+        ...baseEval,
+        craftScoreSummary: {
+            ...baseCraft,
+            syntaxValidity: CANDIDATE_GATE_VALIDITY.syntaxValidity,
+            sectionContractFit: CANDIDATE_GATE_CONTRACT.sectionContractFit,
+            cadenceStrength: CANDIDATE_GATE_CRAFT.cadenceStrength,
+            voiceIndependence: CANDIDATE_GATE_CRAFT.voiceIndependence,
+            registerIdiomaticFit: CANDIDATE_GATE_CRAFT.registerIdiomaticFit,
+        },
+    };
+    const tier2 = {
+        ...baseEval,
+        craftScoreSummary: {
+            ...baseCraft,
+            syntaxValidity: CANDIDATE_GATE_VALIDITY.syntaxValidity,
+            sectionContractFit: CANDIDATE_GATE_CONTRACT.sectionContractFit,
+            cadenceStrength: CANDIDATE_GATE_CRAFT.cadenceStrength - 0.01,  // fails craft gate
+            voiceIndependence: CANDIDATE_GATE_CRAFT.voiceIndependence,
+            registerIdiomaticFit: CANDIDATE_GATE_CRAFT.registerIdiomaticFit,
+        },
+    };
+    const s3 = scoreStructureEvaluationForCandidateSelection(tier3);
+    const s2 = scoreStructureEvaluationForCandidateSelection(tier2);
+    // +900 vs +500 → at least 350 pts difference from tier bonus alone
+    assert.ok(s3 - s2 >= 350, `Tier-3 (${s3}) should be >= 350 pts above Tier-2 (${s2})`);
+});
+
+test("tier-2 candidate scores significantly higher than tier-0 (no gate passes)", () => {
+    const baseEval = makeEvaluation({ passed: false });  // tier 0 — fails validity
+    const baseCraft = {
+        tonalReturn: 0.8, motifSurvival: 0.8, phraseShape: 0.8,
+        finalCraftScore: 0.8,
+    };
+    const tier2 = {
+        ...makeEvaluation({ passed: true }),
+        craftScoreSummary: {
+            ...baseCraft,
+            syntaxValidity: CANDIDATE_GATE_VALIDITY.syntaxValidity,
+            sectionContractFit: CANDIDATE_GATE_CONTRACT.sectionContractFit,
+            cadenceStrength: 0.3, // fails craft gate → tier 2
+            voiceIndependence: 0.2,
+            registerIdiomaticFit: 0.6,
+        },
+    };
+    const tier0 = {
+        ...baseEval,
+        craftScoreSummary: {
+            ...baseCraft,
+            syntaxValidity: 0.5,
+            sectionContractFit: 0.5,
+            cadenceStrength: 0.3,
+            voiceIndependence: 0.2,
+            registerIdiomaticFit: 0.6,
+        },
+    };
+    const s2 = scoreStructureEvaluationForCandidateSelection(tier2);
+    const s0 = scoreStructureEvaluationForCandidateSelection(tier0);
+    // Tier 2 (+500+bonus) vs tier 0 (0+bonus). Also passed=true adds +1000.
+    assert.ok(s2 > s0, `Tier-2 (${s2}) should beat Tier-0 (${s0})`);
 });
 

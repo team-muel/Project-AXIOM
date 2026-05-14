@@ -32,6 +32,7 @@ import {
 } from "./quality.js";
 import { materializeCompositionSketch } from "./sketch.js";
 import {
+    candidateGateTier,
     compareStructureEvaluationsForCandidateSelection,
     craftScorePassesQualityGate,
     scoreStructureEvaluationForCandidateSelection,
@@ -68,6 +69,7 @@ import {
 } from "./preferenceModel.js";
 
 export {
+    candidateGateTier,
     compareStructureEvaluationsForCandidateSelection,
     scoreStructureEvaluationForCandidateSelection,
 };
@@ -549,10 +551,12 @@ function chooseBetterSymbolicCandidate(
  * preference model.
  *
  * Selection stages:
- *   1. Sort all candidates by heuristic structure score (craft quality gate
- *      bonus already baked in via scoreStructureEvaluationForCandidateSelection).
- *   2. Build the preference shortlist from gate-passing candidates when any
- *      are available; fall back to the full sorted list otherwise.
+ *   1. Sort all candidates by heuristic structure score (gate-tier bonus
+ *      already baked in via scoreStructureEvaluationForCandidateSelection).
+ *   2. Build the preference shortlist using a gate-tier staircase:
+ *        Tier 3 (validity + contract + craft) → Tier 2 → Tier 1 → full list.
+ *      Tier 3 candidates have valid MIDI, respect the section contract, AND
+ *      meet the musical-craft thresholds (cadence, register, independence).
  *   3. Pass the shortlist to selectPreferredCandidate(), which applies the
  *      craft hard filter and uses the listenerFeedback preference model.
  *   4. Fall back to the heuristic top candidate if preference selection fails.
@@ -568,36 +572,60 @@ function selectAttemptWinner(
         return attemptCandidates[0]!;
     }
 
-    // Sort all candidates — craft quality gate bonus is already embedded in
-    // the score, so gate-passers naturally float above gate-failers within
-    // the same passed=true tier.
+    // Sort all candidates — gate-tier bonus is already embedded in the score,
+    // so higher-tier candidates naturally float above lower-tier ones within
+    // the same passed=true group.
     const sorted = [...attemptCandidates]
         .sort((a, b) => compareStructureEvaluationsForCandidateSelection(
             b.structureEvaluation, a.structureEvaluation,
         ));
 
-    // Prefer gate-passing candidates for the preference shortlist.
-    // If none pass the gate, fall back to the full sorted list so we always
-    // have a shortlist to work with.
-    const gatePassers = sorted.filter((c) => {
+    // ── Gate-tier staircase shortlist ────────────────────────────────────────
+    // Gate 1 (validity): MIDI data must exist AND syntaxValidity >= 0.90
+    //   AND evaluation.passed === true.
+    // Gate 2 (contract): Gate 1 + sectionContractFit >= 0.75.
+    // Gate 3 (craft):    Gate 2 + cadenceStrength >= 0.55
+    //                             + registerIdiomaticFit >= 0.75
+    //                             + voiceIndependence >= 0.35.
+    //
+    // Prefer the highest non-empty tier as the shortlist base, cascading
+    // down to the full sorted list as an ultimate cold-start fallback so
+    // we always have a candidate to return.
+    // ──────────────────────────────────────────────────────────────────────────
+    const byTier = (minTier: 1 | 2 | 3) => sorted.filter((c) => {
+        if (c.midiData.length === 0) return false;  // Gate 1 prerequisite
         const craft = c.structureEvaluation.craftScoreSummary;
-        return craft != null && craftScorePassesQualityGate(craft);
+        return craft != null && candidateGateTier(c.structureEvaluation, craft) >= minTier;
     });
-    const shortlistBase = gatePassers.length > 0 ? gatePassers : sorted;
-    const shortlist = shortlistBase.slice(0, PREFERENCE_SHORTLIST_SIZE);
 
-    if (gatePassers.length === 0) {
-        logger.warn("selectAttemptWinner: no craft quality gate-passers in pool — using full shortlist", {
+    const tier3 = byTier(3);
+    const tier2 = byTier(2);
+    const tier1 = byTier(1);
+
+    const shortlistBase = tier3.length > 0 ? tier3
+        : tier2.length > 0 ? tier2
+        : tier1.length > 0 ? tier1
+        : sorted;  // cold-start fallback: no gate passes yet
+
+    const reachedTier = tier3.length > 0 ? 3 : tier2.length > 0 ? 2 : tier1.length > 0 ? 1 : 0;
+
+    if (reachedTier === 0) {
+        logger.warn("selectAttemptWinner: no candidate passed any gate — using full sorted list", {
             songId,
             totalCandidates: attemptCandidates.length,
         });
     } else {
-        logger.debug("selectAttemptWinner: craft quality gate", {
+        logger.debug("selectAttemptWinner: gate-tier shortlist", {
             songId,
-            gatePasserCount: gatePassers.length,
+            reachedTier,
+            tier3Count: tier3.length,
+            tier2Count: tier2.length,
+            tier1Count: tier1.length,
             totalCandidates: attemptCandidates.length,
         });
     }
+
+    const shortlist = shortlistBase.slice(0, PREFERENCE_SHORTLIST_SIZE);
 
     // Build PreferenceCandidate list — craft hard filter and preference scoring require craftScoreSummary
     const preferenceCandidates = shortlist

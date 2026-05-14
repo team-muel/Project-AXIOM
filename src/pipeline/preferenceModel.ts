@@ -114,7 +114,7 @@ export function craftScorePassesHardFilter(
 ): boolean {
     let passes = true;
     for (const [dim, threshold] of Object.entries(CRAFT_HARD_FILTER_THRESHOLDS)) {
-        const value = (craft as Record<string, unknown>)[dim];
+        const value = (craft as unknown as Record<string, unknown>)[dim];
         if (typeof value === "number" && value < threshold) {
             failReasons?.push(`${dim}=${value.toFixed(3)} < floor ${threshold}`);
             passes = false;
@@ -260,7 +260,7 @@ export function computePreferenceScore(
     const weights = learnedWeights ?? DEFAULT_DIMENSION_WEIGHTS;
     const weightSource: PreferenceScore["weightSource"] = learnedWeights ? "learned" : "default";
 
-    const craft = candidate.craftSummary as Record<string, unknown>;
+    const craft = candidate.craftSummary as unknown as Record<string, unknown>;
     let weighted = 0;
     const dimensionContributions: Record<string, number> = {};
 
