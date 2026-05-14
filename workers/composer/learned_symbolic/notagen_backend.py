@@ -1,23 +1,23 @@
 # pyright: reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownParameterType=false
 """NotaGen-class symbolic backend.
 
-Supports three runtime modes controlled by NOTAGEN_BACKEND_MODE:
+Supports two runtime modes controlled by LEARNED_SYMBOLIC_BACKEND:
 
-  disabled (default)
-    The backend immediately returns ok=False with a clear "unavailable" error.
-    The music21 symbolic path is unaffected and remains the primary composition path.
+  template (default)
+    NotagenBackend is never instantiated; select_backend() returns TemplateBackend.
+    This guard path returns ok=False if NotagenBackend is somehow invoked directly.
 
-  mock
+  notagen_mock
     Returns a deterministic, plan-conditioned mock ABC score without loading any
     ML model. Useful for CI/CD and integration tests.
 
-  local
+  notagen_local
     Loads the model checkpoint at NOTAGEN_MODEL_PATH (lazy, process-singleton) and
     runs real inference. Falls back to ok=False on any import/inference error so
     the caller can apply its own fallback without crashing the worker process.
 
 Environment variables:
-  NOTAGEN_BACKEND_MODE       disabled | mock | local  (default: disabled)
+  LEARNED_SYMBOLIC_BACKEND   template | notagen_mock | notagen_local  (default: template)
   NOTAGEN_MODEL_PATH         path to checkpoint directory or .pt/.bin file
   NOTAGEN_TOKENIZER_PATH     path to tokenizer (falls back to NOTAGEN_MODEL_PATH)
   NOTAGEN_DEVICE             cpu | cuda | mps  (default: cpu)
@@ -63,9 +63,18 @@ def _env_int(key: str, fallback: int) -> int:
 
 
 def _backend_mode() -> str:
-    """Return normalised NOTAGEN_BACKEND_MODE: 'disabled' | 'mock' | 'local'."""
-    raw = _env("NOTAGEN_BACKEND_MODE", "disabled").lower()
-    return raw if raw in ("disabled", "mock", "local") else "disabled"
+    """Derive inference mode from LEARNED_SYMBOLIC_BACKEND.
+
+    Returns 'mock', 'local', or 'disabled'.
+    'disabled' is a defense-in-depth guard: select_backend() should never
+    instantiate NotagenBackend unless the value is notagen_mock or notagen_local.
+    """
+    raw = _env("LEARNED_SYMBOLIC_BACKEND", "template").lower()
+    if raw == "notagen_local":
+        return "local"
+    if raw == "notagen_mock":
+        return "mock"
+    return "disabled"
 
 
 # ─── Model singleton (local mode only) ───────────────────────────────────────
@@ -128,7 +137,7 @@ def _load_model() -> tuple[Any, Any, str]:
     if not model_path:
         raise ValueError(
             "NOTAGEN_MODEL_PATH is not set. "
-            "Set this variable to the checkpoint directory before using local mode."
+            "Set this variable to the checkpoint directory before using notagen_local mode."
         )
     if not os.path.exists(model_path):
         raise FileNotFoundError(
@@ -146,7 +155,7 @@ def _load_model() -> tuple[Any, Any, str]:
     except ImportError as exc:
         raise ImportError(
             f"NotaGen local inference requires 'torch' and 'transformers': {exc}. "
-            "Install requirements-notagen.txt or set NOTAGEN_BACKEND_MODE=disabled."
+            "Install requirements-notagen.txt or set LEARNED_SYMBOLIC_BACKEND=template."
         ) from exc
 
     device = torch.device(device_str)
@@ -274,7 +283,7 @@ def _build_mock_abc(context: ProviderPromptPackingContext, candidate_seed: int) 
 class NotagenBackend:
     """NotaGen-class ABC inference backend.
 
-    Dispatches to disabled / mock / local based on NOTAGEN_BACKEND_MODE.
+    Dispatches to mock / local based on LEARNED_SYMBOLIC_BACKEND.
     All failures return ok=False rather than raising so the worker process
     stays alive and the caller can apply its own fallback.
     """
@@ -328,10 +337,11 @@ class NotagenBackend:
                 model=model,
                 generation_mode=generation_mode,
                 error=(
-                    "NotaGen backend is disabled (NOTAGEN_BACKEND_MODE=disabled). "
+                    "NotaGen backend is not active "
+                    "(LEARNED_SYMBOLIC_BACKEND is not set to notagen_mock or notagen_local). "
                     "The music21 symbolic path remains available. "
-                    "Set NOTAGEN_BACKEND_MODE=mock to use mock inference or "
-                    "NOTAGEN_BACKEND_MODE=local with NOTAGEN_MODEL_PATH to use "
+                    "Set LEARNED_SYMBOLIC_BACKEND=notagen_mock to use mock inference or "
+                    "LEARNED_SYMBOLIC_BACKEND=notagen_local with NOTAGEN_MODEL_PATH to use "
                     "real inference."
                 ),
             )

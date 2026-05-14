@@ -53,12 +53,11 @@ export const config = {
     structureRerankerShadowEnabled: envBool("STRUCTURE_RERANKER_SHADOW_ENABLED", false),
     structureRerankerShadowSnapshot: env("STRUCTURE_RERANKER_SHADOW_SNAPSHOT", ""),
     structureRerankerPromotionEnabled: envBool("STRUCTURE_RERANKER_PROMOTION_ENABLED", false),
-    // NotaGen backend configuration
-    // NOTAGEN_BACKEND_MODE: "disabled" | "mock" | "local"
-    //   disabled – backend always returns unavailable error; music21 path is unaffected
-    //   mock     – deterministic mock ABC returned without loading a model
-    //   local    – real model inference using the configured checkpoint
-    notagenBackendMode: env("NOTAGEN_BACKEND_MODE", "disabled") as "disabled" | "mock" | "local",
+    // Learned symbolic backend selection.
+    //   template      – music21 path (default; NotaGen never loaded)
+    //   notagen_mock  – deterministic mock ABC returned without loading a model
+    //   notagen_local – real model inference using the configured checkpoint
+    learnedSymbolicBackend: env("LEARNED_SYMBOLIC_BACKEND", "template") as "template" | "notagen_mock" | "notagen_local",
     notagenModelPath: env("NOTAGEN_MODEL_PATH", ""),
     notagenTokenizerPath: env("NOTAGEN_TOKENIZER_PATH", ""),
     notagenDevice: env("NOTAGEN_DEVICE", "cpu") as "cpu" | "cuda" | "mps",

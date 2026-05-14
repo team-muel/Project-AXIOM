@@ -3,7 +3,7 @@
 
 Wraps the existing plan-conditioned template generator
 (symbolic_projection.project_symbolic_sections).  This is the default
-backend when AXIOM_LEARNED_BACKEND is unset or set to "mock".
+backend when LEARNED_SYMBOLIC_BACKEND is unset or set to "template".
 Preserves all current behavior exactly.
 """
 

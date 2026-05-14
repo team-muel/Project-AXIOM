@@ -3,10 +3,10 @@
  * Learned symbolic backend routing tests — Phase A.
  *
  * Verifies that:
- *   1. Default (no AXIOM_LEARNED_BACKEND) uses template backend and succeeds.
- *   2. AXIOM_LEARNED_BACKEND=template succeeds (explicit template backend).
- *   3. AXIOM_LEARNED_BACKEND=notagen returns ok:false with a clear error
- *      (no checkpoint available in CI — explicit failure, NOT silent fallback).
+ *   1. Default (no LEARNED_SYMBOLIC_BACKEND) uses template backend and succeeds.
+ *   2. LEARNED_SYMBOLIC_BACKEND=template succeeds (explicit template backend).
+ *   3. LEARNED_SYMBOLIC_BACKEND=notagen_local returns ok:false with a clear error
+ *      (no model available in CI — explicit failure, NOT silent fallback).
  *   4. candidateCount=2 produces a proposalCandidatePool with 2 entries.
  *   5. candidateCount=1 (default) does NOT include proposalCandidatePool.
  *   6. Malformed providerRequest (missing required fields) returns validation error.
@@ -161,12 +161,12 @@ test("backend-routing: default (no env var) uses mock and succeeds", async (t) =
     }
 });
 
-test("backend-routing: AXIOM_LEARNED_BACKEND=template produces valid output", async (t) => {
+test("backend-routing: LEARNED_SYMBOLIC_BACKEND=template produces valid output", async (t) => {
     if (!pythonBin) { t.skip("No Python binary available"); return; }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
     try {
         const result = runLearnedWorker(buildMinimalPayload(tmpDir), {
-            AXIOM_LEARNED_BACKEND: "template",
+            LEARNED_SYMBOLIC_BACKEND: "template",
         });
         assert.equal(result.ok, true, "explicit template should succeed");
         assert.ok(result.proposalMidiPath, "should have proposalMidiPath");
@@ -176,23 +176,23 @@ test("backend-routing: AXIOM_LEARNED_BACKEND=template produces valid output", as
     }
 });
 
-test("backend-routing: AXIOM_LEARNED_BACKEND=notagen returns ok:false when checkpoint unavailable", async (t) => {
+test("backend-routing: LEARNED_SYMBOLIC_BACKEND=notagen_local returns ok:false when model unavailable", async (t) => {
     if (!pythonBin) { t.skip("No Python binary available"); return; }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
     try {
         const result = runLearnedWorker(buildMinimalPayload(tmpDir), {
-            AXIOM_LEARNED_BACKEND: "notagen",
-            // Intentionally omit AXIOM_NOTAGEN_CHECKPOINT_PATH
+            LEARNED_SYMBOLIC_BACKEND: "notagen_local",
+            // Intentionally omit NOTAGEN_MODEL_PATH
         });
-        assert.equal(result.ok, false, "notagen without checkpoint must return ok:false");
+        assert.equal(result.ok, false, "notagen_local without model must return ok:false");
         assert.ok(
             typeof result.error === "string" && result.error.length > 0,
             `expected a non-empty error string, got: ${JSON.stringify(result.error)}`
         );
         assert.ok(
             result.error.toLowerCase().includes("notagen") ||
-            result.error.toLowerCase().includes("checkpoint"),
-            `error should mention notagen or checkpoint, got: ${result.error}`
+            result.error.toLowerCase().includes("model"),
+            `error should mention notagen or model, got: ${result.error}`
         );
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });

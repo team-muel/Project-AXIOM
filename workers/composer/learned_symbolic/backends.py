@@ -3,8 +3,8 @@
 
 LearnedSymbolicBackendResult — flat result dataclass returned by every backend.
 LearnedSymbolicBackend       — Protocol all concrete backends must implement.
-select_backend               — Factory: reads NOTAGEN_BACKEND_MODE / AXIOM_LEARNED_BACKEND
-                               env vars and returns the appropriate backend instance.
+select_backend               — Factory: reads LEARNED_SYMBOLIC_BACKEND env var and
+                               returns the appropriate backend instance.
 """
 
 from __future__ import annotations
@@ -71,46 +71,23 @@ class LearnedSymbolicBackend(Protocol):
         ...
 
 
-def _resolve_backend_name(payload: dict[str, Any]) -> str:
-    """Resolve the active backend name from environment variables.
-
-    Priority:
-      1. NOTAGEN_BACKEND_MODE=mock|local  → "notagen"   (new Phase H env var)
-      2. NOTAGEN_BACKEND_MODE=disabled    → "template"  (disabled; use music21 path)
-      3. AXIOM_LEARNED_BACKEND=notagen    → "notagen"   (legacy env var)
-      4. AXIOM_LEARNED_BACKEND=template   → "template"
-      5. (unset)                          → "template"
-    """
-    notagen_mode = os.environ.get("NOTAGEN_BACKEND_MODE", "").strip().lower()
-    if notagen_mode in ("mock", "local"):
-        return "notagen"
-    if notagen_mode == "disabled":
-        return "template"
-
-    # Fall back to legacy AXIOM_LEARNED_BACKEND
-    legacy = os.environ.get("AXIOM_LEARNED_BACKEND", "template").strip().lower()
-    return "notagen" if legacy == "notagen" else "template"
-
-
 def select_backend(payload: dict[str, Any]) -> LearnedSymbolicBackend:  # type: ignore[type-arg]
     """Return the appropriate backend for the current runtime configuration.
 
-    Selection is governed by NOTAGEN_BACKEND_MODE (Phase H) with fallback to
-    the legacy AXIOM_LEARNED_BACKEND variable:
+    Governed by a single environment variable:
 
-      NOTAGEN_BACKEND_MODE=mock   → NotagenBackend (deterministic mock ABC)
-      NOTAGEN_BACKEND_MODE=local  → NotagenBackend (real model inference)
-      NOTAGEN_BACKEND_MODE=disabled (default) → TemplateBackend (music21)
-      AXIOM_LEARNED_BACKEND=notagen (legacy)  → NotagenBackend
-      (unset / other)                         → TemplateBackend (music21)
+      LEARNED_SYMBOLIC_BACKEND=template      (default) → TemplateBackend (music21)
+      LEARNED_SYMBOLIC_BACKEND=notagen_mock            → NotagenBackend (mock ABC)
+      LEARNED_SYMBOLIC_BACKEND=notagen_local           → NotagenBackend (real inference)
+      (unset / other)                                  → TemplateBackend (music21)
 
-    NotaGen is NEVER auto-promoted unless explicitly requested.  When the
+    NotaGen is NEVER auto-promoted unless explicitly requested.  When
     NotagenBackend cannot satisfy the request it returns
     LearnedSymbolicBackendResult(ok=False, …) so the caller can surface an
     explicit error rather than silently falling back.
     """
-    backend_name = _resolve_backend_name(payload)
-    if backend_name == "notagen":
+    raw = os.environ.get("LEARNED_SYMBOLIC_BACKEND", "template").strip().lower()
+    if raw in ("notagen_mock", "notagen_local"):
         # Import deferred so a missing optional dependency (e.g. transformers)
         # does not break the whole worker module at startup.
         from .notagen_backend import NotagenBackend  # noqa: PLC0415

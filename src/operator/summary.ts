@@ -901,24 +901,24 @@ export function getRuntimeReadinessSummary(): RuntimeReadinessSummary {
     checks.ffmpeg = checkExecutable(config.ffmpegBin, LOCAL_FFMPEG_CANDIDATES);
 
     // NotaGen backend availability check
-    const notagenMode = config.notagenBackendMode;
+    const notagenMode = config.learnedSymbolicBackend;
     const notagenModelPathSet = Boolean(config.notagenModelPath);
     const notagenModelExists = notagenModelPathSet && fs.existsSync(config.notagenModelPath);
     const notagenInferenceStack = pythonModules.torch && pythonModules.transformers && pythonModules.accelerate;
     const notagenBackend = {
         mode: notagenMode,
         // "available" means inference can actually run end-to-end:
-        //   disabled → false (intentionally off)
-        //   mock     → true  (no model needed)
-        //   local    → true only when model path exists AND inference stack installed
-        available: notagenMode === "mock"
+        //   template       → false (music21 path is used; NotaGen not active)
+        //   notagen_mock   → true  (no model needed)
+        //   notagen_local  → true only when model path exists AND inference stack installed
+        available: notagenMode === "notagen_mock"
             ? true
-            : notagenMode === "local"
+            : notagenMode === "notagen_local"
                 ? Boolean(notagenModelExists && notagenInferenceStack)
                 : false,
         modelPathSet: notagenModelPathSet,
-        modelPathExists: notagenMode === "local" ? notagenModelExists : null,
-        inferenceStackReady: notagenMode === "local" ? Boolean(notagenInferenceStack) : null,
+        modelPathExists: notagenMode === "notagen_local" ? notagenModelExists : null,
+        inferenceStackReady: notagenMode === "notagen_local" ? Boolean(notagenInferenceStack) : null,
     };
     checks.notagenBackend = notagenBackend;
 
@@ -956,8 +956,8 @@ export function getRuntimeReadinessSummary(): RuntimeReadinessSummary {
         !capabilities.audioRender ? "audio render unavailable (soundfont or FluidSynth/midi2audio missing)" : null,
         !capabilities.previewVideo ? "preview video unavailable (ffmpeg missing or audio render unavailable)" : null,
         !capabilities.musicgenCompose ? "MusicGen unavailable (torch/transformers/scipy/accelerate stack missing)" : null,
-        // NotaGen degraded only when LOCAL mode is requested but cannot run
-        notagenMode === "local" && !notagenBackend.available
+        // NotaGen degraded only when notagen_local mode is requested but cannot run
+        notagenMode === "notagen_local" && !notagenBackend.available
             ? `NotaGen local inference degraded: ${!notagenModelExists ? "model path missing or not found" : "torch/transformers/accelerate stack not installed"}`
             : null,
     ].filter((value): value is string => Boolean(value));

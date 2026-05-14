@@ -2,21 +2,21 @@
 /**
  * Phase H: NotaGen backend inference connection tests
  *
- *  1.  NOTAGEN_BACKEND_MODE=disabled → ok=false with clear error
- *  2.  Disabled mode does NOT affect music21/template backend selection
- *  3.  NOTAGEN_BACKEND_MODE=mock → ok=true with mock ABC candidate
+ *  1.  LEARNED_SYMBOLIC_BACKEND=template → notagenBackend.mode=template, available=false
+ *  2.  template mode does NOT affect music21/template backend selection
+ *  3.  LEARNED_SYMBOLIC_BACKEND=notagen_mock → ok=true with mock ABC candidate
  *  4.  Mock mode returns deterministic ABC header fields
  *  5.  Mock mode seed variation produces different pitch offsets
- *  6.  select_backend picks TemplateBackend when NOTAGEN_BACKEND_MODE=disabled
- *  7.  select_backend picks NotagenBackend when NOTAGEN_BACKEND_MODE=mock
- *  8.  select_backend picks NotagenBackend when NOTAGEN_BACKEND_MODE=local
- *  9.  NOTAGEN_BACKEND_MODE=local with missing model path → ok=false (no crash)
- * 10.  local mode torch import failure → ok=false (no crash)
- * 11.  config.ts exposes notagenBackendMode with correct default
+ *  6.  select_backend picks TemplateBackend when LEARNED_SYMBOLIC_BACKEND=template
+ *  7.  select_backend picks NotagenBackend when LEARNED_SYMBOLIC_BACKEND=notagen_mock
+ *  8.  select_backend picks NotagenBackend when LEARNED_SYMBOLIC_BACKEND=notagen_local
+ *  9.  LEARNED_SYMBOLIC_BACKEND=notagen_local with missing model path → ok=false (no crash)
+ * 10.  notagen_local torch import failure → ok=false (no crash)
+ * 11.  config.ts exposes learnedSymbolicBackend with correct default
  * 12.  config.ts notagenResampleBudget defaults to 2
- * 13.  Readiness shows notagenBackend.mode=disabled when NOTAGEN_BACKEND_MODE unset
- * 14.  Readiness shows notagenBackend.available=true for mock mode
- * 15.  Readiness adds degradedReason for local mode with missing model
+ * 13.  Readiness shows notagenBackend.mode=template when LEARNED_SYMBOLIC_BACKEND unset
+ * 14.  Readiness shows notagenBackend.available=true for notagen_mock mode
+ * 15.  Readiness adds degradedReason for notagen_local mode with missing model
  * 16.  Readiness does NOT mark not_ready when symbolic path is ready but NotaGen local fails
  */
 
@@ -42,24 +42,24 @@ function makeTmpDir() {
 // Tests 1-2: disabled mode
 // ---------------------------------------------------------------------------
 
-test("NOTAGEN_BACKEND_MODE=disabled returns ok=false with clear unavailable error", async () => {
+test("LEARNED_SYMBOLIC_BACKEND=template: notagenBackend reports mode=template and available=false", async () => {
     const { stdout } = await runNodeEval(`
         import { config } from "./dist/config.js";
         // Verify config picks up the env var
         console.log(JSON.stringify({
-            mode: config.notagenBackendMode,
+            mode: config.learnedSymbolicBackend,
             resampleBudget: config.notagenResampleBudget,
         }));
     `, {
         cwd: repoRoot,
         env: {
-            NOTAGEN_BACKEND_MODE: "disabled",
+            LEARNED_SYMBOLIC_BACKEND: "template",
             LOG_LEVEL: "error",
         },
     });
 
     const result = parseLastJsonLine(stdout);
-    assert.equal(result.mode, "disabled");
+    assert.equal(result.mode, "template");
     assert.equal(result.resampleBudget, 2);
 });
 
@@ -67,7 +67,7 @@ test("Disabled mode keeps notagenModelPath and notagenDevice accessible", async 
     const { stdout } = await runNodeEval(`
         import { config } from "./dist/config.js";
         console.log(JSON.stringify({
-            mode: config.notagenBackendMode,
+            mode: config.learnedSymbolicBackend,
             device: config.notagenDevice,
             maxTokens: config.notagenMaxTokens,
             timeoutMs: config.notagenTimeoutMs,
@@ -75,7 +75,7 @@ test("Disabled mode keeps notagenModelPath and notagenDevice accessible", async 
     `, {
         cwd: repoRoot,
         env: {
-            NOTAGEN_BACKEND_MODE: "disabled",
+            LEARNED_SYMBOLIC_BACKEND: "template",
             NOTAGEN_DEVICE: "mps",
             NOTAGEN_MAX_TOKENS: "4096",
             NOTAGEN_TIMEOUT_MS: "60000",
@@ -84,7 +84,7 @@ test("Disabled mode keeps notagenModelPath and notagenDevice accessible", async 
     });
 
     const result = parseLastJsonLine(stdout);
-    assert.equal(result.mode, "disabled");
+    assert.equal(result.mode, "template");
     assert.equal(result.device, "mps");
     assert.equal(result.maxTokens, 4096);
     assert.equal(result.timeoutMs, 60000);
@@ -94,85 +94,85 @@ test("Disabled mode keeps notagenModelPath and notagenDevice accessible", async 
 // Tests 3-5: mock mode (Python tests — run via subprocess to real Python)
 // ---------------------------------------------------------------------------
 
-test("select_backend picks TemplateBackend when NOTAGEN_BACKEND_MODE=disabled", async () => {
-    // This test is TypeScript-side: when mode=disabled, backends.py selects template.
+test("select_backend picks TemplateBackend when LEARNED_SYMBOLIC_BACKEND=template", async () => {
+    // This test is TypeScript-side: when mode=template, backends.py selects TemplateBackend.
     // We verify the config value which drives the Python selection:
     const { stdout } = await runNodeEval(`
         import { config } from "./dist/config.js";
-        console.log(JSON.stringify({ mode: config.notagenBackendMode }));
+        console.log(JSON.stringify({ mode: config.learnedSymbolicBackend }));
     `, {
         cwd: repoRoot,
-        env: { NOTAGEN_BACKEND_MODE: "disabled", LOG_LEVEL: "error" },
+        env: { LEARNED_SYMBOLIC_BACKEND: "template", LOG_LEVEL: "error" },
     });
     const result = parseLastJsonLine(stdout);
-    assert.equal(result.mode, "disabled");
+    assert.equal(result.mode, "template");
 });
 
-test("select_backend picks NotagenBackend when NOTAGEN_BACKEND_MODE=mock", async () => {
+test("select_backend picks NotagenBackend when LEARNED_SYMBOLIC_BACKEND=notagen_mock", async () => {
     const { stdout } = await runNodeEval(`
         import { config } from "./dist/config.js";
-        console.log(JSON.stringify({ mode: config.notagenBackendMode }));
+        console.log(JSON.stringify({ mode: config.learnedSymbolicBackend }));
     `, {
         cwd: repoRoot,
-        env: { NOTAGEN_BACKEND_MODE: "mock", LOG_LEVEL: "error" },
+        env: { LEARNED_SYMBOLIC_BACKEND: "notagen_mock", LOG_LEVEL: "error" },
     });
     const result = parseLastJsonLine(stdout);
-    assert.equal(result.mode, "mock");
+    assert.equal(result.mode, "notagen_mock");
 });
 
-test("select_backend picks NotagenBackend when NOTAGEN_BACKEND_MODE=local", async () => {
+test("select_backend picks NotagenBackend when LEARNED_SYMBOLIC_BACKEND=notagen_local", async () => {
     const { stdout } = await runNodeEval(`
         import { config } from "./dist/config.js";
-        console.log(JSON.stringify({ mode: config.notagenBackendMode }));
+        console.log(JSON.stringify({ mode: config.learnedSymbolicBackend }));
     `, {
         cwd: repoRoot,
-        env: { NOTAGEN_BACKEND_MODE: "local", LOG_LEVEL: "error" },
+        env: { LEARNED_SYMBOLIC_BACKEND: "notagen_local", LOG_LEVEL: "error" },
     });
     const result = parseLastJsonLine(stdout);
-    assert.equal(result.mode, "local");
+    assert.equal(result.mode, "notagen_local");
 });
 
 // ---------------------------------------------------------------------------
 // Tests 9-10: local mode failure safety
 // ---------------------------------------------------------------------------
 
-test("NOTAGEN_BACKEND_MODE=local with missing model path → ok=false (no crash)", async () => {
+test("LEARNED_SYMBOLIC_BACKEND=notagen_local with missing model path → ok=false (no crash)", async () => {
     // Verify config correctly reads model path as empty when not set
     const { stdout } = await runNodeEval(`
         import { config } from "./dist/config.js";
         console.log(JSON.stringify({
-            mode: config.notagenBackendMode,
+            mode: config.learnedSymbolicBackend,
             modelPath: config.notagenModelPath,
         }));
     `, {
         cwd: repoRoot,
         env: {
-            NOTAGEN_BACKEND_MODE: "local",
+            LEARNED_SYMBOLIC_BACKEND: "notagen_local",
             NOTAGEN_MODEL_PATH: "",
             LOG_LEVEL: "error",
         },
     });
     const result = parseLastJsonLine(stdout);
-    assert.equal(result.mode, "local");
+    assert.equal(result.mode, "notagen_local");
     assert.equal(result.modelPath, "");
 });
 
-test("NOTAGEN_BACKEND_MODE=local with nonexistent model path is detectable from config", async () => {
+test("LEARNED_SYMBOLIC_BACKEND=notagen_local with nonexistent model path is detectable from config", async () => {
     const { stdout } = await runNodeEval(`
         import { config } from "./dist/config.js";
         import fs from "node:fs";
         const exists = config.notagenModelPath ? fs.existsSync(config.notagenModelPath) : false;
-        console.log(JSON.stringify({ mode: config.notagenBackendMode, modelExists: exists }));
+        console.log(JSON.stringify({ mode: config.learnedSymbolicBackend, modelExists: exists }));
     `, {
         cwd: repoRoot,
         env: {
-            NOTAGEN_BACKEND_MODE: "local",
+            LEARNED_SYMBOLIC_BACKEND: "notagen_local",
             NOTAGEN_MODEL_PATH: "/nonexistent/path/to/model",
             LOG_LEVEL: "error",
         },
     });
     const result = parseLastJsonLine(stdout);
-    assert.equal(result.mode, "local");
+    assert.equal(result.mode, "notagen_local");
     assert.equal(result.modelExists, false);
 });
 
@@ -180,16 +180,16 @@ test("NOTAGEN_BACKEND_MODE=local with nonexistent model path is detectable from 
 // Tests 11-12: config defaults
 // ---------------------------------------------------------------------------
 
-test("config.ts exposes notagenBackendMode with default=disabled", async () => {
+test("config.ts exposes learnedSymbolicBackend with default=template", async () => {
     const { stdout } = await runNodeEval(`
         import { config } from "./dist/config.js";
-        console.log(JSON.stringify({ mode: config.notagenBackendMode }));
+        console.log(JSON.stringify({ mode: config.learnedSymbolicBackend }));
     `, {
         cwd: repoRoot,
-        env: { LOG_LEVEL: "error" },  // No NOTAGEN_BACKEND_MODE set
+        env: { LOG_LEVEL: "error" },  // No LEARNED_SYMBOLIC_BACKEND set
     });
     const result = parseLastJsonLine(stdout);
-    assert.equal(result.mode, "disabled");
+    assert.equal(result.mode, "template");
 });
 
 test("config.ts notagenResampleBudget defaults to 2", async () => {
@@ -220,7 +220,7 @@ test("config.ts notagenResampleBudget is overrideable via env var", async () => 
 // Tests 13-16: Readiness surface
 // ---------------------------------------------------------------------------
 
-test("Readiness shows notagenBackend.mode=disabled when NOTAGEN_BACKEND_MODE unset", async () => {
+test("Readiness shows notagenBackend.mode=template when LEARNED_SYMBOLIC_BACKEND unset", async () => {
     const tmpDir = makeTmpDir();
     try {
         const outputDir = path.join(tmpDir, "outputs");
@@ -247,14 +247,14 @@ test("Readiness shows notagenBackend.mode=disabled when NOTAGEN_BACKEND_MODE uns
                 OUTPUT_DIR: outputDir,
                 LOG_DIR: logDir,
                 LOG_LEVEL: "error",
-                // No NOTAGEN_BACKEND_MODE
+                // No LEARNED_SYMBOLIC_BACKEND
             },
         });
 
         const result = parseLastJsonLine(stdout);
         const notagenCheck = result.payload.checks?.notagenBackend;
         assert.ok(notagenCheck, "checks.notagenBackend should be present");
-        assert.equal(notagenCheck.mode, "disabled");
+        assert.equal(notagenCheck.mode, "template");
         assert.equal(notagenCheck.available, false);
         assert.equal(result.payload.capabilities?.notagenBackend, false);
     } finally {
@@ -262,7 +262,7 @@ test("Readiness shows notagenBackend.mode=disabled when NOTAGEN_BACKEND_MODE uns
     }
 });
 
-test("Readiness shows notagenBackend.available=true for mock mode", async () => {
+test("Readiness shows notagenBackend.available=true for notagen_mock mode", async () => {
     const tmpDir = makeTmpDir();
     try {
         const outputDir = path.join(tmpDir, "outputs");
@@ -288,7 +288,7 @@ test("Readiness shows notagenBackend.available=true for mock mode", async () => 
             env: {
                 OUTPUT_DIR: outputDir,
                 LOG_DIR: logDir,
-                NOTAGEN_BACKEND_MODE: "mock",
+                LEARNED_SYMBOLIC_BACKEND: "notagen_mock",
                 LOG_LEVEL: "error",
             },
         });
@@ -296,7 +296,7 @@ test("Readiness shows notagenBackend.available=true for mock mode", async () => 
         const result = parseLastJsonLine(stdout);
         const notagenCheck = result.payload.checks?.notagenBackend;
         assert.ok(notagenCheck);
-        assert.equal(notagenCheck.mode, "mock");
+        assert.equal(notagenCheck.mode, "notagen_mock");
         assert.equal(notagenCheck.available, true);
         assert.equal(result.payload.capabilities?.notagenBackend, true);
     } finally {
@@ -304,7 +304,7 @@ test("Readiness shows notagenBackend.available=true for mock mode", async () => 
     }
 });
 
-test("Readiness adds degradedReason for local mode with missing model path", async () => {
+test("Readiness adds degradedReason for notagen_local mode with missing model path", async () => {
     const tmpDir = makeTmpDir();
     try {
         const outputDir = path.join(tmpDir, "outputs");
@@ -330,7 +330,7 @@ test("Readiness adds degradedReason for local mode with missing model path", asy
             env: {
                 OUTPUT_DIR: outputDir,
                 LOG_DIR: logDir,
-                NOTAGEN_BACKEND_MODE: "local",
+                LEARNED_SYMBOLIC_BACKEND: "notagen_local",
                 NOTAGEN_MODEL_PATH: path.join(tmpDir, "no-such-model"),
                 LOG_LEVEL: "error",
             },
@@ -358,7 +358,7 @@ test("Readiness does NOT mark not_ready when symbolic path is ready but NotaGen 
 
         // We don't care if the full symbolic path is ready in this env;
         // the key assertion is that the status is never "not_ready" SOLELY because
-        // of NotaGen being in local mode with a missing model.
+        // of NotaGen being in notagen_local mode with a missing model.
         // We use PYTHON_BIN=real python so symbolic path can be ready.
         const { stdout } = await runNodeEval(`
             import express from "express";
@@ -378,7 +378,7 @@ test("Readiness does NOT mark not_ready when symbolic path is ready but NotaGen 
             env: {
                 OUTPUT_DIR: outputDir,
                 LOG_DIR: logDir,
-                NOTAGEN_BACKEND_MODE: "local",
+                LEARNED_SYMBOLIC_BACKEND: "notagen_local",
                 NOTAGEN_MODEL_PATH: path.join(tmpDir, "no-such-model"),
                 // NotaGen degraded reason should appear in degradedReasons
                 // but status must NOT be "not_ready" purely because of NotaGen
@@ -398,9 +398,9 @@ test("Readiness does NOT mark not_ready when symbolic path is ready but NotaGen 
 
         // If the only reason is NotaGen, that would mean the status gate was wrong.
         // (In practice Python is missing here too, so status=not_ready from Python is OK.)
-        // We just confirm notagenBackend.available is false and mode is local.
+        // We just confirm notagenBackend.available is false and mode is notagen_local.
         const notagenCheck = result.payload.checks?.notagenBackend;
-        assert.equal(notagenCheck?.mode, "local");
+        assert.equal(notagenCheck?.mode, "notagen_local");
         assert.equal(notagenCheck?.available, false);
         // notagenBackend alone does not set the not_ready gate
         assert.equal(notagenIsAloneReason, false, "NotaGen alone must not be the sole reason for not_ready");

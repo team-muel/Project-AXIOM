@@ -180,9 +180,9 @@ MCP에서도 같은 정보와 제어를 쓸 수 있다.
 
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
-| `NOTAGEN_BACKEND_MODE` | `disabled` | `disabled` \| `mock` \| `local` |
-| `NOTAGEN_MODEL_PATH` | _(없음)_ | local 모드 전용: checkpoint 디렉터리 또는 `.pt` 파일 경로 |
-| `NOTAGEN_TOKENIZER_PATH` | _(없음)_ | local 모드 전용: tokenizer 경로 (미설정 시 `NOTAGEN_MODEL_PATH` 공유) |
+| `LEARNED_SYMBOLIC_BACKEND` | `template` | `template` \| `notagen_mock` \| `notagen_local` |
+| `NOTAGEN_MODEL_PATH` | _(없음)_ | notagen_local 전용: checkpoint 디렉터리 또는 `.pt` 파일 경로 |
+| `NOTAGEN_TOKENIZER_PATH` | _(없음)_ | notagen_local 전용: tokenizer 경로 (미설정 시 `NOTAGEN_MODEL_PATH` 공유) |
 | `NOTAGEN_DEVICE` | `cpu` | `cpu` \| `cuda` \| `mps` |
 | `NOTAGEN_MAX_TOKENS` | `2048` | 모델이 생성할 최대 토큰 수 |
 | `NOTAGEN_TIMEOUT_MS` | `120000` | inference 전체 타임아웃 (ms) |
@@ -190,25 +190,25 @@ MCP에서도 같은 정보와 제어를 쓸 수 있다.
 
 ### 모드별 동작
 
-- **`disabled` (기본값)**: NotaGen backend는 즉시 `ok=false`를 반환한다. music21 symbolic path는 영향받지 않으며 계속 주 경로로 동작한다.
-- **`mock`**: 모델을 로드하지 않고 deterministic mock ABC를 반환한다. CI/CD 및 통합 테스트에 사용한다.
-- **`local`**: `NOTAGEN_MODEL_PATH`의 checkpoint를 lazy-load singleton으로 관리하며 실제 inference를 수행한다. inference 실패는 `ok=false`로 반환하여 worker process crash를 방지한다.
+- **`template` (기본값)**: music21 symbolic path를 사용한다. NotaGen은 로드되지 않으며 `ok=false` 반환 없이 정상 동작한다.
+- **`notagen_mock`**: 모델을 로드하지 않고 deterministic mock ABC를 반환한다. CI/CD 및 통합 테스트에 사용한다.
+- **`notagen_local`**: `NOTAGEN_MODEL_PATH`의 checkpoint를 lazy-load singleton으로 관리하며 실제 inference를 수행한다. inference 실패는 `ok=false`로 반환하여 worker process crash를 방지한다.
 
 ### Readiness 신호
 
 `GET /ready` 응답의 `capabilities.notagenBackend`와 `checks.notagenBackend`에서 NotaGen 상태를 확인할 수 있다.
 
-- `mode=disabled` → `available=false` (의도된 비활성화; degraded reason에 포함되지 않음)
-- `mode=mock` → `available=true`
-- `mode=local` → `available=true` only when `NOTAGEN_MODEL_PATH`가 존재하고 torch/transformers/accelerate가 설치됨
+- `mode=template` → `available=false` (music21 path 사용; NotaGen 비활성)
+- `mode=notagen_mock` → `available=true`
+- `mode=notagen_local` → `available=true` only when `NOTAGEN_MODEL_PATH`가 존재하고 torch/transformers/accelerate가 설치됨
 
-`mode=local`이고 model path가 없거나 inference stack이 미설치된 경우 `/ready`는 `ready_degraded`를 반환한다. **단, music21 symbolic path가 ready라면 `not_ready`로 내려가지 않는다.**
+`mode=notagen_local`이고 model path가 없거나 inference stack이 미설치된 경우 `/ready`는 `ready_degraded`를 반환한다. **단, music21 symbolic path가 ready라면 `not_ready`로 내려가지 않는다.**
 
 ### 설치 (local 모드)
 
 ```bash
 pip install -r workers/requirements-notagen.txt
-export NOTAGEN_BACKEND_MODE=local
+export LEARNED_SYMBOLIC_BACKEND=notagen_local
 export NOTAGEN_MODEL_PATH=/path/to/notagen-checkpoint
 ```
 
