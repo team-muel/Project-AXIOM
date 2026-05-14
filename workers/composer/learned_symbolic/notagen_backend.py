@@ -12,9 +12,14 @@ Supports two runtime modes controlled by LEARNED_SYMBOLIC_BACKEND:
     ML model. Useful for CI/CD and integration tests.
 
   notagen_local
-    Loads the model checkpoint at NOTAGEN_MODEL_PATH (lazy, process-singleton) and
-    runs real inference. Falls back to ok=False on any import/inference error so
-    the caller can apply its own fallback without crashing the worker process.
+    Runs real inference via a persistent subprocess (_notagen_inference_worker.py).
+    The subprocess loads the model checkpoint at NOTAGEN_MODEL_PATH once (lazy
+    singleton) and handles requests over a line-delimited JSON stdin/stdout protocol.
+
+    Hard timeout is enforced by killing the subprocess if it does not respond
+    within NOTAGEN_TIMEOUT_MS.  This guarantees that even a hung model.generate()
+    call is forcibly terminated.  After a kill the subprocess is automatically
+    restarted on the next inference attempt (at the cost of one model reload).
 
     The inference engine is selected by NOTAGEN_ENGINE:
 
@@ -35,24 +40,28 @@ Supports two runtime modes controlled by LEARNED_SYMBOLIC_BACKEND:
 Environment variables:
   LEARNED_SYMBOLIC_BACKEND   template | notagen_mock | notagen_local  (default: template)
   NOTAGEN_ENGINE             hf_causal_lm | notagen_native            (default: hf_causal_lm)
-  NOTAGEN_MODEL_PATH         path to checkpoint directory or .pt/.bin file
+  NOTAGEN_MODEL_PATH         path to checkpoint file or directory
   NOTAGEN_TOKENIZER_PATH     path to tokenizer (falls back to NOTAGEN_MODEL_PATH)
   NOTAGEN_DEVICE             cpu | cuda | mps  (default: cpu)
   NOTAGEN_MAX_TOKENS         integer  (default: 2048)
-  NOTAGEN_TIMEOUT_MS         integer milliseconds  (default: 120000)
+  NOTAGEN_TIMEOUT_MS         hard wall-clock timeout per inference call (default: 120000)
+                             On timeout the inference subprocess is killed.
   NOTAGEN_RESAMPLE_BUDGET    additional inference retries on validation failure (default: 2)
+                             Timeout failures are NOT retried.
 
 Connection points for Phase C validation pipeline:
   1. build_abc_header()             — AXIOM Plan → ABC conditioning header  [done]
-  2. _run_local_inference(...)      — ABC header → ABC score body           [this file]
+  2. _run_local_inference(...)      — ABC header → ABC score body (subprocess IPC) [this file]
   3. run_abc_projection_pipeline()  — validate / repair / project            [done]
 """
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
+import sys
 import threading
-import time
 from typing import Any
 
 from .abc_conditioning import build_abc_header
@@ -364,7 +373,7 @@ def _run_inference_notagen_native(
     )
 
 
-def _run_local_inference(
+def _run_inference_inline(
     abc_header: str,
     *,
     seed: int,
@@ -374,9 +383,14 @@ def _run_local_inference(
     repetition_penalty: float,
     max_tokens: int,
 ) -> str:
-    """Run one NotaGen inference pass, routing by the loaded engine.
+    """Run one NotaGen inference pass inline (in the current process).
 
-    Returns the generated ABC body (text after the conditioning header).
+    Called by the subprocess worker (_notagen_inference_worker.py) which
+    runs in a separate process that the parent can hard-kill on timeout.
+    Do NOT call this directly from NotagenBackend — use _run_local_inference()
+    which goes through _InferenceSubprocessManager for hard-timeout enforcement.
+
+    Returns the generated ABC body text.
     Raises RuntimeError on any model/tokenizer failure.
     """
     model, tokenizer, device_str, engine = _ModelSingleton.get()
@@ -401,6 +415,183 @@ def _run_local_inference(
         repetition_penalty=repetition_penalty,
         max_tokens=max_tokens,
     )
+
+
+# ─── Subprocess inference manager ─────────────────────────────────────────────
+
+class _InferenceSubprocessManager:
+    """Manages a single persistent inference child process.
+
+    The child process runs _notagen_inference_worker.py, loads the model
+    once (singleton within the child), and handles one request at a time
+    via a line-delimited JSON stdin/stdout protocol.
+
+    Hard timeout is enforced by a background thread that reads the child's
+    stdout.  If the thread does not return within the deadline, the child
+    process is killed (SIGKILL / TerminateProcess) so even a hung
+    model.generate() call is forcibly terminated.
+
+    After a kill, the next call automatically restarts the child and
+    reloads the model.  This means each timeout costs one model-load
+    on the subsequent call.
+
+    Thread safety: the lock serialises all requests.  Only one inference
+    call may be in flight at a time.
+    """
+
+    _lock = threading.Lock()
+    _proc: subprocess.Popen | None = None  # type: ignore[type-arg]
+
+    @classmethod
+    def _worker_script(cls) -> str:
+        return os.path.join(os.path.dirname(__file__), "_notagen_inference_worker.py")
+
+    @classmethod
+    def _cwd(cls) -> str:
+        # workers/composer/ — parent of the learned_symbolic package
+        return os.path.dirname(os.path.dirname(__file__))
+
+    @classmethod
+    def _start(cls) -> "subprocess.Popen[str]":
+        env = os.environ.copy()
+        # Ensure stdout is not buffered in the child so JSON lines arrive immediately.
+        env["PYTHONUNBUFFERED"] = "1"
+        return subprocess.Popen(
+            [sys.executable, cls._worker_script()],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=None,  # inherit parent stderr so model-load progress is visible
+            text=True,
+            cwd=cls._cwd(),
+            env=env,
+        )
+
+    @classmethod
+    def _ensure_alive(cls) -> "subprocess.Popen[str]":
+        """Return the running child process, starting one if necessary."""
+        if cls._proc is not None and cls._proc.poll() is None:
+            return cls._proc
+        cls._proc = cls._start()
+        return cls._proc
+
+    @classmethod
+    def call(cls, request: dict, *, timeout_sec: float) -> dict:
+        """Send one inference request and return the parsed JSON response.
+
+        Raises
+        ------
+        TimeoutError
+            If the child does not respond within *timeout_sec* seconds.
+            The child is killed before raising.
+        RuntimeError
+            If the child exits unexpectedly (empty stdout) or sends invalid JSON.
+        """
+        with cls._lock:
+            proc = cls._ensure_alive()
+            assert proc.stdin is not None
+            assert proc.stdout is not None
+
+            line = json.dumps(request, ensure_ascii=False) + "\n"
+            try:
+                proc.stdin.write(line)
+                proc.stdin.flush()
+            except (BrokenPipeError, OSError):
+                # Child died between _ensure_alive and write — restart and retry once.
+                proc.kill()
+                cls._proc = None
+                proc = cls._ensure_alive()
+                assert proc.stdin is not None
+                assert proc.stdout is not None
+                proc.stdin.write(line)
+                proc.stdin.flush()
+
+            # Read the response line in a daemon thread so we can impose a
+            # wall-clock deadline and kill the child if it exceeds it.
+            result_holder: list[str] = []
+
+            def _read() -> None:
+                try:
+                    result_holder.append(proc.stdout.readline())  # type: ignore[union-attr]
+                except Exception:  # noqa: BLE001
+                    pass
+
+            reader = threading.Thread(target=_read, daemon=True)
+            reader.start()
+            reader.join(timeout=timeout_sec)
+
+            if reader.is_alive():
+                # Timeout: hard-kill the child.  The thread is a daemon so it
+                # will not prevent process exit even if still blocked on readline.
+                proc.kill()
+                cls._proc = None
+                raise TimeoutError(
+                    f"NotaGen inference subprocess timed out after {timeout_sec:.0f}s. "
+                    "Child process was killed.  NOTAGEN_TIMEOUT_MS can be increased "
+                    "if the model needs more time."
+                )
+
+            raw = result_holder[0] if result_holder else ""
+            if not raw.strip():
+                # Child exited or wrote nothing — mark as dead.
+                cls._proc = None
+                raise RuntimeError(
+                    "NotaGen inference subprocess exited unexpectedly "
+                    "(empty stdout).  Check stderr for model-load errors."
+                )
+
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError as exc:
+                cls._proc = None
+                raise RuntimeError(
+                    f"NotaGen inference subprocess returned invalid JSON: {raw!r}"
+                ) from exc
+
+
+# ─── Public local inference entry point ───────────────────────────────────────
+
+def _run_local_inference(
+    abc_header: str,
+    *,
+    seed: int,
+    temperature: float,
+    top_p: float,
+    top_k: int,
+    repetition_penalty: float,
+    max_tokens: int,
+) -> str:
+    """Run one NotaGen inference pass via a hard-timeout subprocess.
+
+    Spawns (or reuses) a persistent inference child process and sends the
+    inference parameters as a JSON line to its stdin.  Reads the ABC response
+    from the child's stdout within NOTAGEN_TIMEOUT_MS.  If the child hangs,
+    it is killed with SIGKILL / TerminateProcess so even a blocked
+    model.generate() call is forcibly terminated.
+
+    Returns the generated ABC text.
+    Raises TimeoutError on hard timeout, RuntimeError on other failures.
+    """
+    timeout_ms = _env_int("NOTAGEN_TIMEOUT_MS", 120_000)
+    request = {
+        "abc_header": abc_header,
+        "seed": seed,
+        "temperature": temperature,
+        "top_p": top_p,
+        "top_k": top_k,
+        "repetition_penalty": repetition_penalty,
+        "max_tokens": max_tokens,
+    }
+    response = _InferenceSubprocessManager.call(request, timeout_sec=timeout_ms / 1000.0)
+    if not response.get("ok"):
+        raise RuntimeError(
+            response.get("error") or "Inference subprocess returned ok=false without error detail"
+        )
+    abc_text = response.get("abc_text", "")
+    if not isinstance(abc_text, str):
+        raise RuntimeError(
+            f"Inference subprocess returned unexpected abc_text type: {type(abc_text)}"
+        )
+    return abc_text
 
 
 # ─── Mock ABC builder ─────────────────────────────────────────────────────────
@@ -677,7 +868,6 @@ class NotagenBackend:
         max_tokens: int,
     ) -> LearnedSymbolicBackendResult:
         resample_budget: int = _env_int("NOTAGEN_RESAMPLE_BUDGET", 2)
-        timeout_ms: int = _env_int("NOTAGEN_TIMEOUT_MS", 120_000)
         sections = list(payload.get("promptPack", {}).get("sections") or [])
         output_path: str | None = str(payload.get("outputPath") or "") or None
         keep_artifacts = (
@@ -690,16 +880,11 @@ class NotagenBackend:
             (abc_header + "\n" + rewrite_block) if rewrite_block else abc_header
         )
 
-        deadline = time.monotonic() + timeout_ms / 1000.0
         last_error: str | None = None
         last_abc: str | None = None
 
         for attempt in range(1 + resample_budget):
             attempt_seed = candidate_seed + attempt * 1000  # vary seed per resample
-
-            if time.monotonic() > deadline:
-                last_error = "Inference timed out before all resample attempts completed"
-                break
 
             try:
                 abc_body = _run_local_inference(
@@ -711,9 +896,13 @@ class NotagenBackend:
                     repetition_penalty=repetition_penalty,
                     max_tokens=max_tokens,
                 )
+            except TimeoutError as exc:
+                # Timeout kills the subprocess — no point retrying immediately.
+                last_error = f"NotaGen inference timed out: {exc}"
+                break
             except Exception as exc:  # noqa: BLE001
                 last_error = f"NotaGen inference error: {exc}"
-                # Do not retry on model-load errors (they will repeat)
+                # Do not retry on model-load errors (they will repeat).
                 if "model load failed" in str(exc).lower():
                     break
                 continue

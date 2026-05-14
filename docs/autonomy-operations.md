@@ -186,7 +186,7 @@ MCP에서도 같은 정보와 제어를 쓸 수 있다.
 | `NOTAGEN_TOKENIZER_PATH` | _(없음)_ | notagen_local 전용: `hf_causal_lm` tokenizer 경로 (`notagen_native`에서는 무시됨) |
 | `NOTAGEN_DEVICE` | `cpu` | `cpu` \| `cuda` \| `mps` |
 | `NOTAGEN_MAX_TOKENS` | `2048` | 생성 중단 soft cap (문자 수) |
-| `NOTAGEN_TIMEOUT_MS` | `120000` (`hf_causal_lm`) / `600000` (`notagen_native`) | inference 전체 타임아웃 (ms) |
+| `NOTAGEN_TIMEOUT_MS` | `120000` | inference 1회 hard timeout (ms). 초과 시 inference subprocess를 SIGKILL. 타임아웃 실패는 재시도하지 않는다. |
 | `NOTAGEN_RESAMPLE_BUDGET` | `2` | Phase C 검증 실패 시 추가 재시도 횟수 |
 | `NOTAGEN_REPO_PATH` | _(없음)_ | `notagen_native` 전용: 공식 NotaGen repo 클론 경로 (`gradio/utils.py` 포함) |
 | `NOTAGEN_DEFAULT_PERIOD` | `Romantic` | `notagen_native` 전용: 기본 period 레이블 (`Baroque`\|`Classical`\|`Romantic`\|`20th`) |
@@ -196,7 +196,7 @@ MCP에서도 같은 정보와 제어를 쓸 수 있다.
 
 - **`template` (기본값)**: music21 symbolic path를 사용한다. NotaGen은 로드되지 않으며 `ok=false` 반환 없이 정상 동작한다.
 - **`notagen_mock`**: 모델을 로드하지 않고 deterministic mock ABC를 반환한다. CI/CD 및 통합 테스트에 사용한다.
-- **`notagen_local`**: `NOTAGEN_MODEL_PATH`의 checkpoint를 lazy-load singleton으로 관리하며 실제 inference를 수행한다. inference 실패는 `ok=false`로 반환하여 worker process crash를 방지한다.
+- **`notagen_local`**: `NOTAGEN_MODEL_PATH`의 checkpoint를 영구적인 자식 프로세스(`_notagen_inference_worker.py`)로 lazy-load 후 관리한다. 부모 프로세스는 JSON line 프로토콜(stdin/stdout)로 inference 요청을 보내고, `NOTAGEN_TIMEOUT_MS` 내에 응답이 없으면 자식 프로세스를 강제 kill한다. 이렇게 하면 `model.generate()` hang도 반드시 종료된다. kill 후 다음 호출 시 자식 프로세스가 자동 재시작된다 (모델 재로드 비용 발생). inference 실패는 `ok=false`로 반환하여 worker process crash를 방지한다.
 
 ### Inference Engine (`NOTAGEN_ENGINE`)
 

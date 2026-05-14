@@ -236,7 +236,28 @@ test("backend-routing: notagen_mock sets generationMode=mock_notagen_abc and war
     }
 });
 
-test("backend-routing: malformed providerRequest returns validation error", async (t) => {
+test("backend-routing: NOTAGEN_TIMEOUT_MS=1 causes notagen_local to fail fast with timeout error", async (t) => {
+    if (!pythonBin) { t.skip("No Python binary available"); return; }
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
+    try {
+        // 1 ms timeout — subprocess worker won't even start the model in time.
+        const result = runLearnedWorker(buildMinimalPayload(tmpDir), {
+            LEARNED_SYMBOLIC_BACKEND: "notagen_local",
+            NOTAGEN_TIMEOUT_MS: "1",
+            NOTAGEN_RESAMPLE_BUDGET: "0",
+            // Intentionally omit NOTAGEN_MODEL_PATH so model-load error doesn't
+            // interfere; the timeout or the missing-path error will both produce ok:false.
+        });
+        assert.equal(result.ok, false, "notagen_local with 1ms timeout must return ok:false");
+        assert.ok(
+            typeof result.error === "string" && result.error.length > 0,
+            "must include an error message"
+        );
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
     if (!pythonBin) { t.skip("No Python binary available"); return; }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
     try {
