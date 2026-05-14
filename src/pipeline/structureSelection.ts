@@ -1,4 +1,50 @@
-import type { StructureEvaluationReport } from "./types.js";
+import type { CraftScoreSummary, StructureEvaluationReport } from "./types.js";
+
+// ---------------------------------------------------------------------------
+// Craft quality gate
+// ---------------------------------------------------------------------------
+//
+// Two-stage candidate selection:
+//
+//   Stage 1 — quality gate:
+//     Candidates that meet all three thresholds are "gate-passers" and receive
+//     a large bonus that reliably floats them above gate-failers within the
+//     same passed=true tier.  Thresholds are strict enough to reject candidates
+//     whose craft dimensions signal a structurally problematic output, but not
+//     so strict that all candidates fail in cold-start.
+//
+//   Stage 2 — rank:
+//     Within gate-passers the craft dimension bonus (finalCraftScore * 150) and
+//     the existing structure bonuses determine the shortlist order.
+//     Gate-failers still compete but at a large disadvantage (-400 pts gap).
+//
+// The final winner from the shortlist is selected by the listenerFeedback
+// preference model (see src/pipeline/preferenceModel.ts), not craft alone.
+// ---------------------------------------------------------------------------
+
+export const CRAFT_QUALITY_GATE: Readonly<{
+    sectionContractFit: number;
+    syntaxValidity: number;
+    registerIdiomaticFit: number;
+}> = {
+    sectionContractFit: 0.75,
+    syntaxValidity:     0.90,
+    registerIdiomaticFit: 0.75,
+} as const;
+
+/**
+ * Returns true when all three quality-gate dimensions meet their thresholds.
+ * Gate-passing candidates receive a large bonus in
+ * scoreStructureEvaluationForCandidateSelection() that separates them from
+ * gate-failers within the same `passed` tier.
+ */
+export function craftScorePassesQualityGate(craft: CraftScoreSummary): boolean {
+    return (
+        craft.sectionContractFit >= CRAFT_QUALITY_GATE.sectionContractFit
+        && craft.syntaxValidity >= CRAFT_QUALITY_GATE.syntaxValidity
+        && craft.registerIdiomaticFit >= CRAFT_QUALITY_GATE.registerIdiomaticFit
+    );
+}
 
 export function scoreStructureEvaluationForCandidateSelection(evaluation: StructureEvaluationReport): number {
     const baseScore = evaluation.score ?? 0;
@@ -50,12 +96,25 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
         ? evaluation.metrics.orchestrationSectionHandoffFit * 10
         : 0;
 
-    // Craft score bonus / penalty (optional — only present when craftScoreSummary is populated)
+    // ── Two-stage craft gate + rank ──────────────────────────────────────────
+    //
+    // Stage 1 — quality gate:
+    //   craftQualityGateBonus = 400 when gate passes; 0 otherwise.
+    //   400 pts ≈ 20 % of a typical passed=true score (~2000), reliably
+    //   separating gate-passers from gate-failers within the same tier.
+    //
+    // Stage 2 — within-gate rank:
+    //   craftDimensionBonus = finalCraftScore * 150 (gate-passers)
+    //                       = finalCraftScore * 50  (gate-failers, keep signal)
+    //
+    // contractPenalty: retained for gate-failers with very poor contract fit.
+    // ──────────────────────────────────────────────────────────────────────────
     const craft = evaluation.craftScoreSummary;
-    const craftBonus = craft
-        ? craft.finalCraftScore * 50
+    const passesGate = craft ? craftScorePassesQualityGate(craft) : false;
+    const craftQualityGateBonus = passesGate ? 400 : 0;
+    const craftDimensionBonus = craft
+        ? craft.finalCraftScore * (passesGate ? 150 : 50)
         : 0;
-    // Extra contract penalty: candidates that violate section contract lose an additional 30 points
     const contractPenalty = craft && craft.sectionContractFit < 0.5
         ? (0.5 - craft.sectionContractFit) * 60
         : 0;
@@ -74,11 +133,13 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
         + orchestrationDoublingBonus
         + orchestrationRotationBonus
         + orchestrationHandoffBonus
-        + craftBonus
+        + craftQualityGateBonus
+        + craftDimensionBonus
         - weakestSectionPenalty
         - contractPenalty
         - (tensionMismatch * 40)).toFixed(4));
 }
+
 
 const STRUCTURE_SELECTION_RANK_TOLERANCE = 1;
 

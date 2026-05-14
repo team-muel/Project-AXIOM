@@ -16,6 +16,11 @@
  * 12. scoreStructureEvaluationForCandidateSelection includes craftBonus
  * 13. scoreStructureEvaluationForCandidateSelection applies contractPenalty when sectionContractFit < 0.5
  * 14. syntaxValidity is 0 when evaluation has hard failure issue
+ * 15. craftScorePassesQualityGate returns true when all dimensions meet threshold
+ * 16. craftScorePassesQualityGate returns false when syntaxValidity < threshold
+ * 17. craftScorePassesQualityGate returns false when sectionContractFit < threshold
+ * 18. craftScorePassesQualityGate returns false when registerIdiomaticFit < threshold
+ * 19. gate-passer scores higher than gate-failer with identical structure evaluation
  */
 
 import test from "node:test";
@@ -33,7 +38,11 @@ const {
     computeCraftScoreSummary,
 } = await import("../dist/pipeline/craftScoring.js");
 
-const { scoreStructureEvaluationForCandidateSelection } = await import(
+const {
+    scoreStructureEvaluationForCandidateSelection,
+    craftScorePassesQualityGate,
+    CRAFT_QUALITY_GATE,
+} = await import(
     "../dist/pipeline/structureSelection.js"
 );
 
@@ -368,3 +377,119 @@ test("syntaxValidity is 0 when evaluation has hard failure issue", () => {
     );
     assert.strictEqual(score, 0);
 });
+
+// ---------------------------------------------------------------------------
+// 15. craftScorePassesQualityGate returns true when all dimensions meet threshold
+// ---------------------------------------------------------------------------
+test("craftScorePassesQualityGate returns true when all dimensions meet threshold", () => {
+    const craft = {
+        syntaxValidity:     CRAFT_QUALITY_GATE.syntaxValidity,
+        sectionContractFit: CRAFT_QUALITY_GATE.sectionContractFit,
+        registerIdiomaticFit: CRAFT_QUALITY_GATE.registerIdiomaticFit,
+        cadenceStrength:    0.8,
+        tonalReturn:        0.8,
+        motifSurvival:      0.8,
+        voiceIndependence:  0.8,
+        phraseShape:        0.8,
+        finalCraftScore:    0.8,
+    };
+    assert.strictEqual(craftScorePassesQualityGate(craft), true);
+});
+
+// ---------------------------------------------------------------------------
+// 16. craftScorePassesQualityGate returns false when syntaxValidity < threshold
+// ---------------------------------------------------------------------------
+test("craftScorePassesQualityGate returns false when syntaxValidity < threshold", () => {
+    const craft = {
+        syntaxValidity:     CRAFT_QUALITY_GATE.syntaxValidity - 0.01,
+        sectionContractFit: CRAFT_QUALITY_GATE.sectionContractFit,
+        registerIdiomaticFit: CRAFT_QUALITY_GATE.registerIdiomaticFit,
+        cadenceStrength:    0.8,
+        tonalReturn:        0.8,
+        motifSurvival:      0.8,
+        voiceIndependence:  0.8,
+        phraseShape:        0.8,
+        finalCraftScore:    0.75,
+    };
+    assert.strictEqual(craftScorePassesQualityGate(craft), false);
+});
+
+// ---------------------------------------------------------------------------
+// 17. craftScorePassesQualityGate returns false when sectionContractFit < threshold
+// ---------------------------------------------------------------------------
+test("craftScorePassesQualityGate returns false when sectionContractFit < threshold", () => {
+    const craft = {
+        syntaxValidity:     CRAFT_QUALITY_GATE.syntaxValidity,
+        sectionContractFit: CRAFT_QUALITY_GATE.sectionContractFit - 0.01,
+        registerIdiomaticFit: CRAFT_QUALITY_GATE.registerIdiomaticFit,
+        cadenceStrength:    0.8,
+        tonalReturn:        0.8,
+        motifSurvival:      0.8,
+        voiceIndependence:  0.8,
+        phraseShape:        0.8,
+        finalCraftScore:    0.75,
+    };
+    assert.strictEqual(craftScorePassesQualityGate(craft), false);
+});
+
+// ---------------------------------------------------------------------------
+// 18. craftScorePassesQualityGate returns false when registerIdiomaticFit < threshold
+// ---------------------------------------------------------------------------
+test("craftScorePassesQualityGate returns false when registerIdiomaticFit < threshold", () => {
+    const craft = {
+        syntaxValidity:     CRAFT_QUALITY_GATE.syntaxValidity,
+        sectionContractFit: CRAFT_QUALITY_GATE.sectionContractFit,
+        registerIdiomaticFit: CRAFT_QUALITY_GATE.registerIdiomaticFit - 0.01,
+        cadenceStrength:    0.8,
+        tonalReturn:        0.8,
+        motifSurvival:      0.8,
+        voiceIndependence:  0.8,
+        phraseShape:        0.8,
+        finalCraftScore:    0.75,
+    };
+    assert.strictEqual(craftScorePassesQualityGate(craft), false);
+});
+
+// ---------------------------------------------------------------------------
+// 19. Gate-passer scores significantly higher than gate-failer with identical
+//     structure evaluation (same passed + baseScore)
+// ---------------------------------------------------------------------------
+test("gate-passer scores higher than gate-failer with identical structure evaluation", () => {
+    const baseEval = { passed: true, score: 80, issues: [], strengths: [] };
+    const gatePasser = {
+        ...baseEval,
+        craftScoreSummary: {
+            syntaxValidity:     CRAFT_QUALITY_GATE.syntaxValidity,
+            sectionContractFit: CRAFT_QUALITY_GATE.sectionContractFit,
+            registerIdiomaticFit: CRAFT_QUALITY_GATE.registerIdiomaticFit,
+            cadenceStrength:    0.8,
+            tonalReturn:        0.8,
+            motifSurvival:      0.8,
+            voiceIndependence:  0.8,
+            phraseShape:        0.8,
+            finalCraftScore:    0.8,
+        },
+    };
+    const gateFailer = {
+        ...baseEval,
+        craftScoreSummary: {
+            syntaxValidity:     0.5,                                 // below threshold
+            sectionContractFit: CRAFT_QUALITY_GATE.sectionContractFit,
+            registerIdiomaticFit: CRAFT_QUALITY_GATE.registerIdiomaticFit,
+            cadenceStrength:    0.8,
+            tonalReturn:        0.8,
+            motifSurvival:      0.8,
+            voiceIndependence:  0.8,
+            phraseShape:        0.8,
+            finalCraftScore:    0.72,
+        },
+    };
+    const passerScore = scoreStructureEvaluationForCandidateSelection(gatePasser);
+    const failerScore = scoreStructureEvaluationForCandidateSelection(gateFailer);
+    // 400pt gate bonus should dominate: passer must be clearly ahead
+    assert.ok(
+        passerScore - failerScore >= 350,
+        `Gate-passer (${passerScore}) should be >=350 pts ahead of gate-failer (${failerScore})`,
+    );
+});
+

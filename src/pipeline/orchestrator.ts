@@ -33,6 +33,7 @@ import {
 import { materializeCompositionSketch } from "./sketch.js";
 import {
     compareStructureEvaluationsForCandidateSelection,
+    craftScorePassesQualityGate,
     scoreStructureEvaluationForCandidateSelection,
 } from "./structureSelection.js";
 import {
@@ -548,11 +549,13 @@ function chooseBetterSymbolicCandidate(
  * preference model.
  *
  * Selection stages:
- *   1. Build a shortlist of up to PREFERENCE_SHORTLIST_SIZE candidates sorted
- *      by heuristic structure score (best first).
- *   2. Pass the shortlist to selectPreferredCandidate(), which applies the
+ *   1. Sort all candidates by heuristic structure score (craft quality gate
+ *      bonus already baked in via scoreStructureEvaluationForCandidateSelection).
+ *   2. Build the preference shortlist from gate-passing candidates when any
+ *      are available; fall back to the full sorted list otherwise.
+ *   3. Pass the shortlist to selectPreferredCandidate(), which applies the
  *      craft hard filter and uses the listenerFeedback preference model.
- *   3. Fall back to the heuristic top candidate if preference selection fails.
+ *   4. Fall back to the heuristic top candidate if preference selection fails.
  */
 function selectAttemptWinner(
     attemptCandidates: SymbolicAttemptCandidate[],
@@ -565,12 +568,36 @@ function selectAttemptWinner(
         return attemptCandidates[0]!;
     }
 
-    // Build heuristic shortlist (best first)
-    const shortlist = [...attemptCandidates]
+    // Sort all candidates — craft quality gate bonus is already embedded in
+    // the score, so gate-passers naturally float above gate-failers within
+    // the same passed=true tier.
+    const sorted = [...attemptCandidates]
         .sort((a, b) => compareStructureEvaluationsForCandidateSelection(
             b.structureEvaluation, a.structureEvaluation,
-        ))
-        .slice(0, PREFERENCE_SHORTLIST_SIZE);
+        ));
+
+    // Prefer gate-passing candidates for the preference shortlist.
+    // If none pass the gate, fall back to the full sorted list so we always
+    // have a shortlist to work with.
+    const gatePassers = sorted.filter((c) => {
+        const craft = c.structureEvaluation.craftScoreSummary;
+        return craft != null && craftScorePassesQualityGate(craft);
+    });
+    const shortlistBase = gatePassers.length > 0 ? gatePassers : sorted;
+    const shortlist = shortlistBase.slice(0, PREFERENCE_SHORTLIST_SIZE);
+
+    if (gatePassers.length === 0) {
+        logger.warn("selectAttemptWinner: no craft quality gate-passers in pool — using full shortlist", {
+            songId,
+            totalCandidates: attemptCandidates.length,
+        });
+    } else {
+        logger.debug("selectAttemptWinner: craft quality gate", {
+            songId,
+            gatePasserCount: gatePassers.length,
+            totalCandidates: attemptCandidates.length,
+        });
+    }
 
     // Build PreferenceCandidate list — craft hard filter and preference scoring require craftScoreSummary
     const preferenceCandidates = shortlist
