@@ -4,24 +4,14 @@ import os
 import sys
 from typing import Any, cast
 
-from music21 import (
-    chord,
-    instrument,
-    meter,
-    note,
-    stream,
-    tempo as tempo_module,
-)
+from learned_symbolic.backends import LearnedSymbolicBackendResult, select_backend
 from learned_symbolic.prompt_packing import (
+    as_record,
     get_prompt_pack,
     resolve_form,
-    resolve_key_label,
     resolve_provider_prompt_packing_context,
-    resolve_sections,
-    resolve_tempo,
     supports_narrow_lane,
 )
-from learned_symbolic.symbolic_projection import parse_key_signature
 
 
 def read_payload() -> dict[str, Any]:
@@ -34,81 +24,30 @@ def read_payload() -> dict[str, Any]:
     return cast(dict[str, Any], payload)
 
 
-def normalize_name(value: Any) -> str:
-    return str(value or "").strip().lower().replace("-", " ")
-
-
-def as_record(value: Any) -> dict[str, Any] | None:
-    return cast(dict[str, Any], value) if isinstance(value, dict) else None
-
-
-def add_part(
-    score: stream.Score,
-    part_name: str,
-    part_instrument: instrument.Instrument,
-    measures: list[list[dict[str, Any]]],
-) -> None:
-    part = stream.Part(id=part_name.lower())
-    part.append(part_instrument)
-    for measure_index, events in enumerate(measures, start=1):
-        measure = stream.Measure(number=measure_index)
-        if measure_index == 1:
-            measure.append(meter.base.TimeSignature("4/4"))
-        for event in events:
-            if event["kind"] == "rest":
-                token = note.Rest(quarterLength=event["quarterLength"])
-            elif event["kind"] == "chord":
-                token = chord.Chord(
-                    event["midiPitches"], quarterLength=event["quarterLength"]
-                )
-                if "velocity" in event:
-                    token.volume.velocity = event["velocity"]
-            else:
-                token = note.Note(event["midi"], quarterLength=event["quarterLength"])
-                if "velocity" in event:
-                    token.volume.velocity = event["velocity"]
-            measure.append(token)
-        part.append(measure)
-    score.append(part)
-
-
-def _resolve_backend() -> Any:
-    """Select the symbolic generation backend from AXIOM_LEARNED_BACKEND env var.
-
-    Supported values (case-insensitive):
-      "mock"    — plan-conditioned template, current default behavior
-      "notagen" — NotaGen-class inference (requires checkpoint)
-
-    Unset or empty → "mock".
-    """
-    backend_name = os.environ.get("AXIOM_LEARNED_BACKEND", "mock").strip().lower()
-    if backend_name == "notagen":
-        from learned_symbolic.notagen_backend import NotagenBackend
-
-        return NotagenBackend()
-    from learned_symbolic.mock_backend import MockBackend
-
-    return MockBackend()
-
-
 def _derive_variant_payload(
     payload: dict[str, Any], variant_index: int
 ) -> dict[str, Any]:
-    """Return a payload with a perturbed stable seed for candidate diversity."""
+    """Return a payload copy with a perturbed seed for candidate diversity.
+
+    For variant_index > 0 the outputPath is cleared so the template backend
+    skips MIDI writing — only the best candidate (v0) writes the final MIDI.
+    """
     import hashlib
 
     if variant_index == 0:
         return payload
     base_seed = payload.get("stableSeed")
-    if not isinstance(base_seed, (int, float)):
-        return payload
-    variant_seed = int(
-        hashlib.sha256(
-            f"{int(base_seed)}|variant_{variant_index}".encode()
-        ).hexdigest()[:8],
-        16,
+    variant_seed = (
+        int(
+            hashlib.sha256(
+                f"{int(base_seed)}|variant_{variant_index}".encode()
+            ).hexdigest()[:8],
+            16,
+        )
+        if isinstance(base_seed, (int, float))
+        else base_seed
     )
-    return {**payload, "stableSeed": variant_seed}
+    return {**payload, "stableSeed": variant_seed, "outputPath": ""}
 
 
 def _write_feedback_evidence(
@@ -155,10 +94,9 @@ def _write_feedback_evidence(
 def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     plan = as_record(payload.get("compositionPlan")) or {}
     prompt_pack = get_prompt_pack(payload)
-    provider_prompt_context = resolve_provider_prompt_packing_context(
-        payload, prompt_pack
-    )
+    context = resolve_provider_prompt_packing_context(payload, prompt_pack)
     form = resolve_form(payload, plan)
+
     if not supports_narrow_lane(payload, plan, form):
         return {
             "ok": False,
@@ -169,125 +107,82 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     if not output_path:
         return {"ok": False, "error": "outputPath is required"}
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    tempo = resolve_tempo(payload, plan)
-    key_label = resolve_key_label(payload, plan)
-    tonic_key = parse_key_signature(key_label)
-    sections = resolve_sections(payload, plan)
-    attempt_index = payload.get("attemptIndex")
+    attempt_index_raw = payload.get("attemptIndex")
     normalized_attempt_index = (
-        int(round(float(attempt_index)))
-        if isinstance(attempt_index, (int, float)) and attempt_index > 0
+        int(round(float(attempt_index_raw)))
+        if isinstance(attempt_index_raw, (int, float)) and attempt_index_raw > 0
         else 1
     )
-    score = stream.Score(id="learned-symbolic")
-    score.append(tempo_module.MetronomeMark(number=tempo))
 
-    backend = _resolve_backend()
+    backend = select_backend(payload)
     candidate_count = max(1, min(4, int(payload.get("candidateCount") or 1)))
     candidate_pool: list[dict[str, Any]] = []
-    projection = None
-    normalization_warnings: list[str] = []
+    best_result: LearnedSymbolicBackendResult | None = None
 
     for variant_index in range(candidate_count):
         variant_payload = _derive_variant_payload(payload, variant_index)
-        try:
-            proj = backend.generate(
-                payload=variant_payload,
-                sections=sections,
-                tonic_key=tonic_key,
-                attempt_index=normalized_attempt_index,
-                context=provider_prompt_context,
-            )
-        except NotImplementedError as exc:
-            # NotaGen checkpoint absent — fall back to mock transparently.
-            from learned_symbolic.mock_backend import MockBackend
+        result = backend.generate(variant_payload, context)
 
-            proj = MockBackend().generate(
-                payload=variant_payload,
-                sections=sections,
-                tonic_key=tonic_key,
-                attempt_index=normalized_attempt_index,
-                context=provider_prompt_context,
-            )
-            proj["normalizationWarnings"].insert(
-                0,
-                f"notagen backend unavailable ({exc}); fell back to mock",
-            )
+        if not result.ok:
+            # Surface backend errors explicitly — do NOT silently substitute
+            # another backend.  TypeScript has its own music21 fallback for
+            # ok=False worker responses.
+            return {
+                "ok": False,
+                "error": result.error or "backend generation failed",
+            }
 
         candidate_pool.append(
             {
                 "candidateId": f"v{variant_index}",
                 "variantIndex": variant_index,
-                "noteCount": proj["totalNoteCount"],
-                "measureCount": proj["totalMeasureCount"],
-                "rewriteApplied": proj["rewriteApplied"],
+                "noteCount": result.note_count,
+                "measureCount": result.measure_count,
+                "rewriteApplied": result.rewrite_applied,
             }
         )
-        if projection is None:
-            projection = proj
-            normalization_warnings = proj["normalizationWarnings"]
+        if best_result is None:
+            best_result = result
 
-    assert projection is not None
-    proposal_sections = projection["proposalSections"]
-    violin_measures = projection["violinMeasures"]
-    viola_measures = projection["violaMeasures"]
-    cello_measures = projection["celloMeasures"]
-    total_note_count = projection["totalNoteCount"]
-    rewrite_applied = projection["rewriteApplied"]
-    normalization_warnings = projection["normalizationWarnings"]
-
-    add_part(score, "Violin", instrument.Violin(), violin_measures)
-    add_part(score, "Viola", instrument.Viola(), viola_measures)
-    add_part(score, "Cello", instrument.Violoncello(), cello_measures)
-    score.write("midi", fp=output_path)
+    assert best_result is not None
 
     _write_feedback_evidence(
         output_path=output_path,
-        plan_signature=provider_prompt_context["planSignature"]
-        if provider_prompt_context is not None
-        else "",
-        lane=provider_prompt_context["lane"]
-        if provider_prompt_context is not None and provider_prompt_context["lane"] is not None
-        else "string_trio_symbolic",
+        plan_signature=(context["planSignature"] if context is not None else ""),
+        lane=(
+            context["lane"]
+            if context is not None and context.get("lane")
+            else "string_trio_symbolic"
+        ),
         candidate_pool=candidate_pool,
         attempt_index=normalized_attempt_index,
     )
 
     response: dict[str, Any] = {
         "ok": True,
-        "proposalMidiPath": output_path,
+        "proposalMidiPath": best_result.midi_path,
         "proposalSummary": {
-            "measureCount": projection["totalMeasureCount"],
-            "noteCount": total_note_count,
+            "measureCount": best_result.measure_count,
+            "noteCount": best_result.note_count,
             "partCount": 3,
             "partInstrumentNames": ["Violin", "Viola", "Cello"],
-            "key": tonic_key.name,
-            "tempo": tempo,
-            "form": form,
+            "key": best_result.key_name,
+            "tempo": best_result.tempo_bpm,
+            "form": best_result.form,
         },
         "proposalMetadata": {
-            "lane": provider_prompt_context["lane"]
-            if provider_prompt_context is not None
-            and provider_prompt_context["lane"] is not None
-            else "string_trio_symbolic",
-            "provider": provider_prompt_context["provider"]
-            if provider_prompt_context is not None
-            else "learned",
-            "model": provider_prompt_context["model"]
-            if provider_prompt_context is not None
-            else "learned-symbolic-trio-v1",
-            "generationMode": "targeted_section_rewrite"
-            if rewrite_applied
-            else "plan_conditioned_trio_template",
-            "confidence": 0.58 if rewrite_applied else 0.61,
-            "normalizationWarnings": normalization_warnings
-            if normalization_warnings
-            else (
-                [] if len(proposal_sections) > 1 else ["single-section fallback used"]
+            "lane": (
+                context["lane"]
+                if context is not None and context.get("lane")
+                else "string_trio_symbolic"
             ),
+            "provider": best_result.provider,
+            "model": best_result.model,
+            "generationMode": best_result.generation_mode,
+            "confidence": best_result.confidence,
+            "normalizationWarnings": best_result.warnings,
         },
-        "proposalSections": proposal_sections,
+        "proposalSections": best_result.proposal_sections,
     }
     if len(candidate_pool) > 1:
         response["proposalCandidatePool"] = candidate_pool
