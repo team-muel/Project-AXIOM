@@ -1,13 +1,25 @@
-# NotaGen inference stack — install when NOTAGEN_BACKEND_MODE=local
-# These packages are NOT required for NOTAGEN_BACKEND_MODE=disabled (default) or =mock.
+# NotaGen inference stack — install when LEARNED_SYMBOLIC_BACKEND=notagen_local
+# These packages are NOT required for template (default) or notagen_mock mode.
 #
 # Install:
 #   pip install -r workers/requirements-notagen.txt
 #
 # Note: torch version and CUDA variant should match your hardware.
 # See https://pytorch.org/get-started/locally/ for platform-specific instructions.
+#
+# For NOTAGEN_ENGINE=notagen_native you also need to clone the official NotaGen repo:
+#   git clone https://github.com/ElectricAlexis/NotaGen $NOTAGEN_REPO_PATH
+# The repo's gradio/ subdirectory is added to sys.path automatically via NOTAGEN_REPO_PATH.
 
-torch>=2.1.0
-transformers>=4.38.0
-sentencepiece>=0.1.99
+# Core ML stack
+torch>=2.3.0
+transformers>=4.40.0
 accelerate>=0.26.0
+optimum>=1.17.0
+sentencepiece>=0.1.99
+
+# notagen_native engine dependencies (required for NOTAGEN_ENGINE=notagen_native)
+# These are from the official NotaGen requirements.txt:
+abctoolkit==0.0.6
+samplings==0.1.7
+numpy>=1.26.4

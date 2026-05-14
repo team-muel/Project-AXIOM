@@ -182,12 +182,15 @@ MCP에서도 같은 정보와 제어를 쓸 수 있다.
 |------|--------|------|
 | `LEARNED_SYMBOLIC_BACKEND` | `template` | `template` \| `notagen_mock` \| `notagen_local` |
 | `NOTAGEN_ENGINE` | `hf_causal_lm` | `hf_causal_lm` \| `notagen_native` (notagen_local 전용) |
-| `NOTAGEN_MODEL_PATH` | _(없음)_ | notagen_local 전용: checkpoint 디렉터리 또는 `.pt` 파일 경로 |
-| `NOTAGEN_TOKENIZER_PATH` | _(없음)_ | notagen_local 전용: tokenizer 경로 (미설정 시 `NOTAGEN_MODEL_PATH` 공유) |
+| `NOTAGEN_MODEL_PATH` | _(없음)_ | notagen_local 전용: NotaGen `.pth` 가중치 파일 경로 |
+| `NOTAGEN_TOKENIZER_PATH` | _(없음)_ | notagen_local 전용: `hf_causal_lm` tokenizer 경로 (`notagen_native`에서는 무시됨) |
 | `NOTAGEN_DEVICE` | `cpu` | `cpu` \| `cuda` \| `mps` |
-| `NOTAGEN_MAX_TOKENS` | `2048` | 모델이 생성할 최대 토큰 수 |
-| `NOTAGEN_TIMEOUT_MS` | `120000` | inference 전체 타임아웃 (ms) |
+| `NOTAGEN_MAX_TOKENS` | `2048` | 생성 중단 soft cap (문자 수) |
+| `NOTAGEN_TIMEOUT_MS` | `120000` (`hf_causal_lm`) / `600000` (`notagen_native`) | inference 전체 타임아웃 (ms) |
 | `NOTAGEN_RESAMPLE_BUDGET` | `2` | Phase C 검증 실패 시 추가 재시도 횟수 |
+| `NOTAGEN_REPO_PATH` | _(없음)_ | `notagen_native` 전용: 공식 NotaGen repo 클론 경로 (`gradio/utils.py` 포함) |
+| `NOTAGEN_DEFAULT_PERIOD` | `Romantic` | `notagen_native` 전용: 기본 period 레이블 (`Baroque`\|`Classical`\|`Romantic`\|`20th`) |
+| `NOTAGEN_DEFAULT_COMPOSER` | `Brahms, Johannes` | `notagen_native` 전용: 기본 작곡가 레이블 (NotaGen 학습 데이터 어휘와 일치해야 함) |
 
 ### 모드별 동작
 
@@ -199,8 +202,13 @@ MCP에서도 같은 정보와 제어를 쓸 수 있다.
 
 `notagen_local` 모드에서 `NOTAGEN_ENGINE`으로 inference 구현을 선택한다.
 
-- **`hf_causal_lm` (기본값)**: 범용 HuggingFace `AutoModelForCausalLM` 경로. HuggingFace 호환 checkpoint라면 어떤 레이아웃이든 동작한다. stop sequence, bar-count budgeting, NotaGen 전용 tokenisation 미지원 — 프로토타이핑용.
-- **`notagen_native`**: 공식 NotaGen repo의 `generate()` API를 사용한다. `notagen_native_engine` 패키지(공식 NotaGen repo에서 설치)가 필요하며 ABC 특화 tokenisation, bar-stream patching, hierarchical decoding, stop sequence를 지원한다. 프로덕션 품질 inference에 사용한다.
+- **`hf_causal_lm` (기본값)**: 범용 HuggingFace `AutoModelForCausalLM` 경로. HuggingFace SafeTensors 호환 checkpoint에서 동작한다. stop sequence, bar-count budgeting, NotaGen 전용 tokenisation 미지원 — 프로토타이핑용.
+- **`notagen_native`**: 공식 NotaGen repo의 실제 생성 루프를 사용한다. `notagen_native_engine.py` 어댑터가 다음을 수행한다:
+  - `NotaGenLMHeadModel` + `Patchilizer`를 NOTAGEN_REPO_PATH에서 import
+  - NotaGen 공식 `.pth` 가중치를 `torch.load` + `load_state_dict`로 로드 (`AutoModelForCausalLM.from_pretrained` 불가)
+  - AXIOM `%% axiom_*` 헤더를 NotaGen 네이티브 프롬프트 포맷(`%Period\n%Composer\n%Instrumentation\n`)으로 변환
+  - 패치 단위 생성 루프(patch-by-patch loop), 슬라이딩 윈도우 컨텍스트 압축, `rest_unreduce()` 후처리 수행
+  - `NOTAGEN_TIMEOUT_MS` 기본값: 600 000 ms (NotaGen-X는 HF 경로보다 느림)
 
 `generationMode` 메타데이터에 엔진 이름이 포함된다 (예: `notagen_abc_inference_hf_causal_lm`, `notagen_abc_inference_notagen_native`). benchmark 파이프라인에서 엔진별로 결과를 분리할 때 사용한다.
 
@@ -222,12 +230,19 @@ export LEARNED_SYMBOLIC_BACKEND=notagen_local
 
 # hf_causal_lm (기본, 프로토타이핑용)
 export NOTAGEN_ENGINE=hf_causal_lm
-export NOTAGEN_MODEL_PATH=/path/to/notagen-checkpoint
+export NOTAGEN_MODEL_PATH=/path/to/hf-compatible-checkpoint
 
 # notagen_native (프로덕션 품질)
-# pip install -e /path/to/notagen-repo  # notagen_native_engine 설치
+# 1. NotaGen 레포 클론
+#    git clone https://github.com/ElectricAlexis/NotaGen /opt/notagen_repo
+# 2. 가중치 다운로드 (HuggingFace Hub: ElectricAlexis/NotaGen)
+#    e.g. weights_notagenx_p_size_16_p_length_1024_p_layers_20_h_size_1280.pth
 export NOTAGEN_ENGINE=notagen_native
-export NOTAGEN_MODEL_PATH=/path/to/notagen-checkpoint
+export NOTAGEN_REPO_PATH=/opt/notagen_repo
+export NOTAGEN_MODEL_PATH=/opt/notagen_repo/weights_notagenx_p_size_16_p_length_1024_p_layers_20_h_size_1280.pth
+export NOTAGEN_DEVICE=cuda
+export NOTAGEN_DEFAULT_PERIOD=Romantic
+export NOTAGEN_DEFAULT_COMPOSER=Brahms, Johannes
 ```
 
 ### Resample 정책
