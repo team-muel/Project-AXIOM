@@ -99,6 +99,20 @@ export interface LearnedSymbolicPromptPack {
     revisionSummary?: LearnedSymbolicPromptPackRevisionSummary;
 }
 
+/**
+ * Payload passed to a single invocation of compose_learned_symbolic.py.
+ *
+ * Single-candidate contract:
+ *   Each invocation of the Python worker produces exactly ONE composition
+ *   proposal.  The TS orchestrator (hybridSymbolicCandidatePool.ts) is the
+ *   sole owner of the candidate pool.  It dispatches N separate worker
+ *   invocations — one per (learnedCandidateCount + music21BaselineCount) slot —
+ *   and manages candidate comparison, sidecar writing, and reranker input.
+ *
+ *   The worker MUST NOT iterate internally over a candidateCount parameter.
+ *   candidateIndex identifies this slot within the pool and may be forwarded
+ *   to the backend for seed derivation; it does not imply iteration.
+ */
 export interface LearnedSymbolicWorkerPayload {
     prompt: string;
     songId: string;

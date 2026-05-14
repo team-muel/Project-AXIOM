@@ -5,6 +5,13 @@ LearnedSymbolicBackendResult — flat result dataclass returned by every backend
 LearnedSymbolicBackend       — Protocol all concrete backends must implement.
 select_backend               — Factory: reads LEARNED_SYMBOLIC_BACKEND env var and
                                returns the appropriate backend instance.
+
+Single-candidate contract
+-------------------------
+Every generate() call produces exactly one LearnedSymbolicBackendResult.
+Backends MUST NOT iterate internally over a candidateCount.  Candidate pool
+management is the sole responsibility of the TypeScript orchestrator; it
+launches one worker subprocess per candidate slot and collects results.
 """
 
 from __future__ import annotations

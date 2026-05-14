@@ -1244,14 +1244,6 @@ export interface ComposeProposalEvidenceSummary {
     form?: string;
 }
 
-export interface CandidatePoolEntry {
-    candidateId: string;
-    variantIndex: number;
-    noteCount?: number;
-    measureCount?: number;
-    rewriteApplied?: boolean;
-}
-
 export interface ComposeProposalEvidence {
     worker: ComposeWorkerName;
     lane?: string;
@@ -1264,9 +1256,8 @@ export interface ComposeProposalEvidence {
     generationMode?: string;
     confidence?: number;
     normalizationWarnings?: string[];
-    candidatePool?: CandidatePoolEntry[];
     summary?: ComposeProposalEvidenceSummary;
-    /** Zero-based index of this candidate within the learned candidate pool. */
+    /** Zero-based index of this candidate within the learned candidate pool (assigned by TS orchestrator). */
     candidateIndex?: number;
     /** Sampling parameters used to generate this candidate. */
     samplingParams?: LearnedSamplingParams;

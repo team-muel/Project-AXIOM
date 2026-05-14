@@ -34,6 +34,14 @@ export interface LearnedSymbolicProposalSection {
     rhythmicDensity?: number;
 }
 
+/**
+ * Response from a single invocation of compose_learned_symbolic.py.
+ *
+ * Single-candidate contract:
+ *   The worker always returns exactly one proposal (or ok=false).
+ *   There is no proposalCandidatePool field — candidate pool management is the
+ *   sole responsibility of the TS orchestrator (hybridSymbolicCandidatePool.ts).
+ */
 export interface LearnedSymbolicProposalResponse {
     ok: boolean;
     proposalMidiPath?: string;

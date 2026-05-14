@@ -1,4 +1,20 @@
 # pyright: reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownParameterType=false, reportAttributeAccessIssue=false
+"""compose_learned_symbolic.py — single-candidate learned symbolic worker.
+
+Single-candidate contract
+-------------------------
+Each invocation of this script produces exactly ONE composition proposal
+(or ok=False on error).  The TypeScript orchestrator (hybridSymbolicCandidatePool.ts)
+owns candidate pool management: it spawns N separate worker invocations — one per
+slot in learnedCandidateCount + music21BaselineCount — and handles candidate
+comparison, sidecar writing, and reranker input.
+
+This script MUST NOT loop over a candidateCount parameter internally.
+The payload fields that identify a candidate's place in the pool are:
+  candidateIndex   — 0-based slot index (forwarded for seed derivation)
+  candidateVariantKey — human-readable tag (e.g. "learned-3-s2")
+  learnedSampling  — per-candidate sampling params forwarded to the backend
+"""
 import json
 import os
 import sys
