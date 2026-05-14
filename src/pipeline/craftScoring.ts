@@ -6,6 +6,22 @@ import type {
     StructureEvaluationReport,
 } from "./types.js";
 
+// craftScoring.ts — role boundary
+// ──────────────────────────────────────────────────────────────────────────────
+// craftScore is a HEURISTIC proxy for structural quality.  Its two sanctioned
+// uses are:
+//
+//   1. Hard filter  — reject candidates whose structure is garbage
+//                     (use craftScorePassesHardFilter from preferenceModel.ts)
+//
+//   2. Shortlist ranking — order candidates by proxy quality before the
+//                          preference model selects the final winner
+//
+// craftScore is NOT an aesthetic judge and MUST NOT be used as the sole
+// selector for the final output.  Listener-feedback preference model handles
+// final winner selection (see src/pipeline/preferenceModel.ts).
+// ──────────────────────────────────────────────────────────────────────────────
+
 // ---------------------------------------------------------------------------
 // Idiomatic MIDI pitch ranges (min inclusive, max inclusive)
 // ---------------------------------------------------------------------------

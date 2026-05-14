@@ -60,6 +60,11 @@ import {
 import { loadManifest, saveManifest } from "../memory/manifest.js";
 import { logger } from "../logging/logger.js";
 import { config } from "../config.js";
+import {
+    PREFERENCE_SHORTLIST_SIZE,
+    craftScorePassesHardFilter,
+    selectPreferredCandidate,
+} from "./preferenceModel.js";
 
 export {
     compareStructureEvaluationsForCandidateSelection,
@@ -536,6 +541,74 @@ function chooseBetterSymbolicCandidate(
     return compareStructureEvaluationsForCandidateSelection(next.structureEvaluation, current.structureEvaluation) > 0
         ? next
         : current;
+}
+
+/**
+ * Selects the final winner from an attempt's candidate pool using the
+ * preference model.
+ *
+ * Selection stages:
+ *   1. Build a shortlist of up to PREFERENCE_SHORTLIST_SIZE candidates sorted
+ *      by heuristic structure score (best first).
+ *   2. Pass the shortlist to selectPreferredCandidate(), which applies the
+ *      craft hard filter and uses the listenerFeedback preference model.
+ *   3. Fall back to the heuristic top candidate if preference selection fails.
+ */
+function selectAttemptWinner(
+    attemptCandidates: SymbolicAttemptCandidate[],
+    songId: string,
+): SymbolicAttemptCandidate {
+    if (attemptCandidates.length === 0) {
+        throw new Error("selectAttemptWinner: empty candidate list");
+    }
+    if (attemptCandidates.length === 1) {
+        return attemptCandidates[0]!;
+    }
+
+    // Build heuristic shortlist (best first)
+    const shortlist = [...attemptCandidates]
+        .sort((a, b) => compareStructureEvaluationsForCandidateSelection(
+            b.structureEvaluation, a.structureEvaluation,
+        ))
+        .slice(0, PREFERENCE_SHORTLIST_SIZE);
+
+    // Build PreferenceCandidate list — craft hard filter and preference scoring require craftScoreSummary
+    const preferenceCandidates = shortlist
+        .filter((c) => c.structureEvaluation.craftScoreSummary != null)
+        .map((c) => ({
+            candidateId: c.candidateId,
+            craftSummary: c.structureEvaluation.craftScoreSummary!,
+        }));
+
+    if (preferenceCandidates.length === 0) {
+        // No craftScoreSummary available — fall back to heuristic top
+        return shortlist[0]!;
+    }
+
+    try {
+        const result = selectPreferredCandidate(preferenceCandidates, songId);
+        logger.debug("Preference model selected final attempt winner", {
+            songId,
+            selectedCandidateId: result.selectedCandidateId,
+            feedbackSamples: result.feedbackSamples,
+            weightSource: result.scores[0]?.weightSource,
+            filteredOutCount: result.filteredOutIds.length,
+        });
+        if (result.filteredOutIds.length > 0) {
+            logger.warn("Preference model: candidates rejected by craft hard filter", {
+                songId,
+                filteredOutIds: result.filteredOutIds,
+            });
+        }
+        const winner = shortlist.find((c) => c.candidateId === result.selectedCandidateId);
+        return winner ?? shortlist[0]!;
+    } catch (err) {
+        logger.warn("Preference model selection failed — falling back to heuristic top", {
+            songId,
+            error: String(err),
+        });
+        return shortlist[0]!;
+    }
 }
 
 function buildLocalizedRewriteBranchVariantKey(
@@ -1157,10 +1230,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                         throw new Error(composeFailureMessages[0] ?? "No symbolic candidate survived compose step");
                     }
 
-                    const initialAttemptWinner = attemptCandidates.reduce<SymbolicAttemptCandidate | undefined>(
-                        (current, candidate) => chooseBetterSymbolicCandidate(current, candidate),
-                        undefined,
-                    ) ?? attemptCandidates[0];
+                    const initialAttemptWinner = selectAttemptWinner(attemptCandidates, manifest.songId);
 
                     composeResult = initialAttemptWinner.composeResult;
                     effectiveExecutionPlan = initialAttemptWinner.executionPlan;
@@ -1336,10 +1406,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                         bestSymbolicCandidate = chooseBetterSymbolicCandidate(bestSymbolicCandidate, branchCandidate);
                     }
 
-                    const attemptWinner = attemptCandidates.reduce<SymbolicAttemptCandidate | undefined>(
-                        (current, candidate) => chooseBetterSymbolicCandidate(current, candidate),
-                        undefined,
-                    ) ?? attemptCandidates[0];
+                    const attemptWinner = selectAttemptWinner(attemptCandidates, manifest.songId);
 
                     composeResult = attemptWinner.composeResult;
                     effectiveExecutionPlan = attemptWinner.executionPlan;
