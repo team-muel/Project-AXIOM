@@ -111,8 +111,7 @@ export interface LearnedSymbolicWorkerPayload {
     tempo?: number;
     form?: string;
     attemptIndex?: number;
-    candidateCount?: number;
-    /** Zero-based index of this candidate in the learned candidate pool. */
+    /** Zero-based index of this candidate in the learned candidate pool (set by TS orchestrator). */
     candidateIndex?: number;
     /** Sampling parameters forwarded to the NotaGen backend. */
     learnedSampling?: LearnedSamplingParams;

@@ -24,37 +24,11 @@ def read_payload() -> dict[str, Any]:
     return cast(dict[str, Any], payload)
 
 
-def _derive_variant_payload(
-    payload: dict[str, Any], variant_index: int
-) -> dict[str, Any]:
-    """Return a payload copy with a perturbed seed for candidate diversity.
-
-    For variant_index > 0 the outputPath is cleared so the template backend
-    skips MIDI writing — only the best candidate (v0) writes the final MIDI.
-    """
-    import hashlib
-
-    if variant_index == 0:
-        return payload
-    base_seed = payload.get("stableSeed")
-    variant_seed = (
-        int(
-            hashlib.sha256(
-                f"{int(base_seed)}|variant_{variant_index}".encode()
-            ).hexdigest()[:8],
-            16,
-        )
-        if isinstance(base_seed, (int, float))
-        else base_seed
-    )
-    return {**payload, "stableSeed": variant_seed, "outputPath": ""}
-
-
 def _write_feedback_evidence(
     output_path: str,
     plan_signature: str,
     lane: str,
-    candidate_pool: list[dict[str, Any]],
+    result: "LearnedSymbolicBackendResult",
     attempt_index: int,
 ) -> None:
     """Append feedback evidence for future reranker / fine-tuning data collection."""
@@ -70,10 +44,8 @@ def _write_feedback_evidence(
         entry: dict[str, Any] = {
             "planSignature": plan_signature,
             "lane": lane,
-            "candidatePool": candidate_pool,
-            "selectedCandidateId": candidate_pool[0]["candidateId"]
-            if candidate_pool
-            else "v0",
+            "noteCount": result.note_count,
+            "measureCount": result.measure_count,
             "attemptIndex": attempt_index,
             "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
         }
@@ -117,36 +89,16 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
     backend = select_backend(payload)
-    candidate_count = max(1, min(4, int(payload.get("candidateCount") or 1)))
-    candidate_pool: list[dict[str, Any]] = []
-    best_result: LearnedSymbolicBackendResult | None = None
+    result = backend.generate(payload, context)
 
-    for variant_index in range(candidate_count):
-        variant_payload = _derive_variant_payload(payload, variant_index)
-        result = backend.generate(variant_payload, context)
-
-        if not result.ok:
-            # Surface backend errors explicitly — do NOT silently substitute
-            # another backend.  TypeScript has its own music21 fallback for
-            # ok=False worker responses.
-            return {
-                "ok": False,
-                "error": result.error or "backend generation failed",
-            }
-
-        candidate_pool.append(
-            {
-                "candidateId": f"v{variant_index}",
-                "variantIndex": variant_index,
-                "noteCount": result.note_count,
-                "measureCount": result.measure_count,
-                "rewriteApplied": result.rewrite_applied,
-            }
-        )
-        if best_result is None:
-            best_result = result
-
-    assert best_result is not None
+    if not result.ok:
+        # Surface backend errors explicitly — do NOT silently substitute
+        # another backend.  TypeScript has its own music21 fallback for
+        # ok=False worker responses.
+        return {
+            "ok": False,
+            "error": result.error or "backend generation failed",
+        }
 
     _write_feedback_evidence(
         output_path=output_path,
@@ -156,21 +108,21 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
             if context is not None and context.get("lane")
             else "string_trio_symbolic"
         ),
-        candidate_pool=candidate_pool,
+        result=result,
         attempt_index=normalized_attempt_index,
     )
 
-    response: dict[str, Any] = {
+    return {
         "ok": True,
-        "proposalMidiPath": best_result.midi_path,
+        "proposalMidiPath": result.midi_path,
         "proposalSummary": {
-            "measureCount": best_result.measure_count,
-            "noteCount": best_result.note_count,
+            "measureCount": result.measure_count,
+            "noteCount": result.note_count,
             "partCount": 3,
             "partInstrumentNames": ["Violin", "Viola", "Cello"],
-            "key": best_result.key_name,
-            "tempo": best_result.tempo_bpm,
-            "form": best_result.form,
+            "key": result.key_name,
+            "tempo": result.tempo_bpm,
+            "form": result.form,
         },
         "proposalMetadata": {
             "lane": (
@@ -178,17 +130,14 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
                 if context is not None and context.get("lane")
                 else "string_trio_symbolic"
             ),
-            "provider": best_result.provider,
-            "model": best_result.model,
-            "generationMode": best_result.generation_mode,
-            "confidence": best_result.confidence,
-            "normalizationWarnings": best_result.warnings,
+            "provider": result.provider,
+            "model": result.model,
+            "generationMode": result.generation_mode,
+            "confidence": result.confidence,
+            "normalizationWarnings": result.warnings,
         },
-        "proposalSections": best_result.proposal_sections,
+        "proposalSections": result.proposal_sections,
     }
-    if len(candidate_pool) > 1:
-        response["proposalCandidatePool"] = candidate_pool
-    return response
 
 
 def main() -> None:

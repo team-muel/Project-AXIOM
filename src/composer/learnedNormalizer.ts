@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import { logger } from "../logging/logger.js";
 import type {
-    CandidatePoolEntry,
     ComposeExecutionPlan,
     ComposeProposalEvidence,
     ComposeRequest,
@@ -124,16 +123,6 @@ export function normalizeLearnedSymbolicResponse(
         : undefined;
     const benchmarkPackVersion = resolveLearnedBenchmarkPackVersion(promptPack);
     const benchmarkId = resolveLearnedBenchmarkId(promptPack);
-    const candidatePool: CandidatePoolEntry[] | undefined =
-        Array.isArray(response.proposalCandidatePool) && response.proposalCandidatePool.length > 0
-            ? response.proposalCandidatePool.map((entry) => ({
-                candidateId: String(entry.candidateId ?? "v0"),
-                variantIndex: typeof entry.variantIndex === "number" ? entry.variantIndex : 0,
-                ...(typeof entry.noteCount === "number" ? { noteCount: entry.noteCount } : {}),
-                ...(typeof entry.measureCount === "number" ? { measureCount: entry.measureCount } : {}),
-                ...(typeof entry.rewriteApplied === "boolean" ? { rewriteApplied: entry.rewriteApplied } : {}),
-            }))
-            : undefined;
 
     // Derive candidateIndex from variant key (learned-N → N-1 zero-based)
     const learnedVariantMatch = /^learned-(\d+)/.exec(request.candidateVariantKey ?? "");
@@ -164,7 +153,6 @@ export function normalizeLearnedSymbolicResponse(
             ? { confidence: response.proposalMetadata.confidence }
             : {}),
         ...(normalizedWarnings ? { normalizationWarnings: normalizedWarnings } : {}),
-        ...(candidatePool ? { candidatePool } : {}),
         ...(proposalSummary && Object.keys(proposalSummary).length > 0 ? { summary: proposalSummary } : {}),
         ...(resolvedCandidateIndex !== undefined ? { candidateIndex: resolvedCandidateIndex } : {}),
         ...(resolvedSamplingParams ? { samplingParams: resolvedSamplingParams } : {}),

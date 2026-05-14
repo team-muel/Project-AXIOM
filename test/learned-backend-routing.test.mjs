@@ -7,9 +7,8 @@
  *   2. LEARNED_SYMBOLIC_BACKEND=template succeeds (explicit template backend).
  *   3. LEARNED_SYMBOLIC_BACKEND=notagen_local returns ok:false with a clear error
  *      (no model available in CI — explicit failure, NOT silent fallback).
- *   4. candidateCount=2 produces a proposalCandidatePool with 2 entries.
- *   5. candidateCount=1 (default) does NOT include proposalCandidatePool.
- *   6. Malformed providerRequest (missing required fields) returns validation error.
+ *   4. Worker never returns proposalCandidatePool — TS orchestrator owns the candidate pool.
+ *   5. Malformed providerRequest (missing required fields) returns validation error.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -199,38 +198,14 @@ test("backend-routing: LEARNED_SYMBOLIC_BACKEND=notagen_local returns ok:false w
     }
 });
 
-test("backend-routing: candidateCount=2 produces proposalCandidatePool with 2 entries", async (t) => {
-    if (!pythonBin) { t.skip("No Python binary available"); return; }
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
-    try {
-        const payload = { ...buildMinimalPayload(tmpDir), candidateCount: 2 };
-        const result = runLearnedWorker(payload);
-        assert.equal(result.ok, true, "candidateCount=2 should succeed");
-        assert.ok(
-            Array.isArray(result.proposalCandidatePool),
-            "should have proposalCandidatePool"
-        );
-        assert.equal(
-            result.proposalCandidatePool.length, 2,
-            "should have exactly 2 candidates"
-        );
-        for (const entry of result.proposalCandidatePool) {
-            assert.ok(typeof entry.candidateId === "string", "candidateId must be a string");
-            assert.ok(typeof entry.noteCount === "number", "noteCount must be a number");
-        }
-    } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-});
-
-test("backend-routing: candidateCount=1 (default) does NOT include proposalCandidatePool", async (t) => {
+test("backend-routing: worker never returns proposalCandidatePool (TS orchestrator owns candidate pool)", async (t) => {
     if (!pythonBin) { t.skip("No Python binary available"); return; }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
     try {
         const result = runLearnedWorker(buildMinimalPayload(tmpDir));
         assert.ok(
             !("proposalCandidatePool" in result),
-            "single-candidate run should not include proposalCandidatePool"
+            "worker must not return proposalCandidatePool — candidate pool is TS orchestrator responsibility"
         );
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
