@@ -10,19 +10,20 @@
  *
  * Algorithm (cold-start safe)
  * ────────────────────────────
- * When ≥ MIN_FEEDBACK_SAMPLES rated candidates exist, the model computes a
- * per-dimension weight vector via partial correlation: for each internalScore
- * dimension (syntaxValidity, cadenceStrength, …), it measures how well that
- * dimension predicts listener appeal across past candidates.  Dimensions that
- * historically predict appeal gain higher weight; dimensions that do not are
- * down-weighted.
+ * Priority 1 — Reranker snapshot (logistic regression, trained offline):
+ *   When outputs/_system/preference-reranker-snapshot.json exists AND has
+ *   sampleCount >= MIN_RERANKER_SAMPLES, each candidate is scored via the
+ *   logistic regression coefficients (sigmoid of dot product after
+ *   standardization). weightSource = "reranker".
  *
- * When too few samples exist (cold-start), the model falls back to a uniform
- * heuristic weight vector derived from music-theoretic importance.
+ * Priority 2 — Pairwise agreement weights (in-process learned):
+ *   When ≥ MIN_FEEDBACK_SAMPLES rated candidates exist in persisted manifests,
+ *   computes per-dimension weights via pairwise sign-agreement correlation.
+ *   weightSource = "learned".
  *
- * The final preference score is a weighted dot product of the candidate's
- * internalScores against the learned (or default) weight vector, normalized
- * to [0, 1].
+ * Priority 3 — Cold-start default:
+ *   Uniform heuristic weights derived from music-theoretic importance.
+ *   weightSource = "default".
  *
  * Only candidates that pass the craft hard filter are eligible for preference
  * scoring; candidates that fail the hard filter are excluded from the shortlist
@@ -38,8 +39,11 @@ import type { CraftScoreSummary } from "./types.js";
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Minimum number of rated candidates before the learned weights are used. */
+/** Minimum number of rated candidates before the pairwise learned weights are used. */
 const MIN_FEEDBACK_SAMPLES = 5;
+
+/** Minimum sampleCount in a reranker snapshot before it is trusted. */
+const MIN_RERANKER_SAMPLES = 10;
 
 /** Maximum shortlist size passed to selectPreferredCandidate(). */
 export const PREFERENCE_SHORTLIST_SIZE = 5;
@@ -80,6 +84,14 @@ const DEFAULT_DIMENSION_WEIGHTS: Record<string, number> = {
 export interface PreferenceCandidate {
     candidateId: string;
     craftSummary: CraftScoreSummary;
+    /** Count of normalization warning strings from proposalEvidence (0 when absent). */
+    normalizationWarningsCount?: number;
+    /** Number of sections in the composition plan (from compositionPlan.sections.length). */
+    sectionCount?: number;
+    /** Provider name (e.g. "notagen", "music21"). */
+    provider?: string;
+    /** Generation mode from proposalEvidence (e.g. "notagen_local", "mock_notagen_abc", "template"). */
+    generationMode?: string;
 }
 
 /** Slim feedback record read from persisted candidate manifests. */
@@ -93,8 +105,162 @@ interface FeedbackRecord {
 export interface PreferenceScore {
     candidateId: string;
     preferenceScore: number;    // [0, 1]
-    weightSource: "learned" | "default";
+    weightSource: "reranker" | "learned" | "default";
     dimensionContributions: Record<string, number>;
+    rerankerScore?: number;     // raw logistic regression output [0,1] when weightSource="reranker"
+}
+
+// ---------------------------------------------------------------------------
+// Reranker snapshot
+// ---------------------------------------------------------------------------
+
+/**
+ * JSON snapshot produced by scripts/train-preference-reranker.py.
+ * Contains logistic regression coefficients + standardization parameters.
+ */
+export interface PreferenceRerankerSnapshot {
+    version: 1;
+    algorithm: "logistic_regression";
+    snapshotId: string;
+    trainedAt: string;
+    sampleCount: number;
+    approvedCount: number;
+    rejectedCount: number;
+    featureNames: string[];
+    scalerMean: number[];
+    scalerScale: number[];
+    coefficients: number[];
+    intercept: number;
+    threshold: number;
+    crossValAccuracy: number | null;
+    trainAccuracy?: number;
+    notes?: string;
+}
+
+const RERANKER_SNAPSHOT_FEATURE_NAMES = [
+    "syntaxValidity",
+    "sectionContractFit",
+    "cadenceStrength",
+    "tonalReturn",
+    "motifSurvival",
+    "voiceIndependence",
+    "phraseShape",
+    "registerIdiomaticFit",
+    "normalizationWarningsCount",
+    "sectionCount",
+    "provider_notagen",
+    "provider_other",
+    "generationMode_mock",
+    "generationMode_local",
+] as const;
+
+/**
+ * Loads the reranker snapshot from disk.  Returns null if not present or
+ * has too few samples to trust.
+ */
+export function loadRerankerSnapshot(): PreferenceRerankerSnapshot | null {
+    const snapshotPath = process.env["AXIOM_PREFERENCE_RERANKER_SNAPSHOT"]
+        ?? path.join(config.outputDir, "_system", "preference-reranker-snapshot.json");
+    if (!fs.existsSync(snapshotPath)) {
+        return null;
+    }
+    try {
+        const raw = fs.readFileSync(snapshotPath, "utf8");
+        const snapshot = JSON.parse(raw) as PreferenceRerankerSnapshot;
+        if (
+            snapshot.version !== 1
+            || snapshot.algorithm !== "logistic_regression"
+            || !Array.isArray(snapshot.coefficients)
+            || !Array.isArray(snapshot.featureNames)
+            || !Array.isArray(snapshot.scalerMean)
+            || !Array.isArray(snapshot.scalerScale)
+            || typeof snapshot.intercept !== "number"
+            || snapshot.sampleCount < MIN_RERANKER_SAMPLES
+        ) {
+            return null;
+        }
+        return snapshot;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Builds the feature vector for a candidate matching the reranker's expected
+ * feature order.
+ */
+function buildRerankerFeatures(candidate: PreferenceCandidate): number[] {
+    const craft = candidate.craftSummary as unknown as Record<string, unknown>;
+    const craftDims = [
+        "syntaxValidity",
+        "sectionContractFit",
+        "cadenceStrength",
+        "tonalReturn",
+        "motifSurvival",
+        "voiceIndependence",
+        "phraseShape",
+        "registerIdiomaticFit",
+    ];
+
+    const feats: number[] = [];
+
+    // Craft dimensions
+    for (const dim of craftDims) {
+        feats.push(typeof craft[dim] === "number" ? (craft[dim] as number) : 0.5);
+    }
+
+    // normalizationWarningsCount (clipped to [0, 10])
+    feats.push(Math.min(candidate.normalizationWarningsCount ?? 0, 10));
+
+    // sectionCount (clipped to [1, 20])
+    feats.push(Math.min(Math.max(candidate.sectionCount ?? 3, 1), 20));
+
+    // provider one-hot: notagen / other  (music21 = reference = [0, 0])
+    const provider = (candidate.provider ?? "").toLowerCase();
+    feats.push(provider.includes("notagen") ? 1 : 0);
+    feats.push(provider.includes("notagen") || provider.includes("music21") ? 0 : 1);
+
+    // generationMode one-hot: mock / local  (template = reference = [0, 0])
+    const mode = (candidate.generationMode ?? "").toLowerCase();
+    feats.push(mode === "mock_notagen_abc" || mode.startsWith("mock") ? 1 : 0);
+    feats.push(mode === "notagen_local" || mode === "local" ? 1 : 0);
+
+    return feats;
+}
+
+/**
+ * Computes a logistic regression preference score [0, 1] for a candidate.
+ * The feature vector is standardized using the snapshot's scaler parameters
+ * before applying the linear model.
+ *
+ * Returns null if the snapshot's feature list doesn't match expectations
+ * (version mismatch guard).
+ */
+export function computeRerankerScore(
+    candidate: PreferenceCandidate,
+    snapshot: PreferenceRerankerSnapshot,
+): number | null {
+    const feats = buildRerankerFeatures(candidate);
+
+    // Validate dimension alignment
+    if (
+        feats.length !== snapshot.coefficients.length
+        || feats.length !== snapshot.scalerMean.length
+        || feats.length !== snapshot.scalerScale.length
+    ) {
+        return null;
+    }
+
+    // Standardize features: z = (x - mean) / scale
+    let dotProduct = snapshot.intercept;
+    for (let i = 0; i < feats.length; i++) {
+        const scale = snapshot.scalerScale[i]!;
+        const z = scale > 1e-9 ? (feats[i]! - snapshot.scalerMean[i]!) / scale : 0;
+        dotProduct += snapshot.coefficients[i]! * z;
+    }
+
+    // Sigmoid activation → probability of "approved"
+    return 1 / (1 + Math.exp(-dotProduct));
 }
 
 // ---------------------------------------------------------------------------
@@ -249,13 +415,43 @@ function computeLearnedWeights(history: FeedbackRecord[]): Record<string, number
 
 /**
  * Computes a preference score in [0, 1] for a single candidate given the
- * feedback history for this song.  The score is a weighted sum of the
- * craftSummary dimensions using either learned or default weights.
+ * feedback history for this song.
+ *
+ * Priority:
+ *   1. Reranker snapshot (logistic regression) — when loaded and trustworthy
+ *   2. Pairwise learned weights — when ≥ MIN_FEEDBACK_SAMPLES history exists
+ *   3. Cold-start default weights
  */
 export function computePreferenceScore(
     candidate: PreferenceCandidate,
     history: FeedbackRecord[],
+    snapshot?: PreferenceRerankerSnapshot | null,
 ): PreferenceScore {
+    // ── Priority 1: logistic regression reranker ─────────────────────────────
+    const effectiveSnapshot = snapshot !== undefined ? snapshot : loadRerankerSnapshot();
+    if (effectiveSnapshot) {
+        const raw = computeRerankerScore(candidate, effectiveSnapshot);
+        if (raw !== null) {
+            // dimensionContributions: show feature → standardized contribution
+            const feats = buildRerankerFeatures(candidate);
+            const dimensionContributions: Record<string, number> = {};
+            for (let i = 0; i < RERANKER_SNAPSHOT_FEATURE_NAMES.length && i < feats.length; i++) {
+                const scale = effectiveSnapshot.scalerScale[i] ?? 1;
+                const z = scale > 1e-9 ? (feats[i]! - (effectiveSnapshot.scalerMean[i] ?? 0)) / scale : 0;
+                const contrib = (effectiveSnapshot.coefficients[i] ?? 0) * z;
+                dimensionContributions[RERANKER_SNAPSHOT_FEATURE_NAMES[i]] = Number(contrib.toFixed(4));
+            }
+            return {
+                candidateId: candidate.candidateId,
+                preferenceScore: Number(Math.max(0, Math.min(1, raw)).toFixed(4)),
+                weightSource: "reranker",
+                dimensionContributions,
+                rerankerScore: Number(raw.toFixed(4)),
+            };
+        }
+    }
+
+    // ── Priority 2: pairwise learned weights ─────────────────────────────────
     const learnedWeights = computeLearnedWeights(history);
     const weights = learnedWeights ?? DEFAULT_DIMENSION_WEIGHTS;
     const weightSource: PreferenceScore["weightSource"] = learnedWeights ? "learned" : "default";
@@ -289,8 +485,9 @@ export function computePreferenceScore(
  * Steps:
  *   1. Discard candidates that fail the craft hard filter.
  *   2. If no candidate passes the filter, fall back to the first element.
- *   3. Score each passing candidate via the preference model.
- *   4. Return the highest-scoring candidate id plus diagnostic metadata.
+ *   3. Load the reranker snapshot once (avoids repeated disk reads).
+ *   4. Score each passing candidate via the preference model.
+ *   5. Return the highest-scoring candidate id plus diagnostic metadata.
  *
  * @param shortlist   Up to PREFERENCE_SHORTLIST_SIZE candidates, pre-ranked
  *                    by heuristic structure score (best first).
@@ -300,17 +497,22 @@ export function computePreferenceScore(
 export function selectPreferredCandidate(
     shortlist: PreferenceCandidate[],
     songId: string,
+    _historyOverride?: FeedbackRecord[],
+    _snapshotOverride?: PreferenceRerankerSnapshot | null,
 ): {
     selectedCandidateId: string;
     scores: PreferenceScore[];
     filteredOutIds: string[];
     feedbackSamples: number;
+    weightSource: PreferenceScore["weightSource"];
 } {
     if (shortlist.length === 0) {
         throw new Error("selectPreferredCandidate: shortlist is empty");
     }
 
-    const history = loadFeedbackHistory(songId);
+    const history = _historyOverride ?? loadFeedbackHistory(songId);
+    // Load snapshot once — avoids repeated file reads for each candidate
+    const snapshot = _snapshotOverride !== undefined ? _snapshotOverride : loadRerankerSnapshot();
 
     // Hard filter
     const filteredOutIds: string[] = [];
@@ -326,7 +528,7 @@ export function selectPreferredCandidate(
     const pool = eligible.length > 0 ? eligible : shortlist; // graceful fallback
 
     // Preference scoring
-    const scores = pool.map((candidate) => computePreferenceScore(candidate, history));
+    const scores = pool.map((candidate) => computePreferenceScore(candidate, history, snapshot));
     scores.sort((a, b) => b.preferenceScore - a.preferenceScore);
 
     return {
@@ -334,5 +536,6 @@ export function selectPreferredCandidate(
         scores,
         filteredOutIds,
         feedbackSamples: history.length,
+        weightSource: scores[0]!.weightSource,
     };
 }

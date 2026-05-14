@@ -630,10 +630,24 @@ function selectAttemptWinner(
     // Build PreferenceCandidate list — craft hard filter and preference scoring require craftScoreSummary
     const preferenceCandidates = shortlist
         .filter((c) => c.structureEvaluation.craftScoreSummary != null)
-        .map((c) => ({
-            candidateId: c.candidateId,
-            craftSummary: c.structureEvaluation.craftScoreSummary!,
-        }));
+        .map((c) => {
+            const evidence = c.composeResult.proposalEvidence;
+            const plan = c.compositionPlan;
+            return {
+                candidateId: c.candidateId,
+                craftSummary: c.structureEvaluation.craftScoreSummary!,
+                normalizationWarningsCount: Array.isArray(evidence?.normalizationWarnings)
+                    ? evidence.normalizationWarnings.length
+                    : 0,
+                sectionCount: Array.isArray(plan?.sections)
+                    ? plan.sections.length
+                    : undefined,
+                provider: evidence?.provider ?? c.executionPlan.selectedModels.find(
+                    (m) => m.role === "structure",
+                )?.provider,
+                generationMode: evidence?.generationMode,
+            };
+        });
 
     if (preferenceCandidates.length === 0) {
         // No craftScoreSummary available — fall back to heuristic top
@@ -646,7 +660,7 @@ function selectAttemptWinner(
             songId,
             selectedCandidateId: result.selectedCandidateId,
             feedbackSamples: result.feedbackSamples,
-            weightSource: result.scores[0]?.weightSource,
+            weightSource: result.weightSource,
             filteredOutCount: result.filteredOutIds.length,
         });
         if (result.filteredOutIds.length > 0) {

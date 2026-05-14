@@ -17,6 +17,12 @@
  * 13. selectPreferredCandidate: candidates failing hard filter are reported in filteredOutIds
  * 14. computePreferenceScore: weightSource is "learned" when enough history present
  * 15. selectPreferredCandidate: learned weights favour historically preferred dimensions
+ *
+ * Reranker snapshot tests (16–19):
+ * 16. computeRerankerScore: sigmoid output in [0,1] for typical candidate
+ * 17. computeRerankerScore: returns null when feature count mismatches snapshot
+ * 18. computePreferenceScore: weightSource is "reranker" when valid snapshot provided
+ * 19. selectPreferredCandidate: picks candidate with highest reranker logit when snapshot present
  */
 
 import test from "node:test";
@@ -28,7 +34,9 @@ import os from "node:os";
 const {
     craftScorePassesHardFilter,
     computePreferenceScore,
+    computeRerankerScore,
     loadFeedbackHistory,
+    loadRerankerSnapshot,
     selectPreferredCandidate,
     CRAFT_HARD_FILTER_THRESHOLDS,
 } = await import("../dist/pipeline/preferenceModel.js");
@@ -335,4 +343,168 @@ test("computePreferenceScore: learned weights favour cadence when it historicall
         highCadence.preferenceScore > lowCadence.preferenceScore,
         `with learned weights: high cadence (${highCadence.preferenceScore}) should beat low cadence (${lowCadence.preferenceScore})`,
     );
+});
+
+// ---------------------------------------------------------------------------
+// 16. computeRerankerScore: sigmoid output in [0,1] for typical candidate
+// ---------------------------------------------------------------------------
+test("computeRerankerScore: sigmoid output in [0,1] for typical candidate", () => {
+    const N = 14;
+    /** @type {import("../dist/pipeline/preferenceModel.js").PreferenceRerankerSnapshot} */
+    const snapshot = {
+        version: 1,
+        algorithm: "logistic_regression",
+        snapshotId: "test-snap",
+        trainedAt: "2025-01-01T00:00:00Z",
+        sampleCount: 20,
+        approvedCount: 10,
+        rejectedCount: 10,
+        featureNames: Array.from({ length: N }, (_, i) => `f${i}`),
+        scalerMean: Array(N).fill(0),
+        scalerScale: Array(N).fill(1),
+        coefficients: Array(N).fill(0.1),
+        intercept: 0,
+        threshold: 0.5,
+        crossValAccuracy: null,
+    };
+
+    /** @type {import("../dist/pipeline/preferenceModel.js").PreferenceCandidate} */
+    const candidate = {
+        candidateId: "c1",
+        craftSummary: makeCraftSummary({ cadenceStrength: 0.7, voiceIndependence: 0.6 }),
+        normalizationWarningsCount: 0,
+        sectionCount: 3,
+        provider: "music21",
+        generationMode: "template",
+    };
+
+    const score = computeRerankerScore(candidate, snapshot);
+    assert.ok(score !== null, "score must not be null");
+    assert.ok(score >= 0 && score <= 1, `score must be in [0,1], got ${score}`);
+});
+
+// ---------------------------------------------------------------------------
+// 17. computeRerankerScore: returns null when feature count mismatches snapshot
+// ---------------------------------------------------------------------------
+test("computeRerankerScore: returns null when feature count mismatches snapshot", () => {
+    // Snapshot has 3 coefficients but candidate would build 14 features
+    /** @type {import("../dist/pipeline/preferenceModel.js").PreferenceRerankerSnapshot} */
+    const snapshot = {
+        version: 1,
+        algorithm: "logistic_regression",
+        snapshotId: "bad-snap",
+        trainedAt: "2025-01-01T00:00:00Z",
+        sampleCount: 20,
+        approvedCount: 10,
+        rejectedCount: 10,
+        featureNames: ["a", "b", "c"],
+        scalerMean: [0, 0, 0],
+        scalerScale: [1, 1, 1],
+        coefficients: [1, 2, 3],
+        intercept: 0,
+        threshold: 0.5,
+        crossValAccuracy: null,
+    };
+
+    const candidate = {
+        candidateId: "c1",
+        craftSummary: makeCraftSummary({}),
+    };
+
+    const score = computeRerankerScore(candidate, snapshot);
+    assert.equal(score, null, "must return null on dimension mismatch");
+});
+
+// ---------------------------------------------------------------------------
+// 18. computePreferenceScore: weightSource is "reranker" when valid snapshot provided
+// ---------------------------------------------------------------------------
+test("computePreferenceScore: weightSource is \"reranker\" when valid snapshot provided", () => {
+    const N = 14;
+    /** @type {import("../dist/pipeline/preferenceModel.js").PreferenceRerankerSnapshot} */
+    const snapshot = {
+        version: 1,
+        algorithm: "logistic_regression",
+        snapshotId: "test-snap",
+        trainedAt: "2025-01-01T00:00:00Z",
+        sampleCount: 20,
+        approvedCount: 10,
+        rejectedCount: 10,
+        featureNames: Array.from({ length: N }, (_, i) => `f${i}`),
+        scalerMean: Array(N).fill(0),
+        scalerScale: Array(N).fill(1),
+        coefficients: Array(N).fill(0.05),
+        intercept: 0,
+        threshold: 0.5,
+        crossValAccuracy: null,
+    };
+
+    const candidate = {
+        candidateId: "c1",
+        craftSummary: makeCraftSummary({ cadenceStrength: 0.7 }),
+        normalizationWarningsCount: 0,
+        sectionCount: 3,
+        provider: "notagen",
+        generationMode: "notagen_local",
+    };
+
+    const result = computePreferenceScore(candidate, [], snapshot);
+    assert.equal(result.weightSource, "reranker",
+        "must use reranker when valid snapshot is provided");
+    assert.ok(typeof result.rerankerScore === "number",
+        "rerankerScore must be populated");
+    assert.ok(result.preferenceScore >= 0 && result.preferenceScore <= 1,
+        "preferenceScore must be in [0,1]");
+});
+
+// ---------------------------------------------------------------------------
+// 19. selectPreferredCandidate: picks candidate with higher reranker logit
+// ---------------------------------------------------------------------------
+test("selectPreferredCandidate: picks candidate with highest reranker logit when snapshot present", () => {
+    const N = 14;
+    // Strong positive coefficient on cadenceStrength (feature index 2)
+    const coefficients = Array(N).fill(0);
+    coefficients[2] = 5.0;   // heavily weights cadenceStrength
+
+    /** @type {import("../dist/pipeline/preferenceModel.js").PreferenceRerankerSnapshot} */
+    const snapshot = {
+        version: 1,
+        algorithm: "logistic_regression",
+        snapshotId: "rank-snap",
+        trainedAt: "2025-01-01T00:00:00Z",
+        sampleCount: 20,
+        approvedCount: 10,
+        rejectedCount: 10,
+        featureNames: Array.from({ length: N }, (_, i) => `f${i}`),
+        scalerMean: Array(N).fill(0),
+        scalerScale: Array(N).fill(1),
+        coefficients,
+        intercept: 0,
+        threshold: 0.5,
+        crossValAccuracy: null,
+    };
+
+    const candidates = [
+        {
+            candidateId: "low-cadence",
+            craftSummary: makeCraftSummary({ cadenceStrength: 0.1, syntaxValidity: 0.95, sectionContractFit: 0.85, finalCraftScore: 0.5 }),
+            normalizationWarningsCount: 0,
+            sectionCount: 3,
+            provider: "music21",
+            generationMode: "template",
+        },
+        {
+            candidateId: "high-cadence",
+            craftSummary: makeCraftSummary({ cadenceStrength: 0.9, syntaxValidity: 0.95, sectionContractFit: 0.85, finalCraftScore: 0.8 }),
+            normalizationWarningsCount: 0,
+            sectionCount: 3,
+            provider: "music21",
+            generationMode: "template",
+        },
+    ];
+
+    const result = selectPreferredCandidate(candidates, "song-test-19", [], snapshot);
+    assert.equal(result.selectedCandidateId, "high-cadence",
+        "reranker with strong cadence weight must pick high-cadence candidate");
+    assert.equal(result.weightSource, "reranker",
+        "weightSource must be reranker");
 });
