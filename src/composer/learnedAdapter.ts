@@ -201,7 +201,17 @@ function resolveLane(request: ComposeRequest, instrumentation: InstrumentAssignm
     if (form.includes("miniature") && (orchestrationFamily === "string_trio" || stableStringify(instrumentNames) === stableStringify(canonicalTrio))) {
         return STRING_TRIO_SYMBOLIC_LANE;
     }
-    return "generic_symbolic";
+
+    // TODO(generic_symbolic): generic_symbolic lane is not yet supported.
+    // The Python worker rejects any lane other than string_trio_symbolic via
+    // supports_narrow_lane(). Until the Python side implements generic support,
+    // surface a clear error here rather than silently building an unsupported
+    // prompt pack that will fail later.
+    throw new Error(
+        "learned symbolic worker only supports the string_trio_symbolic lane " +
+        "(requires form=miniature and string trio instrumentation). " +
+        "generic_symbolic lane is not yet implemented.",
+    );
 }
 
 function initializeFixedStringTrioBenchmarkPlanSignatures(): void {
