@@ -27,3 +27,5 @@ import "./learned-backbone-operator-summary.test.mjs";
 import "./hybrid-symbolic-candidate-pool.test.mjs";
 import "./ready-status.test.mjs";
 import "./overseer-last-report.test.mjs";
+import "./learned-notagen-prompt.test.mjs";
+import "./abc-projection-pipeline.test.mjs";

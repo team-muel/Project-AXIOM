@@ -25,6 +25,7 @@ import os
 from typing import Any
 
 from .abc_conditioning import build_abc_header
+from .abc_project import run_abc_projection_pipeline  # Phase C pipeline
 from .abc_to_events import ABC_PIPELINE_AVAILABLE
 from .backends import LearnedSymbolicBackendResult
 from .prompt_packing import ProviderPromptPackingContext
@@ -93,17 +94,39 @@ class NotagenBackend:
 
         # ── TODO(Phase 3+): Real inference pipeline ──────────────────────────
         #
+        # With the Phase C pipeline in place, wire real inference like this:
+        #
         #   abc_body = notagen_inference(abc_header, checkpoint_path, seed=attempt_index)
         #   abc_full = abc_header + "\n" + abc_body
-        #   val      = abc_parser.validate_abc(abc_full, expected_total_measures=…)
-        #   mats, ws = abc_to_events.convert(val.repaired_abc, sections)
-        #   … build Score from mats, write MIDI, wrap into LearnedSymbolicBackendResult …
         #
-        # All downstream infrastructure is in place:
-        #   abc_parser.validate_abc()          — ready
-        #   section_aligner.build_section_bar_ranges() — ready
-        #   abc_to_events.convert()            — ready
-        #   ABC_PIPELINE_AVAILABLE             = {ABC_PIPELINE_AVAILABLE}
+        #   sections = payload.get("promptPack", {}).get("sections") or []
+        #   provider_request = payload.get("providerRequest") or {}
+        #   result = run_abc_projection_pipeline(
+        #       abc_full, sections, provider_request, output_path=output_path
+        #   )
+        #   if not result.ok:
+        #       return LearnedSymbolicBackendResult(
+        #           ok=False, provider=PROVIDER, model=model,
+        #           generation_mode="notagen_abc_inference",
+        #           error=result.error,
+        #       )
+        #   note_ct  = sum(len(s.get("noteHistory", [])) for s in result.proposal_sections)
+        #   bar_ct   = sum(s.get("measureCount", 0) for s in result.proposal_sections)
+        #   return LearnedSymbolicBackendResult(
+        #       ok=True, provider=PROVIDER, model=model,
+        #       generation_mode="notagen_abc_inference",
+        #       abc_text=abc_full,
+        #       midi_path=result.midi_path,
+        #       proposal_sections=result.proposal_sections,
+        #       warnings=result.normalization_warnings,
+        #       note_count=note_ct, measure_count=bar_ct,
+        #       key_name=context.get("conditioningText", ""),
+        #       form=str(provider_request.get("form", "")),
+        #       tempo_bpm=int(provider_request.get("tempo") or 92),
+        #   )
+        #
+        # run_abc_projection_pipeline is imported above from abc_project.
+        # ABC_PIPELINE_AVAILABLE confirms music21 is ready.
 
         return LearnedSymbolicBackendResult(
             ok=False,
