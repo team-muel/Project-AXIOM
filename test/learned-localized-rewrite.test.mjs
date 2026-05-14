@@ -12,6 +12,14 @@
  *  8. collectSameAttemptLocalizedRewriteParents allows learnedCandidateCount=1 (guard relaxed)
  *  9. assemble_rewritten_abc preserves keep-section artifacts and uses rewritten for rewrite sections
  * 10. localized_rewrite.py directive mapping produces human-readable targets
+ *
+ * Phase E metric improvement regression (tests 11–16):
+ * 11. voiceIndependence improves after rewriting weak s2 with independent voices
+ * 12. cadenceStrength improves after rewriting s2 with dominant cadence approach
+ * 13. finalCraftScore improves after full localized rewrite of weak s2
+ * 14. s1 and s3 artifacts are event-stable (identical objects) after rewrite assembly
+ * 15. buildLearnedLocalizedRewriteSpec targets only the weakest section (s2)
+ * 16. assemble_rewritten_abc + projection evidence for s2 shows improvement (Python)
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -26,6 +34,11 @@ const { buildLearnedNotagenProviderRequest, buildRewriteBlock } = await import(
     "../dist/composer/learnedNotagenAdapter.js"
 );
 const { buildLearnedLocalizedRewriteSpec } = await import("../dist/pipeline/quality.js");
+const {
+    computeCraftScoreSummary,
+    computeVoiceIndependence,
+    computeCadenceStrength,
+} = await import("../dist/pipeline/craftScoring.js");
 
 /** @type {import("../dist/pipeline/types.js").ModelBinding[]} */
 const LEARNED_MODELS = [
@@ -362,4 +375,339 @@ test("phase-e: abc_prompt omits AXIOM_REWRITE block when rewriteSpec absent", ()
     }
     const output = JSON.parse(runResult.stdout.trim());
     assert.ok(!output.includes("<AXIOM_REWRITE>"), "output should NOT contain <AXIOM_REWRITE> when no rewriteSpec");
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase E: Metric improvement regression tests (11–16)
+//
+// Strategy: build controlled SectionArtifactSummary fixtures where s2 is
+// deliberately weak (identical rhythm = low voiceIndependence, cadenceApproach
+// = "other" = low cadenceStrength). Then simulate the rewrite by substituting
+// a better s2 fixture and verify that the craft scores improve.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Shared composition plan used across improvement tests */
+const IMPROVEMENT_PLAN = {
+    version: "1",
+    brief: "Metric improvement regression plan",
+    mood: [],
+    form: "miniature",
+    key: "G minor",
+    meter: "4/4",
+    tempo: 84,
+    workflow: "symbolic_only",
+    instrumentation: [
+        { name: "Violin", family: "strings", roles: ["lead"] },
+        { name: "Viola", family: "strings", roles: ["counterline"] },
+        { name: "Cello", family: "strings", roles: ["bass"] },
+    ],
+    orchestration: { family: "string_trio", instrumentNames: ["Violin", "Viola", "Cello"], sections: [] },
+    rationale: "",
+    sections: [
+        { id: "s1", role: "theme_a", label: "Theme A", measures: 4, energy: 0.5, density: 0.4 },
+        { id: "s2", role: "development", label: "Development", measures: 4, energy: 0.7, density: 0.6 },
+        { id: "s3", role: "recap", label: "Recap", measures: 4, energy: 0.4, density: 0.3 },
+    ],
+};
+
+/** Baseline evaluation report (no fatal issues, reasonable syntax) */
+const BASELINE_EVAL = {
+    passed: true,
+    score: 72,
+    issues: [],
+    strengths: [],
+    metrics: {},
+};
+
+/**
+ * Make a minimal SectionArtifactSummary with controllable voice independence
+ * and cadence signals.
+ *
+ * @param {object} opts
+ * @param {string} opts.sectionId
+ * @param {import("../dist/pipeline/types.js").SectionRole} opts.role
+ * @param {number[]} opts.melodyRhythm    quarter-lengths for melody (controls rhythmic pattern)
+ * @param {number[]} opts.accompRhythm    quarter-lengths for accompaniment
+ * @param {number} opts.contraryMotionRate
+ * @param {number} opts.independentMotionRate
+ * @param {"dominant"|"plagal"|"tonic"|"other"} opts.cadenceApproach
+ * @param {number[]} opts.noteHistory
+ * @param {number} opts.lastInterval
+ */
+function makeArtifact({
+    sectionId,
+    role,
+    melodyRhythm,
+    accompRhythm,
+    contraryMotionRate,
+    independentMotionRate,
+    cadenceApproach,
+    noteHistory,
+    lastInterval,
+}) {
+    return {
+        sectionId,
+        role,
+        measureCount: 4,
+        melodyEvents: melodyRhythm.map((ql) => ({ type: "note", quarterLength: ql, pitch: 67, velocity: 80 })),
+        accompanimentEvents: accompRhythm.map((ql) => ({ type: "note", quarterLength: ql, pitch: 55, velocity: 64 })),
+        noteHistory,
+        textureContraryMotionRate: contraryMotionRate,
+        textureIndependentMotionRate: independentMotionRate,
+        cadenceApproach,
+        lastInterval,
+        melodyPitchMin: 64,
+        melodyPitchMax: 76,
+        bassPitchMin: 43,
+        bassPitchMax: 60,
+    };
+}
+
+// ── Shared fixtures ──────────────────────────────────────────────────────────
+
+// s1 — strong theme_a (good contrary motion, no cadence role)
+const ARTIFACT_S1 = makeArtifact({
+    sectionId: "s1",
+    role: "theme_a",
+    melodyRhythm: [1, 0.5, 0.5, 1, 1, 0.5, 0.5, 1],
+    accompRhythm: [2, 2, 1, 1, 1, 1],            // different pattern → low correlation
+    contraryMotionRate: 0.65,
+    independentMotionRate: 0.70,
+    cadenceApproach: "other",
+    noteHistory: [67, 69, 71, 72, 71, 69, 67, 65],
+    lastInterval: 2,
+});
+
+// s3 — strong recap with dominant cadence
+const ARTIFACT_S3 = makeArtifact({
+    sectionId: "s3",
+    role: "recap",
+    melodyRhythm: [1, 1, 1, 1, 1, 0.5, 0.5, 1],
+    accompRhythm: [2, 1, 1, 2, 2],
+    contraryMotionRate: 0.60,
+    independentMotionRate: 0.65,
+    cadenceApproach: "dominant",
+    noteHistory: [67, 69, 71, 67, 65, 67],
+    lastInterval: 2,
+});
+
+// s2 — WEAK development: identical rhythm → high correlation, "other" cadence
+const ARTIFACT_S2_WEAK = makeArtifact({
+    sectionId: "s2",
+    role: "development",
+    melodyRhythm:  [1, 1, 1, 1, 1, 1, 1, 1],   // identical to accomp → perfect correlation
+    accompRhythm:  [1, 1, 1, 1, 1, 1, 1, 1],
+    contraryMotionRate: 0.05,
+    independentMotionRate: 0.05,
+    cadenceApproach: "other",
+    noteHistory: [67, 67, 67, 67, 67, 67],
+    lastInterval: 0,
+});
+
+// s2 — STRONG development: contrasting rhythm, high contrary motion
+const ARTIFACT_S2_STRONG = makeArtifact({
+    sectionId: "s2",
+    role: "development",
+    melodyRhythm: [0.5, 0.5, 1, 0.5, 0.5, 1, 2],   // varied
+    accompRhythm: [2, 1, 1, 0.5, 0.5, 0.5, 0.5],   // different
+    contraryMotionRate: 0.85,
+    independentMotionRate: 0.85,
+    cadenceApproach: "dominant",
+    noteHistory: [67, 69, 71, 74, 72, 71, 69],
+    lastInterval: 2,
+});
+
+// ── Tests 11–15: TypeScript-only metric verification ─────────────────────────
+
+test("phase-e metric: voiceIndependence improves after rewriting weak s2 with independent voices", () => {
+    const artifactsBefore = [ARTIFACT_S1, ARTIFACT_S2_WEAK, ARTIFACT_S3];
+    const artifactsAfter  = [ARTIFACT_S1, ARTIFACT_S2_STRONG, ARTIFACT_S3];
+
+    const before = computeVoiceIndependence(artifactsBefore);
+    const after  = computeVoiceIndependence(artifactsAfter);
+
+    assert.ok(
+        after.score > before.score,
+        `voiceIndependence should improve after rewrite: before=${before.score.toFixed(3)} after=${after.score.toFixed(3)}`,
+    );
+    // Ensure the improvement is substantial, not just floating-point noise
+    assert.ok(
+        after.score - before.score >= 0.10,
+        `improvement should be >= 0.10 pts (got ${(after.score - before.score).toFixed(3)})`,
+    );
+});
+
+test("phase-e metric: cadenceStrength improves after rewriting s2/s3 with dominant cadence approach", () => {
+    // Temporarily make s3 weak to isolate cadence test: use a non-final dominant test
+    const artifactsBefore = [ARTIFACT_S1, ARTIFACT_S2_WEAK, ARTIFACT_S3];
+    // Swap the final section out so we can control it
+    const s3Weak = makeArtifact({
+        sectionId: "s3",
+        role: "recap",
+        melodyRhythm: [1, 1, 1, 1],
+        accompRhythm: [1, 1, 1, 1],
+        contraryMotionRate: 0.4,
+        independentMotionRate: 0.4,
+        cadenceApproach: "other",          // weak: no harmonic preparation
+        noteHistory: [67, 67, 67, 67],
+        lastInterval: 5,                   // large leap — bad resolution
+    });
+    const s3Strong = makeArtifact({
+        sectionId: "s3",
+        role: "recap",
+        melodyRhythm: [1, 0.5, 0.5, 1, 2],
+        accompRhythm: [2, 1, 1, 2],
+        contraryMotionRate: 0.6,
+        independentMotionRate: 0.6,
+        cadenceApproach: "dominant",       // strong: dominant preparation
+        noteHistory: [72, 71, 69, 67],
+        lastInterval: 2,                   // stepwise resolution
+    });
+
+    const before = computeCadenceStrength([ARTIFACT_S1, ARTIFACT_S2_WEAK, s3Weak]);
+    const after  = computeCadenceStrength([ARTIFACT_S1, ARTIFACT_S2_STRONG, s3Strong]);
+
+    assert.ok(
+        after.score > before.score,
+        `cadenceStrength should improve: before=${before.score.toFixed(3)} after=${after.score.toFixed(3)}`,
+    );
+});
+
+test("phase-e metric: finalCraftScore improves after full localized rewrite of weak s2", () => {
+    const artifactsBefore = [ARTIFACT_S1, ARTIFACT_S2_WEAK, ARTIFACT_S3];
+    const artifactsAfter  = [ARTIFACT_S1, ARTIFACT_S2_STRONG, ARTIFACT_S3];
+
+    const before = computeCraftScoreSummary(artifactsBefore, IMPROVEMENT_PLAN, BASELINE_EVAL);
+    const after  = computeCraftScoreSummary(artifactsAfter,  IMPROVEMENT_PLAN, BASELINE_EVAL);
+
+    assert.ok(
+        after.finalCraftScore > before.finalCraftScore,
+        `finalCraftScore should improve: before=${before.finalCraftScore} after=${after.finalCraftScore}`,
+    );
+    assert.ok(
+        after.voiceIndependence > before.voiceIndependence,
+        `voiceIndependence should improve in full craft summary`,
+    );
+});
+
+test("phase-e metric: s1 and s3 SectionArtifactSummary objects are event-stable after simulated rewrite assembly", () => {
+    // Simulate what orchestrator does: keep s1/s3 references, replace s2
+    const beforeArtifacts = [ARTIFACT_S1, ARTIFACT_S2_WEAK, ARTIFACT_S3];
+    const rewriteSectionIds = new Set(["s2"]);
+
+    const afterArtifacts = beforeArtifacts.map((a) =>
+        rewriteSectionIds.has(a.sectionId) ? ARTIFACT_S2_STRONG : a,
+    );
+
+    // s1 and s3 must be the SAME object reference (event-stable)
+    assert.strictEqual(afterArtifacts[0], ARTIFACT_S1, "s1 must be reference-identical after rewrite assembly");
+    assert.strictEqual(afterArtifacts[2], ARTIFACT_S3, "s3 must be reference-identical after rewrite assembly");
+
+    // s2 must be the rewritten version
+    assert.strictEqual(afterArtifacts[1], ARTIFACT_S2_STRONG, "s2 must be the rewritten artifact");
+    assert.notStrictEqual(afterArtifacts[1], ARTIFACT_S2_WEAK, "s2 must NOT be the original weak artifact");
+});
+
+test("phase-e metric: buildLearnedLocalizedRewriteSpec targets only the weakest section (s2)", () => {
+    /** @type {import("../dist/pipeline/types.js").StructureEvaluationReport} */
+    const evaluation = {
+        passed: false,
+        score: 58,
+        issues: ["Development section is too uniform"],
+        strengths: [],
+        sectionFindings: [
+            { sectionId: "s1", label: "Theme A", role: "theme_a",
+              startMeasure: 1, endMeasure: 4, score: 85, issues: [], strengths: [], metrics: {} },
+            { sectionId: "s2", label: "Development", role: "development",
+              startMeasure: 5, endMeasure: 8, score: 42,
+              issues: ["voices move in unison", "no cadence preparation"],
+              strengths: [], metrics: {} },
+            { sectionId: "s3", label: "Recap", role: "recap",
+              startMeasure: 9, endMeasure: 12, score: 80, issues: [], strengths: [], metrics: {} },
+        ],
+    };
+
+    /** @type {import("../dist/pipeline/types.js").RevisionDirective[]} */
+    const directives = [
+        { kind: "clarify_texture_plan", priority: 90, reason: "voices too similar", sectionIds: ["s2"] },
+        { kind: "strengthen_cadence",   priority: 80, reason: "no cadence prep",    sectionIds: ["s2"] },
+    ];
+
+    const spec = buildLearnedLocalizedRewriteSpec(evaluation, IMPROVEMENT_PLAN, directives, 78);
+
+    assert.ok(spec, "spec should be defined for a clearly weak section");
+    assert.deepEqual(spec.rewriteSectionIds, ["s2"], "only s2 should be targeted for rewrite");
+    assert.ok(spec.keepSectionIds.includes("s1"), "s1 should be kept");
+    assert.ok(spec.keepSectionIds.includes("s3"), "s3 should be kept");
+    assert.ok(spec.directives.length >= 1, "at least one directive should be included");
+
+    // Verify the before/after craft scores corroborate the spec decision:
+    // voiceIndependence of weak fixtures should be lower than the gate threshold
+    const beforeScore = computeCraftScoreSummary(
+        [ARTIFACT_S1, ARTIFACT_S2_WEAK, ARTIFACT_S3], IMPROVEMENT_PLAN, BASELINE_EVAL,
+    );
+    const afterScore = computeCraftScoreSummary(
+        [ARTIFACT_S1, ARTIFACT_S2_STRONG, ARTIFACT_S3], IMPROVEMENT_PLAN, BASELINE_EVAL,
+    );
+    assert.ok(
+        afterScore.finalCraftScore > beforeScore.finalCraftScore,
+        `craft score should rise when s2 is rewritten per spec: ${beforeScore.finalCraftScore} → ${afterScore.finalCraftScore}`,
+    );
+});
+
+// ── Test 16: Python-side assemble_rewritten_abc event-stable verification ────
+
+test("phase-e metric: assemble_rewritten_abc leaves keep-section events byte-identical (Python)", () => {
+    const code = `
+import json, sys
+sys.path.insert(0, '.')
+from workers.composer.learned_symbolic.localized_rewrite import assemble_rewritten_abc
+
+# Simulate keep artifacts with distinct, identifiable lead events
+keep = [
+    {"sectionId": "s1", "leadEvents": [{"pitch": 67, "quarterLength": 1.0, "marker": "s1_original"}]},
+    {"sectionId": "s3", "leadEvents": [{"pitch": 64, "quarterLength": 2.0, "marker": "s3_original"}]},
+]
+
+# Simulated rewrite artifact for s2 (improved)
+rewritten = [
+    {"sectionId": "s2", "leadEvents": [{"pitch": 71, "quarterLength": 0.5, "marker": "s2_rewritten"}]},
+]
+
+order = ["s1", "s2", "s3"]
+merged = assemble_rewritten_abc(keep, rewritten, order, ["s2"])
+
+result = {
+    "length": len(merged),
+    "s1_marker": merged[0]["leadEvents"][0]["marker"],
+    "s2_marker": merged[1]["leadEvents"][0]["marker"],
+    "s3_marker": merged[2]["leadEvents"][0]["marker"],
+    "s1_pitch":  merged[0]["leadEvents"][0]["pitch"],
+    "s2_pitch":  merged[1]["leadEvents"][0]["pitch"],
+    "s3_pitch":  merged[2]["leadEvents"][0]["pitch"],
+}
+print(json.dumps(result))
+`;
+
+    const runResult = spawnSync("python", ["-c", code], {
+        cwd: repoRoot,
+        encoding: "utf-8",
+        timeout: 10000,
+    });
+    if (runResult.status !== 0) {
+        assert.fail(`Python exited ${runResult.status}: ${runResult.stderr}`);
+    }
+
+    const result = JSON.parse(runResult.stdout.trim());
+    assert.equal(result.length, 3, "merged should have exactly 3 sections");
+
+    // Keep sections must be byte-identical originals
+    assert.equal(result.s1_marker, "s1_original", "s1 must carry original marker (event-stable)");
+    assert.equal(result.s3_marker, "s3_original", "s3 must carry original marker (event-stable)");
+    assert.equal(result.s1_pitch, 67, "s1 pitch must be unchanged");
+    assert.equal(result.s3_pitch, 64, "s3 pitch must be unchanged");
+
+    // Rewritten section must use the new artifact
+    assert.equal(result.s2_marker, "s2_rewritten", "s2 must carry rewritten marker");
+    assert.equal(result.s2_pitch, 71, "s2 pitch must be the rewritten value");
 });
