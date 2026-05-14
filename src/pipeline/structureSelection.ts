@@ -50,6 +50,16 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
         ? evaluation.metrics.orchestrationSectionHandoffFit * 10
         : 0;
 
+    // Craft score bonus / penalty (optional — only present when craftScoreSummary is populated)
+    const craft = evaluation.craftScoreSummary;
+    const craftBonus = craft
+        ? craft.finalCraftScore * 50
+        : 0;
+    // Extra contract penalty: candidates that violate section contract lose an additional 30 points
+    const contractPenalty = craft && craft.sectionContractFit < 0.5
+        ? (0.5 - craft.sectionContractFit) * 60
+        : 0;
+
     return Number(((evaluation.passed ? 1_000 : 0)
         + (baseScore * 10)
         + averageSectionScore
@@ -64,7 +74,9 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
         + orchestrationDoublingBonus
         + orchestrationRotationBonus
         + orchestrationHandoffBonus
+        + craftBonus
         - weakestSectionPenalty
+        - contractPenalty
         - (tensionMismatch * 40)).toFixed(4));
 }
 

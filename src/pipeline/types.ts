@@ -1034,6 +1034,29 @@ export interface OrchestrationEvaluationSummary {
     weakSectionIds: string[];
 }
 
+export interface CraftScoreSummary {
+    /** ABC / MIDI syntax successfully parsed and structure intact (0–1) */
+    syntaxValidity: number;
+    /** Expected section count, measure counts, role order, and final section presence (0–1) */
+    sectionContractFit: number;
+    /** Final bass dominant-tonic motion, melodic resolution, and harmonic support (0–1) */
+    cadenceStrength: number;
+    /** Final / recap tonal center matching home key (0–1) */
+    tonalReturn: number;
+    /** theme_a interval-contour reappearance in recap / variation sections (0–1) */
+    motifSurvival: number;
+    /** lead / counterline / bass rhythmic independence and contrary-motion presence (0–1) */
+    voiceIndependence: number;
+    /** Phrase-role alignment with note density, rest placement, and cadence position (0–1) */
+    phraseShape: number;
+    /** Violin / Viola / Cello pitches within idiomatic ranges (0–1) */
+    registerIdiomaticFit: number;
+    /** Weighted composite: 0.15*sectionContractFit + 0.15*cadenceStrength + 0.15*tonalReturn + 0.15*motifSurvival + 0.15*voiceIndependence + 0.10*phraseShape + 0.10*registerIdiomaticFit + 0.05*syntaxValidity */
+    finalCraftScore: number;
+    /** Optional per-dimension human-readable notes keyed by dimension name */
+    dimensionNotes?: Record<string, string>;
+}
+
 export interface StructureEvaluationReport {
     passed: boolean;
     score?: number;
@@ -1045,6 +1068,7 @@ export interface StructureEvaluationReport {
     classicalKnowledgeEvaluation?: ClassicalKnowledgeEvaluationSummary;
     sectionFindings?: SectionEvaluationFinding[];
     weakestSections?: SectionEvaluationFinding[];
+    craftScoreSummary?: CraftScoreSummary;
 }
 
 export interface AudioEvaluationReport {

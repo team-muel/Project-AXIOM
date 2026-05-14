@@ -6,6 +6,7 @@ import type {
     AudioKeyAnalysisSource,
     AudioKeyDriftPoint,
     AudioEvaluationReport,
+    CompositionPlan,
     ExpressionGuidance,
     HarmonicPlan,
     PhraseFunction,
@@ -34,6 +35,7 @@ import type {
     TextureGuidance,
     TonalityMode,
 } from "./types.js";
+import { computeCraftScoreSummary } from "./craftScoring.js";
 
 interface StructureEvaluationOptions {
     sections?: SectionPlan[];
@@ -43,6 +45,7 @@ interface StructureEvaluationOptions {
     longSpanForm?: LongSpanFormPlan;
     orchestration?: OrchestrationPlan;
     classicalKnowledge?: ClassicalKnowledgePlan;
+    compositionPlan?: CompositionPlan;
 }
 
 type StructureSectionFinding = NonNullable<StructureEvaluationReport["sectionFindings"]>[number];
@@ -6245,7 +6248,7 @@ export function buildStructureEvaluation(result: CritiqueResult, options?: Struc
         ? Math.round((enriched.score * 0.88) + (classicalKnowledgeEvaluation.score * 0.12))
         : enriched.score;
 
-    return {
+    const baseReport: StructureEvaluationReport = {
         passed: result.pass && (!classicalKnowledgeEvaluation || classicalKnowledgeEvaluation.status !== "missing"),
         score,
         issues,
@@ -6261,6 +6264,17 @@ export function buildStructureEvaluation(result: CritiqueResult, options?: Struc
             weakestSections: enriched.weakestSections,
         } : {}),
     };
+
+    const sectionArtifacts = options?.sectionArtifacts;
+    if (sectionArtifacts?.length) {
+        baseReport.craftScoreSummary = computeCraftScoreSummary(
+            sectionArtifacts,
+            options?.compositionPlan,
+            baseReport,
+        );
+    }
+
+    return baseReport;
 }
 
 export function buildAudioEvaluation(

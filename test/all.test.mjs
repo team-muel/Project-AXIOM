@@ -31,3 +31,4 @@ import "./learned-notagen-prompt.test.mjs";
 import "./abc-projection-pipeline.test.mjs";
 import "./learned-multi-candidate.test.mjs";
 import "./learned-localized-rewrite.test.mjs";
+import "./craft-score.test.mjs";
