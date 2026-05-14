@@ -6,6 +6,7 @@ import type {
     ComposeProposalEvidence,
     ComposeRequest,
     ComposeResult,
+    LearnedSamplingParams,
     ModelBinding,
     SectionArtifactSummary,
     SectionTonalitySummary,
@@ -133,6 +134,14 @@ export function normalizeLearnedSymbolicResponse(
                 ...(typeof entry.rewriteApplied === "boolean" ? { rewriteApplied: entry.rewriteApplied } : {}),
               }))
             : undefined;
+
+    // Derive candidateIndex from variant key (learned-N → N-1 zero-based)
+    const learnedVariantMatch = /^learned-(\d+)/.exec(request.candidateVariantKey ?? "");
+    const resolvedCandidateIndex = learnedVariantMatch
+        ? Math.max(0, Number.parseInt(learnedVariantMatch[1], 10) - 1)
+        : undefined;
+    const resolvedSamplingParams: LearnedSamplingParams | undefined = request.learnedSampling ?? undefined;
+
     const proposalEvidence: ComposeProposalEvidence = {
         worker: executionPlan.composeWorker,
         ...(typeof response.proposalMetadata?.lane === "string" && response.proposalMetadata.lane.trim()
@@ -157,6 +166,8 @@ export function normalizeLearnedSymbolicResponse(
         ...(normalizedWarnings ? { normalizationWarnings: normalizedWarnings } : {}),
         ...(candidatePool ? { candidatePool } : {}),
         ...(proposalSummary && Object.keys(proposalSummary).length > 0 ? { summary: proposalSummary } : {}),
+        ...(resolvedCandidateIndex !== undefined ? { candidateIndex: resolvedCandidateIndex } : {}),
+        ...(resolvedSamplingParams ? { samplingParams: resolvedSamplingParams } : {}),
     };
 
     return {

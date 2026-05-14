@@ -28,6 +28,10 @@ const BASELINE_STRUCTURE_BINDING: ModelBinding = {
     model: "music21-symbolic-v1",
 };
 
+const LEARNED_CANDIDATE_COUNT_DEFAULT = 8;
+const LEARNED_CANDIDATE_COUNT_MAX = 32;
+const MUSIC21_BASELINE_COUNT_DEFAULT = 1;
+
 function cloneModels(selectedModels: ModelBinding[] | undefined): ModelBinding[] {
     return (selectedModels ?? []).map((binding) => ({ ...binding }));
 }
@@ -84,6 +88,26 @@ function normalizeHybridCandidateCount(candidateCount: number | undefined): numb
     return Math.max(Math.floor(candidateCount ?? 2), 2);
 }
 
+function normalizeLearnedCandidateCount(count: number | undefined): number {
+    if (!Number.isFinite(count) || !count) {
+        return LEARNED_CANDIDATE_COUNT_DEFAULT;
+    }
+
+    return Math.max(1, Math.min(Math.floor(count), LEARNED_CANDIDATE_COUNT_MAX));
+}
+
+function normalizeMusic21BaselineCount(count: number | undefined): number {
+    if (!Number.isFinite(count) || !count) {
+        return MUSIC21_BASELINE_COUNT_DEFAULT;
+    }
+
+    return Math.max(1, Math.floor(count));
+}
+
+function useExplicitCounts(request: ComposeRequest): boolean {
+    return request.learnedCandidateCount !== undefined || request.music21BaselineCount !== undefined;
+}
+
 function buildHybridCandidateVariantKey(
     variant: HybridSymbolicCandidateRequestVariant["variant"],
     ordinal: number,
@@ -93,6 +117,18 @@ function buildHybridCandidateVariantKey(
     }
 
     return `${variant}-${ordinal}`;
+}
+
+function buildLearnedCandidateVariantKey(
+    ordinal: number,
+    seedOffset: number | undefined,
+): string {
+    const base = `learned-${ordinal}`;
+    return seedOffset !== undefined && seedOffset !== 0 ? `${base}-s${seedOffset}` : base;
+}
+
+function buildBaselineCandidateVariantKey(ordinal: number): string | undefined {
+    return ordinal <= 1 ? undefined : `baseline-${ordinal}`;
 }
 
 function sortCandidateSummaries(
@@ -160,33 +196,62 @@ export function buildHybridSymbolicCandidateRequests(
     const baseBindings = request.selectedModels?.length ? request.selectedModels : executionPlan.selectedModels;
     const baselineSelectedModels = replaceStructureBinding(baseBindings, BASELINE_STRUCTURE_BINDING);
     const learnedSelectedModels = replaceStructureBinding(baseBindings, learnedBinding);
-    const candidateCount = normalizeHybridCandidateCount(request.candidateCount);
     const variants: HybridSymbolicCandidateRequestVariant[] = [];
-    let baselineOrdinal = 0;
-    let learnedOrdinal = 0;
 
-    for (let index = 0; index < candidateCount; index += 1) {
-        const isBaselineSlot = index % 2 === 0;
-        if (isBaselineSlot) {
-            baselineOrdinal += 1;
-            const candidateVariantKey = buildHybridCandidateVariantKey("baseline", baselineOrdinal);
+    if (useExplicitCounts(request)) {
+        // ── Phase D explicit learned/baseline count path ─────────────────────
+        const learnedCount = normalizeLearnedCandidateCount(request.learnedCandidateCount);
+        const baselineCount = normalizeMusic21BaselineCount(request.music21BaselineCount);
+        const seedOffset = request.learnedSampling?.seedOffset;
+
+        for (let i = 1; i <= baselineCount; i += 1) {
+            const candidateVariantKey = buildBaselineCandidateVariantKey(i);
             variants.push({
                 variant: "baseline",
                 lane,
                 candidateVariantKey,
                 request: normalizeVariantRequest(request, baselineSelectedModels, compositionPlan, candidateVariantKey),
             });
-            continue;
         }
 
-        learnedOrdinal += 1;
-        const candidateVariantKey = buildHybridCandidateVariantKey("learned", learnedOrdinal);
-        variants.push({
-            variant: "learned",
-            lane,
-            candidateVariantKey,
-            request: normalizeVariantRequest(request, learnedSelectedModels, compositionPlan, candidateVariantKey),
-        });
+        for (let i = 1; i <= learnedCount; i += 1) {
+            const candidateVariantKey = buildLearnedCandidateVariantKey(i, seedOffset);
+            variants.push({
+                variant: "learned",
+                lane,
+                candidateVariantKey,
+                request: normalizeVariantRequest(request, learnedSelectedModels, compositionPlan, candidateVariantKey),
+            });
+        }
+    } else {
+        // ── Legacy candidateCount alternating path (backward compat) ─────────
+        const candidateCount = normalizeHybridCandidateCount(request.candidateCount);
+        let baselineOrdinal = 0;
+        let learnedOrdinal = 0;
+
+        for (let index = 0; index < candidateCount; index += 1) {
+            const isBaselineSlot = index % 2 === 0;
+            if (isBaselineSlot) {
+                baselineOrdinal += 1;
+                const candidateVariantKey = buildHybridCandidateVariantKey("baseline", baselineOrdinal);
+                variants.push({
+                    variant: "baseline",
+                    lane,
+                    candidateVariantKey,
+                    request: normalizeVariantRequest(request, baselineSelectedModels, compositionPlan, candidateVariantKey),
+                });
+                continue;
+            }
+
+            learnedOrdinal += 1;
+            const candidateVariantKey = buildHybridCandidateVariantKey("learned", learnedOrdinal);
+            variants.push({
+                variant: "learned",
+                lane,
+                candidateVariantKey,
+                request: normalizeVariantRequest(request, learnedSelectedModels, compositionPlan, candidateVariantKey),
+            });
+        }
     }
 
     return variants;

@@ -1,4 +1,5 @@
-import type { ModelBinding } from "../pipeline/types.js";
+import type { LearnedSamplingParams, ModelBinding } from "../pipeline/types.js";
+import { STRING_TRIO_SYMBOLIC_LANE } from "../pipeline/learnedSymbolicContract.js";
 import type {
     LearnedSymbolicPromptPack,
     LearnedSymbolicPromptPackSection,
@@ -14,8 +15,18 @@ export interface LearnedNotagenProviderRequest {
     promptPackVersion: string;
     planSignature: string;
     conditioningText: string;
+    /** Hard constraints + structural control lines in deterministic order. */
     controlLines: string[];
+    /** Advisory soft-constraint lines (energy, density, mood). Not hard constraints. */
+    softConstraintLines?: string[];
+    /** Metadata-only lines (riskProfile, intentRationale, narrativeNotes). Not passed to NotaGen. */
+    metadataLines?: string[];
     abcHeader?: string;
+    warnings?: string[];
+    /** Zero-based index of this candidate in the learned candidate pool. */
+    candidateIndex?: number;
+    /** Sampling parameters forwarded to the NotaGen backend. */
+    samplingParams?: LearnedSamplingParams;
 }
 
 function normalizeText(value: string | undefined): string {
@@ -32,11 +43,12 @@ function buildAbcHeader(promptPack: LearnedSymbolicPromptPack): string {
     const { styleCue } = promptPack;
     const key = resolveAbcKey(styleCue.key ?? "C major");
     const tempo = styleCue.tempo ?? 92;
+    const meter = normalizeText(styleCue.meter) || "4/4";
     const title = normalizeText(styleCue.brief).slice(0, 80) || "Untitled";
     return [
         "X:1",
         `T:${title}`,
-        "M:4/4",
+        `M:${meter}`,
         "L:1/8",
         `Q:1/4=${tempo}`,
         `K:${key}`,
@@ -48,53 +60,119 @@ function resolveStructureBinding(selectedModels: ModelBinding[] | undefined): Mo
 }
 
 function formatSectionControlLine(section: LearnedSymbolicPromptPackSection): string {
-    const attributes = [
+    // Hard constraints first: id, role, label, measures
+    const attributes: string[] = [
         `id=${normalizeText(section.sectionId)}`,
         `role=${normalizeText(section.role)}`,
         `label=${normalizeText(section.label)}`,
         `measures=${section.measures}`,
-        `energy=${section.energy}`,
-        `density=${section.density}`,
-        ...(section.phraseFunction ? [`phrase=${normalizeText(section.phraseFunction)}`] : []),
-        ...(section.cadence ? [`cadence=${normalizeText(section.cadence)}`] : []),
-        ...(section.harmonicPlan?.tonalCenter ? [`tonal_center=${normalizeText(section.harmonicPlan.tonalCenter)}`] : []),
-        ...(section.harmonicPlan?.keyTarget ? [`key_target=${normalizeText(section.harmonicPlan.keyTarget)}`] : []),
-        ...(section.harmonicPlan?.harmonicRhythm ? [`harmonic_rhythm=${normalizeText(section.harmonicPlan.harmonicRhythm)}`] : []),
-        ...(section.harmonicPlan?.prolongationMode ? [`prolongation=${normalizeText(section.harmonicPlan.prolongationMode)}`] : []),
-        ...(section.textureRoleHints?.length ? [`texture_roles=${section.textureRoleHints.map(normalizeText).join("|")}`] : []),
-        ...(section.counterpointMode ? [`counterpoint=${normalizeText(section.counterpointMode)}`] : []),
-        ...(section.notes?.length ? [`notes=${section.notes.map(normalizeText).join("|")}`] : []),
     ];
+    // Soft structural hints follow in deterministic order
+    if (section.phraseFunction) attributes.push(`phrase=${normalizeText(section.phraseFunction)}`);
+    if (section.cadence) attributes.push(`cadence=${normalizeText(section.cadence)}`);
+    if (section.harmonicPlan?.tonalCenter) attributes.push(`tonal_center=${normalizeText(section.harmonicPlan.tonalCenter)}`);
+    if (section.harmonicPlan?.harmonicRhythm) attributes.push(`harmonic_rhythm=${normalizeText(section.harmonicPlan.harmonicRhythm)}`);
+    if (section.textureRoleHints?.length) attributes.push(`texture_roles=${section.textureRoleHints.map(normalizeText).join("|")}`);
+    if (section.counterpointMode) attributes.push(`counterpoint=${normalizeText(section.counterpointMode)}`);
+    // motif_ref is always present (defaults to "none")
+    attributes.push(`motif_ref=${normalizeText(section.motifRef) || "none"}`);
+    // Energy/density (soft, advisory) at end
+    attributes.push(`energy=${section.energy}`);
+    attributes.push(`density=${section.density}`);
+    if (section.harmonicPlan?.keyTarget) attributes.push(`key_target=${normalizeText(section.harmonicPlan.keyTarget)}`);
+    if (section.harmonicPlan?.prolongationMode) attributes.push(`prolongation=${normalizeText(section.harmonicPlan.prolongationMode)}`);
+    if (section.notes?.length) attributes.push(`notes=${section.notes.map(normalizeText).join("|")}`);
     return `section ${attributes.join(" ")}`;
+}
+
+function resolveConditioningInstrumentationDescription(promptPack: LearnedSymbolicPromptPack): string {
+    if (promptPack.lane === STRING_TRIO_SYMBOLIC_LANE) {
+        return "classical string trio";
+    }
+    if (promptPack.instrumentation.length > 0) {
+        return promptPack.instrumentation.map((e) => normalizeText(e.name)).join(", ");
+    }
+    return normalizeText(promptPack.styleCue.instrumentationLabel) || "ensemble";
+}
+
+function buildConditioningText(promptPack: LearnedSymbolicPromptPack): string {
+    const description = resolveConditioningInstrumentationDescription(promptPack);
+    const form = normalizeText(promptPack.styleCue.form);
+    const key = normalizeText(promptPack.styleCue.key);
+    const meter = normalizeText(promptPack.styleCue.meter) || "4/4";
+    const tempo = promptPack.styleCue.tempo ?? 92;
+    return normalizeText(
+        `Generate interleaved ABC notation for a ${description} ${form} in ${key}, ${meter}, ${tempo} BPM. Preserve the section plan and synchronized voices.`,
+    );
+}
+
+function resolveInstrumentationControlLine(
+    promptPack: LearnedSymbolicPromptPack,
+    warnings: string[],
+): string {
+    if (promptPack.instrumentation.length > 0) {
+        const parts = promptPack.instrumentation
+            .map((e) => `${normalizeText(e.name)}:${e.roles.map(normalizeText).join("|")}`)
+            .join(",");
+        return `instrumentation=${parts}`;
+    }
+    if (promptPack.lane === STRING_TRIO_SYMBOLIC_LANE) {
+        warnings.push(
+            "instrumentation missing for narrow lane string_trio_symbolic; defaulting to Violin:lead,Viola:counterline,Cello:bass",
+        );
+        return "instrumentation=Violin:lead,Viola:counterline,Cello:bass";
+    }
+    return "instrumentation=default";
+}
+
+function hasSamplingParams(p: LearnedSamplingParams): boolean {
+    return (
+        p.temperature !== undefined ||
+        p.topP !== undefined ||
+        p.topK !== undefined ||
+        p.seedOffset !== undefined
+    );
+}
+
+function buildSamplingControlLine(p: LearnedSamplingParams): string {
+    const parts: string[] = [];
+    if (p.temperature !== undefined) parts.push(`temperature=${p.temperature}`);
+    if (p.topP !== undefined) parts.push(`top_p=${p.topP}`);
+    if (p.topK !== undefined) parts.push(`top_k=${p.topK}`);
+    if (p.seedOffset !== undefined) parts.push(`seed_offset=${p.seedOffset}`);
+    return `sampling ${parts.join(" ")}`;
+}
+
+export interface LearnedNotagenProviderRequestOpts {
+    candidateIndex?: number;
+    samplingParams?: LearnedSamplingParams;
 }
 
 export function buildLearnedNotagenProviderRequest(
     promptPack: LearnedSymbolicPromptPack,
     selectedModels: ModelBinding[] | undefined,
+    opts?: LearnedNotagenProviderRequestOpts,
 ): LearnedNotagenProviderRequest {
     const structureBinding = resolveStructureBinding(selectedModels);
-    const mood = promptPack.styleCue.mood.length ? ` Mood: ${promptPack.styleCue.mood.map(normalizeText).join(", ")}.` : "";
-    const titleHint = promptPack.styleCue.titleHint ? ` Title hint: ${normalizeText(promptPack.styleCue.titleHint)}.` : "";
-    const rationale = promptPack.narrativeNotes?.length
-        ? ` Narrative notes: ${promptPack.narrativeNotes.map(normalizeText).join(" | ")}.`
-        : "";
-    const instrumentation = promptPack.instrumentation.length
-        ? promptPack.instrumentation.map((entry) => normalizeText(entry.name)).join(", ")
-        : normalizeText(promptPack.styleCue.instrumentationLabel);
-    const tempo = promptPack.styleCue.tempo !== undefined ? ` at ${promptPack.styleCue.tempo} BPM` : "";
-    const conditioningText = normalizeText(
-        `Compose a ${normalizeText(promptPack.styleCue.form)} for ${instrumentation}${tempo} in ${normalizeText(promptPack.styleCue.key)}.`
-        + ` Brief: ${normalizeText(promptPack.styleCue.brief)}.`
-        + mood
-        + titleHint
-        + rationale,
-    );
+    const warnings: string[] = [];
 
-    const controlLines = [
+    const conditioningText = buildConditioningText(promptPack);
+    const meter = normalizeText(promptPack.styleCue.meter) || "4/4";
+    const tempo = promptPack.styleCue.tempo ?? 92;
+    const abcKey = resolveAbcKey(promptPack.styleCue.key ?? "C major");
+    const instrumentationLine = resolveInstrumentationControlLine(promptPack, warnings);
+
+    // Hard constraints + structural control lines in deterministic order
+    const controlLines: string[] = [
         `lane=${normalizeText(promptPack.lane)}`,
         `plan_signature=${normalizeText(promptPack.planSignature)}`,
         `prompt_pack_version=${normalizeText(promptPack.version)}`,
-        `instrumentation=${promptPack.instrumentation.map((entry) => `${normalizeText(entry.name)}:${entry.roles.map(normalizeText).join("|")}`).join(",") || "default"}`,
+        `abc_format=interleaved`,
+        `form=${normalizeText(promptPack.styleCue.form)}`,
+        `key=${abcKey}`,
+        `meter=${meter}`,
+        `tempo=${tempo}`,
+        instrumentationLine,
         ...promptPack.sections.map((section) => formatSectionControlLine(section)),
         ...(promptPack.motifPolicy
             ? [
@@ -117,6 +195,29 @@ export function buildLearnedNotagenProviderRequest(
         ...(promptPack.revisionSummary?.targetedSectionIds?.length
             ? [`revision targeted_sections=${promptPack.revisionSummary.targetedSectionIds.map(normalizeText).join("|")}`]
             : []),
+        // Sampling control line — only emitted when at least one sampling param is set
+        ...(opts?.samplingParams && hasSamplingParams(opts.samplingParams)
+            ? [buildSamplingControlLine(opts.samplingParams)]
+            : []),
+    ];
+
+    // Soft-constraint lines (advisory; energy/density per section, global mood)
+    const softConstraintLines: string[] = [
+        ...promptPack.sections.map(
+            (s) => `section_soft id=${normalizeText(s.sectionId)} energy=${s.energy} density=${s.density}`,
+        ),
+        ...(promptPack.styleCue.mood.length
+            ? [`mood=${promptPack.styleCue.mood.map(normalizeText).join("|")}`]
+            : []),
+    ];
+
+    // Metadata-only lines (not passed to NotaGen)
+    const metadataLines: string[] = [
+        ...(promptPack.styleCue.riskProfile ? [`risk_profile=${normalizeText(promptPack.styleCue.riskProfile)}`] : []),
+        ...(promptPack.styleCue.intentRationale ? [`intent_rationale=${normalizeText(promptPack.styleCue.intentRationale)}`] : []),
+        ...(promptPack.narrativeNotes?.length
+            ? [`narrative_notes=${promptPack.narrativeNotes.map(normalizeText).join("|")}`]
+            : []),
     ];
 
     return {
@@ -128,6 +229,11 @@ export function buildLearnedNotagenProviderRequest(
         planSignature: promptPack.planSignature,
         conditioningText,
         controlLines,
+        ...(softConstraintLines.length ? { softConstraintLines } : {}),
+        ...(metadataLines.length ? { metadataLines } : {}),
+        ...(warnings.length ? { warnings } : {}),
         abcHeader: buildAbcHeader(promptPack),
+        ...(opts?.candidateIndex !== undefined ? { candidateIndex: opts.candidateIndex } : {}),
+        ...(opts?.samplingParams && hasSamplingParams(opts.samplingParams) ? { samplingParams: opts.samplingParams } : {}),
     };
 }

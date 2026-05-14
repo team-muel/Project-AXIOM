@@ -51,6 +51,19 @@ class NotagenBackend:
         provider_request = payload.get("providerRequest") or {}
         model = str(provider_request.get("model") or MODEL_DEFAULT)
 
+        # ── Phase D: extract per-candidate sampling params ───────────────────
+        # candidateIndex: 0-based index of this candidate in the learned pool.
+        # sampling_params: forwarded from learnedSampling on the ComposeRequest.
+        candidate_index = int(provider_request.get("candidateIndex") or 0)
+        sampling_params: dict[str, Any] = dict(provider_request.get("samplingParams") or {})
+        temperature: float = float(sampling_params.get("temperature") or 0.9)
+        top_p: float = float(sampling_params.get("topP") or 0.95)
+        top_k: int = int(sampling_params.get("topK") or 50)
+        seed_offset: int = int(sampling_params.get("seedOffset") or 0)
+        # Per-candidate seed derivation (stable across retries, unique per variant):
+        #   stable_seed  = payload.get("stableSeed", 0)
+        #   candidate_seed = stable_seed + candidate_index + seed_offset
+
         # ── Check context ────────────────────────────────────────────────────
         if context is None:
             return LearnedSymbolicBackendResult(
@@ -76,7 +89,9 @@ class NotagenBackend:
         if not checkpoint_path or not os.path.exists(checkpoint_path):
             pipeline_note = (
                 f"ABC pipeline available: {ABC_PIPELINE_AVAILABLE}; "
-                f"conditioning header: {len(abc_header)} chars, {section_count} section(s)"
+                f"conditioning header: {len(abc_header)} chars, {section_count} section(s); "
+                f"candidate_index={candidate_index} temperature={temperature} "
+                f"top_p={top_p} top_k={top_k} seed_offset={seed_offset}"
             )
             return LearnedSymbolicBackendResult(
                 ok=False,
@@ -94,13 +109,18 @@ class NotagenBackend:
 
         # ── TODO(Phase 3+): Real inference pipeline ──────────────────────────
         #
-        # With the Phase C pipeline in place, wire real inference like this:
+        # With the Phase C pipeline and Phase D sampling in place, wire like:
         #
-        #   abc_body = notagen_inference(abc_header, checkpoint_path, seed=attempt_index)
+        #   stable_seed = payload.get("stableSeed", 0)
+        #   candidate_seed = stable_seed + candidate_index + seed_offset
+        #   abc_body = notagen_inference(
+        #       abc_header, checkpoint_path,
+        #       seed=candidate_seed, temperature=temperature,
+        #       top_p=top_p, top_k=top_k,
+        #   )
         #   abc_full = abc_header + "\n" + abc_body
         #
         #   sections = payload.get("promptPack", {}).get("sections") or []
-        #   provider_request = payload.get("providerRequest") or {}
         #   result = run_abc_projection_pipeline(
         #       abc_full, sections, provider_request, output_path=output_path
         #   )

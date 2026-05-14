@@ -524,6 +524,13 @@ export interface ExpressionPlanSidecar {
     sections: ExpressionSectionPlan[];
 }
 
+export interface LearnedSamplingParams {
+    temperature?: number;
+    topP?: number;
+    topK?: number;
+    seedOffset?: number;
+}
+
 export interface ModelBinding {
     role: ModelRole;
     provider: string;
@@ -1157,6 +1164,12 @@ export interface ComposeRequest {
     localizedRewriteBranches?: number;
     candidateVariantKey?: string;
     attemptIndex?: number;
+    /** Number of NotaGen learned candidates to generate per attempt (default 8, max 32). */
+    learnedCandidateCount?: number;
+    /** Number of music21 baseline candidates to include per attempt (default 1). */
+    music21BaselineCount?: number;
+    /** Per-candidate sampling parameters forwarded to the NotaGen backend. */
+    learnedSampling?: LearnedSamplingParams;
 }
 
 export interface ComposeProposalEvidenceSummary {
@@ -1191,6 +1204,10 @@ export interface ComposeProposalEvidence {
     normalizationWarnings?: string[];
     candidatePool?: CandidatePoolEntry[];
     summary?: ComposeProposalEvidenceSummary;
+    /** Zero-based index of this candidate within the learned candidate pool. */
+    candidateIndex?: number;
+    /** Sampling parameters used to generate this candidate. */
+    samplingParams?: LearnedSamplingParams;
 }
 
 export interface ComposeResult {

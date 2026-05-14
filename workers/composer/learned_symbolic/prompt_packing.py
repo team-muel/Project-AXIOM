@@ -301,7 +301,7 @@ def resolve_provider_prompt_packing_context(
     expected_section_count = len(as_list(prompt_pack.get("sections")))
     section_line_count = sum(1 for line in control_lines if line.startswith("section "))
     if expected_section_count and section_line_count != expected_section_count:
-        warnings.append(
+        raise ValueError(
             f"providerRequest section control count mismatch: expected {expected_section_count}, got {section_line_count}"
         )
 

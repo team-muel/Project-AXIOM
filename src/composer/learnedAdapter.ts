@@ -5,6 +5,7 @@ import type {
     ExpressionGuidance,
     HarmonicPlan,
     InstrumentAssignment,
+    LearnedSamplingParams,
     ModelBinding,
     MotifTransformPolicy,
     OrnamentPlan,
@@ -61,6 +62,7 @@ export interface LearnedSymbolicPromptPackSection {
     textureRoleHints?: string[];
     counterpointMode?: NonNullable<TextureGuidance["counterpointMode"]>;
     notes?: string[];
+    motifRef?: string;
 }
 
 export interface LearnedSymbolicPromptPackExpressionSection {
@@ -109,6 +111,10 @@ export interface LearnedSymbolicWorkerPayload {
     form?: string;
     attemptIndex?: number;
     candidateCount?: number;
+    /** Zero-based index of this candidate in the learned candidate pool. */
+    candidateIndex?: number;
+    /** Sampling parameters forwarded to the NotaGen backend. */
+    learnedSampling?: LearnedSamplingParams;
     revisionDirectives?: ComposeRequest["revisionDirectives"];
     sectionArtifacts?: ComposeRequest["sectionArtifacts"];
     compositionPlan?: ComposeRequest["compositionPlan"];
@@ -297,6 +303,7 @@ function buildPromptPackSections(request: ComposeRequest): LearnedSymbolicPrompt
             ? { counterpointMode: section.texture?.counterpointMode ?? fallbackTexture?.counterpointMode }
             : {}),
         ...(section.notes?.length ? { notes: [...section.notes] } : {}),
+        ...(section.motifRef ? { motifRef: section.motifRef } : {}),
     }));
 }
 
@@ -424,6 +431,21 @@ export function buildLearnedSymbolicPromptPack(request: ComposeRequest): Learned
     };
 }
 
+const LEARNED_VARIANT_KEY_RE = /^learned-(\d+)/;
+
+function deriveCandidateIndex(candidateVariantKey: string | undefined): number | undefined {
+    if (!candidateVariantKey) {
+        return undefined;
+    }
+    const match = LEARNED_VARIANT_KEY_RE.exec(candidateVariantKey);
+    if (!match) {
+        return undefined;
+    }
+    const ordinal = Number.parseInt(match[1], 10);
+    // Convert 1-based ordinal to 0-based index
+    return Number.isFinite(ordinal) && ordinal >= 1 ? ordinal - 1 : undefined;
+}
+
 export function buildLearnedSymbolicWorkerPayload(
     request: ComposeRequest,
     songId: string,
@@ -444,6 +466,8 @@ export function buildLearnedSymbolicWorkerPayload(
             .slice(0, 8),
         16,
     );
+    const candidateIndex = deriveCandidateIndex(request.candidateVariantKey);
+    const learnedSampling = request.learnedSampling;
 
     return {
         prompt: request.prompt,
@@ -452,11 +476,16 @@ export function buildLearnedSymbolicWorkerPayload(
         selectedModels: executionPlan.selectedModels.map((binding) => ({ ...binding })),
         stableSeed,
         promptPack,
-        providerRequest: buildLearnedNotagenProviderRequest(promptPack, executionPlan.selectedModels),
+        providerRequest: buildLearnedNotagenProviderRequest(promptPack, executionPlan.selectedModels, {
+            candidateIndex,
+            samplingParams: learnedSampling,
+        }),
         ...(request.key ? { key: request.key } : {}),
         ...(request.tempo !== undefined ? { tempo: request.tempo } : {}),
         ...(request.form ? { form: request.form } : {}),
         ...(request.attemptIndex !== undefined ? { attemptIndex: request.attemptIndex } : {}),
+        ...(candidateIndex !== undefined ? { candidateIndex } : {}),
+        ...(learnedSampling ? { learnedSampling } : {}),
         ...(request.revisionDirectives?.length ? { revisionDirectives: request.revisionDirectives } : {}),
         ...(request.sectionArtifacts?.length ? { sectionArtifacts: request.sectionArtifacts } : {}),
         ...(request.compositionPlan ? { compositionPlan: request.compositionPlan } : {}),

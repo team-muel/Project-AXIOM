@@ -29,3 +29,4 @@ import "./ready-status.test.mjs";
 import "./overseer-last-report.test.mjs";
 import "./learned-notagen-prompt.test.mjs";
 import "./abc-projection-pipeline.test.mjs";
+import "./learned-multi-candidate.test.mjs";
