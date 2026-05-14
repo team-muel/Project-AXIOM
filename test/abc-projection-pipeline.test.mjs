@@ -574,3 +574,116 @@ test("normalizer: proposalSections → sectionArtifacts with lead/supportEvents"
         result.proposalEvidence.normalizationWarnings?.includes("inferred_tonal_center"),
     );
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E. Phase C-2: music21 bar-duration and voice-sync validation
+// ─────────────────────────────────────────────────────────────────────────────
+
+function runDurationValidation(abcText, meterStr = "4/4") {
+    const script = `
+import sys, json
+sys.path.insert(0, "workers/composer")
+import music21
+from learned_symbolic.abc_validate import validate_bar_durations, validate_voice_synchronization
+abc = sys.stdin.read()
+score = music21.converter.parse(abc, format="abc")
+dur_warnings = validate_bar_durations(score, ${JSON.stringify(meterStr)})
+sync_warnings = validate_voice_synchronization(score)
+sys.stdout.write(json.dumps({"dur_warnings": dur_warnings, "sync_warnings": sync_warnings}))
+`.trim();
+    const res = runPython(script, abcText);
+    if (!res.stdout.trim()) throw new Error(`Python error: ${res.stderr}`);
+    return JSON.parse(res.stdout);
+}
+
+// Properly filled 4/4 bars — L:1/4 so each note = 1.0 QL
+const ABC_DURATION_GOOD = `X:1
+T:Test
+M:4/4
+L:1/4
+K:C
+V:1
+C D E F | G A B c |
+V:2
+E, F, G, A, | B, C D E |
+V:3
+C,, D,, E,, F,, | G,, A,, B,, C, |`;
+
+// Voice 3 bar 2 is short (2 beats instead of 4)
+const ABC_BAR_DURATION_BAD = `X:1
+T:Test
+M:4/4
+L:1/4
+K:C
+V:1
+C D E F | G A B c |
+V:2
+E, F, G, A, | B, C D E |
+V:3
+C,, D,, E,, F,, | G,, A,, |`;
+
+// Voices 1+2 have 2 bars, voice 3 has only 1 (sync mismatch)
+const ABC_VOICE_SYNC_BAD = `X:1
+T:Test
+M:4/4
+L:1/4
+K:C
+V:1
+C D E F | G A B c |
+V:2
+E, F, G, A, | B, C D E |
+V:3
+C,, D,, E,, F,, |`;
+
+test("Phase C-2 validate_bar_durations: properly filled 4/4 bars produce no warnings", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runDurationValidation(ABC_DURATION_GOOD, "4/4");
+    assert.deepEqual(r.dur_warnings, [], `expected no bar-duration warnings, got: ${JSON.stringify(r.dur_warnings)}`);
+});
+
+test("Phase C-2 validate_bar_durations: short bar detected with part/measure info", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runDurationValidation(ABC_BAR_DURATION_BAD, "4/4");
+    assert.ok(r.dur_warnings.length > 0, "should produce bar-duration warnings");
+    assert.ok(
+        r.dur_warnings.some((w) => /2\.0/.test(w) && /4\.0/.test(w)),
+        `warning should show 2.0 QL vs 4.0 QL; got: ${r.dur_warnings}`,
+    );
+});
+
+test("Phase C-2 validate_voice_synchronization: in-sync voices produce no warnings", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runDurationValidation(ABC_DURATION_GOOD, "4/4");
+    assert.deepEqual(r.sync_warnings, [], `expected no sync warnings, got: ${JSON.stringify(r.sync_warnings)}`);
+});
+
+test("Phase C-2 validate_voice_synchronization: measure-count mismatch detected", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    const r = runDurationValidation(ABC_VOICE_SYNC_BAD, "4/4");
+    assert.ok(r.sync_warnings.length > 0, "should produce voice-sync warnings");
+    assert.ok(
+        r.sync_warnings.some((w) => /measure count/i.test(w) || /out of sync/i.test(w)),
+        `warning should mention measure sync; got: ${r.sync_warnings}`,
+    );
+});
+
+test("Phase C-2 abc_project: bar_duration_mismatch surfaces in normalization_warnings", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    // Voice 3 bar 2 short → bar_duration_mismatch in pipeline output
+    const r = runProjection(ABC_BAR_DURATION_BAD, TWO_SECTION_SECTIONS, MINIMAL_PR);
+    assert.ok(
+        r.normalization_warnings.includes("bar_duration_mismatch"),
+        `expected bar_duration_mismatch in warnings; got: ${r.normalization_warnings}`,
+    );
+});
+
+test("Phase C-2 abc_project: voice_sync_mismatch surfaces in normalization_warnings", (t) => {
+    if (!pythonBin || !music21Available) { t.skip("music21 not available"); return; }
+    // Voice 3 only 1 bar → voice_sync_mismatch + voice_padding_inserted
+    const r = runProjection(ABC_VOICE_SYNC_BAD, MINIMAL_SECTIONS, MINIMAL_PR);
+    assert.ok(
+        r.normalization_warnings.includes("voice_sync_mismatch"),
+        `expected voice_sync_mismatch in warnings; got: ${r.normalization_warnings}`,
+    );
+});
+

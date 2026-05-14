@@ -19,6 +19,8 @@ WARN_INFERRED_TONAL_CENTER = "inferred_tonal_center"
 WARN_INSTRUMENTATION_ROLE_PROJECTION_APPROXIMATE = (
     "instrumentation_role_projection_approximate"
 )
+WARN_BAR_DURATION_MISMATCH = "bar_duration_mismatch"
+WARN_VOICE_SYNC_MISMATCH = "voice_sync_mismatch"
 
 
 class AbcVoiceStats(NamedTuple):

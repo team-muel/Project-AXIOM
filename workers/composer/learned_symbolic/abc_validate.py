@@ -4,7 +4,7 @@ Performs text-based checks (no external dependencies) on ABC notation output
 from a NotaGen-class model. When music21 is available it augments with
 precise bar-duration verification.
 
-Checks performed:
+Checks performed (text-based, always):
   1. Required header fields (X:, T:, K:, M:)
   2. Expected voice count from V: declarations
   3. Total bar count vs expected_total_bars
@@ -12,6 +12,15 @@ Checks performed:
   5. Empty voice detection (no notes or rests)
   6. Too long / too short output detection
   7. Unsupported token detection (common ABC incompatibilities)
+
+Phase C-2 checks (music21-based, require a parsed Score):
+  8. validate_bar_durations(score, meter_str):
+       For every part/measure, checks that the sum of note/rest durations
+       equals the expected quarter-length from the meter (±0.25 QL).
+       Catches incomplete bars, over-stuffed bars, and tuplet accounting errors.
+  9. validate_voice_synchronization(score):
+       Checks that all parts share the same measure count and that per-measure
+       note/rest totals match across voices (±0.25 QL).
 
 Hard failures (has_fatal_error=True):
   - Empty or whitespace-only ABC text
@@ -29,6 +38,10 @@ Soft warnings (has_fatal_error=False, but may trigger repair):
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    pass  # music21 types are duck-typed; Any is used for score parameter
 
 from .abc_types import AbcValidationReport, AbcVoiceStats
 
@@ -236,3 +249,102 @@ def validate_abc_structure(
         errors=errors,
         warnings=warnings,
     )
+
+
+# ─── Phase C-2: music21-based duration validation ─────────────────────────────
+# These functions accept a parsed music21 Score object and return lists of
+# warning strings.  They must only be called when music21 is available.
+# They never raise; all failures are returned as warning strings.
+
+_BAR_DURATION_TOLERANCE = 0.25   # quarter lengths; catches off-by-one tuplet errors
+_SYNC_DURATION_TOLERANCE = 0.25  # quarter lengths per measure across voices
+_MAX_WARNINGS_PER_CHECK = 5      # cap per function to avoid flooding normalizationWarnings
+
+
+def validate_bar_durations(score: "Any", meter_str: str) -> list[str]:
+    """Check that every measure's note/rest total matches the meter's expected QL.
+
+    Args:
+        score:      A ``music21.stream.Score`` object already parsed from ABC.
+        meter_str:  Meter string from the ABC header, e.g. ``"4/4"`` or ``"3/4"``.
+
+    Returns:
+        List of human-readable warning strings.  Empty list means all bars are
+        within tolerance.
+
+    Notes:
+        - Pickup bars (anacrusis) may be flagged; they are intentionally short.
+        - Tuplet durations are handled correctly by music21's ``quarterLength``.
+        - ``notesAndRests`` iteration includes grace notes (which have QL≈0).
+        - Chords count as a single duration element.
+    """
+    expected_ql = _parse_meter_beats(meter_str)
+    found: list[str] = []
+    try:
+        for part_idx, part in enumerate(score.parts):
+            for measure in part.getElementsByClass("Measure"):
+                actual_ql = float(
+                    sum(e.quarterLength for e in measure.notesAndRests)
+                )
+                if abs(actual_ql - expected_ql) > _BAR_DURATION_TOLERANCE:
+                    found.append(
+                        f"Part {part_idx + 1} m.{measure.number}: "
+                        f"{actual_ql:.3f} QL != {expected_ql:.3f} QL "
+                        f"(meter {meter_str})"
+                    )
+                    if len(found) >= _MAX_WARNINGS_PER_CHECK:
+                        found.append("...(further bar-duration mismatches omitted)")
+                        return found
+    except Exception as exc:  # noqa: BLE001
+        found.append(f"Bar-duration check failed: {exc}")
+    return found
+
+
+def validate_voice_synchronization(score: "Any") -> list[str]:
+    """Check that all parts share the same measure count and per-measure duration.
+
+    Args:
+        score:  A ``music21.stream.Score`` object already parsed from ABC.
+
+    Returns:
+        List of human-readable warning strings.  Empty list means all voices
+        are synchronized.
+
+    Notes:
+        - Compares only the minimum of available measure counts across parts to
+          avoid secondary cascade warnings when one part is already short.
+        - Per-measure comparison uses a tolerance of 0.25 QL so minor
+          quantization differences don't produce spurious warnings.
+    """
+    found: list[str] = []
+    try:
+        parts = list(score.parts)
+        if len(parts) < 2:
+            return found
+
+        part_measures = [list(p.getElementsByClass("Measure")) for p in parts]
+        measure_counts = [len(ms) for ms in part_measures]
+
+        if len(set(measure_counts)) > 1:
+            found.append(
+                f"Voice measure counts out of sync: {measure_counts} "
+                f"(parts {list(range(1, len(parts) + 1))})"
+            )
+
+        min_measures = min(measure_counts)
+        for m_idx in range(min_measures):
+            durs = [
+                float(sum(e.quarterLength for e in pms[m_idx].notesAndRests))
+                for pms in part_measures
+            ]
+            if max(durs) - min(durs) > _SYNC_DURATION_TOLERANCE:
+                found.append(
+                    f"m.{m_idx + 1}: voice durations out of sync "
+                    f"({[f'{d:.2f}' for d in durs]} QL)"
+                )
+                if len(found) >= _MAX_WARNINGS_PER_CHECK:
+                    found.append("...(further voice-sync mismatches omitted)")
+                    return found
+    except Exception as exc:  # noqa: BLE001
+        found.append(f"Voice-sync check failed: {exc}")
+    return found

@@ -5,6 +5,7 @@ Entry point: run_abc_projection_pipeline()
 Pipeline stages:
   1. abc_validate   — structural checks (headers, voices, bars, emptiness)
   2. abc_repair     — minimal text-based repairs
+  2b. duration validation — music21 bar-duration + voice-sync checks (when music21 available)
   3. abc_to_events  — music21 parse → per-section SectionMaterial events
   4. abc_to_midi    — music21 Score → MIDI file (only when output_path provided)
 
@@ -24,11 +25,17 @@ from typing import Any
 from . import abc_to_events
 from .abc_repair import repair_abc
 from .abc_types import (
+    WARN_BAR_DURATION_MISMATCH,
     WARN_INFERRED_TONAL_CENTER,
     WARN_INSTRUMENTATION_ROLE_PROJECTION_APPROXIMATE,
+    WARN_VOICE_SYNC_MISMATCH,
     AbcProjectionResult,
 )
-from .abc_validate import validate_abc_structure
+from .abc_validate import (
+    validate_abc_structure,
+    validate_bar_durations,
+    validate_voice_synchronization,
+)
 
 
 # ─── providerRequest helpers ─────────────────────────────────────────────────
@@ -187,6 +194,29 @@ def run_abc_projection_pipeline(
 
     working_abc = repair_result.repaired_abc
     warnings.extend(repair_result.repairs_applied)
+
+    # ── Stage 2b: music21 duration validation ────────────────────────────────
+    # Parse the repaired ABC once with music21 to check:
+    #   a) every measure's note/rest total matches the meter's expected QL
+    #   b) all voices share the same measure count and per-measure duration
+    # music21 may not be installed; skip silently in that case.
+    # abc_to_events.convert() will re-parse; we accept the double-parse cost
+    # so that the validation warnings are populated regardless of later failures.
+    try:
+        import music21  # noqa: PLC0415
+
+        _score = music21.converter.parse(working_abc, format="abc")
+        _dur_detail = validate_bar_durations(_score, meter_str)
+        _sync_detail = validate_voice_synchronization(_score)
+        if _dur_detail:
+            warnings.append(WARN_BAR_DURATION_MISMATCH)
+            warnings.extend(_dur_detail)
+        if _sync_detail:
+            warnings.append(WARN_VOICE_SYNC_MISMATCH)
+            warnings.extend(_sync_detail)
+    except Exception:  # noqa: BLE001
+        # music21 unavailable or ABC unparseable — skip duration checks.
+        pass
 
     # ── Stage 3: Convert to SectionMaterial events ───────────────────────────
     try:
