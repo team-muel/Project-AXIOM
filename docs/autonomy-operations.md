@@ -181,6 +181,7 @@ MCP에서도 같은 정보와 제어를 쓸 수 있다.
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
 | `LEARNED_SYMBOLIC_BACKEND` | `template` | `template` \| `notagen_mock` \| `notagen_local` |
+| `NOTAGEN_ENGINE` | `hf_causal_lm` | `hf_causal_lm` \| `notagen_native` (notagen_local 전용) |
 | `NOTAGEN_MODEL_PATH` | _(없음)_ | notagen_local 전용: checkpoint 디렉터리 또는 `.pt` 파일 경로 |
 | `NOTAGEN_TOKENIZER_PATH` | _(없음)_ | notagen_local 전용: tokenizer 경로 (미설정 시 `NOTAGEN_MODEL_PATH` 공유) |
 | `NOTAGEN_DEVICE` | `cpu` | `cpu` \| `cuda` \| `mps` |
@@ -193,6 +194,15 @@ MCP에서도 같은 정보와 제어를 쓸 수 있다.
 - **`template` (기본값)**: music21 symbolic path를 사용한다. NotaGen은 로드되지 않으며 `ok=false` 반환 없이 정상 동작한다.
 - **`notagen_mock`**: 모델을 로드하지 않고 deterministic mock ABC를 반환한다. CI/CD 및 통합 테스트에 사용한다.
 - **`notagen_local`**: `NOTAGEN_MODEL_PATH`의 checkpoint를 lazy-load singleton으로 관리하며 실제 inference를 수행한다. inference 실패는 `ok=false`로 반환하여 worker process crash를 방지한다.
+
+### Inference Engine (`NOTAGEN_ENGINE`)
+
+`notagen_local` 모드에서 `NOTAGEN_ENGINE`으로 inference 구현을 선택한다.
+
+- **`hf_causal_lm` (기본값)**: 범용 HuggingFace `AutoModelForCausalLM` 경로. HuggingFace 호환 checkpoint라면 어떤 레이아웃이든 동작한다. stop sequence, bar-count budgeting, NotaGen 전용 tokenisation 미지원 — 프로토타이핑용.
+- **`notagen_native`**: 공식 NotaGen repo의 `generate()` API를 사용한다. `notagen_native_engine` 패키지(공식 NotaGen repo에서 설치)가 필요하며 ABC 특화 tokenisation, bar-stream patching, hierarchical decoding, stop sequence를 지원한다. 프로덕션 품질 inference에 사용한다.
+
+`generationMode` 메타데이터에 엔진 이름이 포함된다 (예: `notagen_abc_inference_hf_causal_lm`, `notagen_abc_inference_notagen_native`). benchmark 파이프라인에서 엔진별로 결과를 분리할 때 사용한다.
 
 ### Readiness 신호
 
@@ -209,6 +219,14 @@ MCP에서도 같은 정보와 제어를 쓸 수 있다.
 ```bash
 pip install -r workers/requirements-notagen.txt
 export LEARNED_SYMBOLIC_BACKEND=notagen_local
+
+# hf_causal_lm (기본, 프로토타이핑용)
+export NOTAGEN_ENGINE=hf_causal_lm
+export NOTAGEN_MODEL_PATH=/path/to/notagen-checkpoint
+
+# notagen_native (프로덕션 품질)
+# pip install -e /path/to/notagen-repo  # notagen_native_engine 설치
+export NOTAGEN_ENGINE=notagen_native
 export NOTAGEN_MODEL_PATH=/path/to/notagen-checkpoint
 ```
 
