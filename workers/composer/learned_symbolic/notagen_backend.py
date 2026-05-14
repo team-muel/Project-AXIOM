@@ -31,8 +31,8 @@ Supports two runtime modes controlled by LEARNED_SYMBOLIC_BACKEND:
         bar-stream patching, and hierarchical decoding.
 
       notagen_native
-        Uses the NotaGen repo's own generate() API via a thin adapter in
-        notagen_native_engine.py. Expects the checkpoint to follow the
+        Uses the official NotaGen hierarchical decoder via a thin adapter in
+        notagen_engines/notagen_native.py. Expects the checkpoint to follow the
         official NotaGen layout and uses the paper's ABC-specialised
         tokeniser and generation loop (stop sequences, bar-count budget,
         etc.). Use this engine for production-quality inference.
@@ -184,194 +184,20 @@ def _validate_model_path() -> tuple[str, str, str]:
     return model_path, tokenizer_path, device_str
 
 
-def _load_model_hf_causal_lm(
-    model_path: str,
-    tokenizer_path: str,
-    device_str: str,
-) -> tuple[Any, Any, str]:
-    """Load checkpoint via generic HuggingFace AutoModelForCausalLM.
-
-    This is an experimental path suitable for prototyping with any
-    HuggingFace-compatible layout. It does NOT implement NotaGen-specific
-    tokenisation, stop sequences, or bar-count budgeting.
-
-    Returns (model, tokenizer, device_str).
-    """
-    try:
-        import torch  # type: ignore[import]
-        from transformers import (  # type: ignore[import]
-            AutoModelForCausalLM,
-            AutoTokenizer,
-        )
-    except ImportError as exc:
-        raise ImportError(
-            f"NOTAGEN_ENGINE=hf_causal_lm requires 'torch' and 'transformers': {exc}. "
-            "Install requirements-notagen.txt or set LEARNED_SYMBOLIC_BACKEND=template."
-        ) from exc
-
-    device = torch.device(device_str)
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, use_fast=True)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        torch_dtype=torch.float16 if device_str in ("cuda", "mps") else torch.float32,
-        low_cpu_mem_usage=True,
-    )
-    model.to(device)
-    model.eval()
-    return model, tokenizer, device_str
-
-
-def _load_model_notagen_native(
-    model_path: str,
-    tokenizer_path: str,
-    device_str: str,
-) -> tuple[Any, Any, str]:
-    """Load checkpoint via the NotaGen repo's native API.
-
-    Expects a notagen_native_engine module (e.g. installed from the official
-    NotaGen repo) that exposes:
-
-        notagen_native_engine.load_model(
-            model_path, tokenizer_path, device
-        ) -> (model, tokenizer)
-
-    The module must implement NotaGen's ABC-specialised tokeniser and the
-    official generate() interface (stop sequences, bar-count budget,
-    hierarchical decoding).
-
-    Returns (model, tokenizer, device_str).
-    """
-    try:
-        import notagen_native_engine  # type: ignore[import]
-    except ImportError as exc:
-        raise ImportError(
-            "NOTAGEN_ENGINE=notagen_native requires the 'notagen_native_engine' "
-            "package from the official NotaGen repository. "
-            f"Install it or switch to NOTAGEN_ENGINE=hf_causal_lm: {exc}"
-        ) from exc
-
-    model, tokenizer = notagen_native_engine.load_model(
-        model_path, tokenizer_path, device_str
-    )
-    return model, tokenizer, device_str
-
-
 def _load_model() -> tuple[Any, Any, str, str]:
     """Load the NotaGen model, routing to the engine specified by NOTAGEN_ENGINE.
 
-    Returns (model, tokenizer, device_str, engine_name).
+    Delegates to ``notagen_engines.load_engine_model()`` for the engine-specific
+    load logic.  Returns (model, tokenizer, device_str, engine_name).
     """
     engine = _engine_name()
     model_path, tokenizer_path, device_str = _validate_model_path()
-
-    if engine == "notagen_native":
-        model, tokenizer, device_str = _load_model_notagen_native(
-            model_path, tokenizer_path, device_str
-        )
-    else:
-        # hf_causal_lm — default / fallback
-        model, tokenizer, device_str = _load_model_hf_causal_lm(
-            model_path, tokenizer_path, device_str
-        )
-
+    from .notagen_engines import load_engine_model  # noqa: PLC0415
+    model, tokenizer = load_engine_model(engine, model_path, tokenizer_path, device_str)
     return model, tokenizer, device_str, engine
 
 
 # ─── Local inference ──────────────────────────────────────────────────────────
-
-def _run_inference_hf_causal_lm(
-    model: Any,
-    tokenizer: Any,
-    device_str: str,
-    abc_header: str,
-    *,
-    seed: int,
-    temperature: float,
-    top_p: float,
-    top_k: int,
-    repetition_penalty: float,
-    max_tokens: int,
-) -> str:
-    """Run one inference pass with the generic HuggingFace causal LM path.
-
-    Returns the generated ABC body text (tokens appended after the prompt).
-    No stop-sequence or bar-count logic is applied; the model generates until
-    max_new_tokens is reached or the EOS token is emitted.
-    """
-    import torch  # type: ignore[import]
-
-    torch.manual_seed(seed)
-    if device_str == "cuda":
-        torch.cuda.manual_seed_all(seed)
-
-    inputs = tokenizer(abc_header, return_tensors="pt")
-    input_ids = inputs["input_ids"].to(device_str)
-
-    with torch.no_grad():
-        output_ids = model.generate(
-            input_ids,
-            max_new_tokens=max_tokens,
-            do_sample=temperature > 0,
-            temperature=temperature if temperature > 0 else 1.0,
-            top_p=top_p,
-            top_k=top_k,
-            repetition_penalty=repetition_penalty,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-
-    generated_ids = output_ids[0, input_ids.shape[1]:]
-    return tokenizer.decode(generated_ids, skip_special_tokens=True)
-
-
-def _run_inference_notagen_native(
-    model: Any,
-    tokenizer: Any,
-    device_str: str,
-    abc_header: str,
-    *,
-    seed: int,
-    temperature: float,
-    top_p: float,
-    top_k: int,
-    repetition_penalty: float,
-    max_tokens: int,
-) -> str:
-    """Run one inference pass via the NotaGen repo's native generate() API.
-
-    Expects the loaded model/tokenizer to follow the official NotaGen interface:
-
-        notagen_native_engine.generate(
-            model, tokenizer, prompt, seed, temperature, top_p, top_k,
-            repetition_penalty, max_tokens
-        ) -> abc_body_str
-
-    The native engine is responsible for:
-      - ABC-specialised tokenisation
-      - Bar-stream patching / hierarchical decoding
-      - Stop-sequence handling (e.g., end-of-score token)
-      - Section-count and bar-count budgeting
-
-    Returns the generated ABC body text.
-    """
-    try:
-        import notagen_native_engine  # type: ignore[import]
-    except ImportError as exc:
-        raise RuntimeError(
-            f"notagen_native_engine not importable at inference time: {exc}"
-        ) from exc
-
-    return notagen_native_engine.generate(
-        model,
-        tokenizer,
-        abc_header,
-        seed=seed,
-        temperature=temperature,
-        top_p=top_p,
-        top_k=top_k,
-        repetition_penalty=repetition_penalty,
-        max_tokens=max_tokens,
-    )
-
 
 def _run_inference_inline(
     abc_header: str,
@@ -385,29 +211,24 @@ def _run_inference_inline(
 ) -> str:
     """Run one NotaGen inference pass inline (in the current process).
 
-    Called by the subprocess worker (_notagen_inference_worker.py) which
-    runs in a separate process that the parent can hard-kill on timeout.
+    Called by the subprocess worker (_notagen_inference_worker.py) which runs
+    in a separate process that the parent can hard-kill on timeout.
     Do NOT call this directly from NotagenBackend — use _run_local_inference()
     which goes through _InferenceSubprocessManager for hard-timeout enforcement.
+
+    Delegates to ``notagen_engines.run_engine_generate()`` for engine-specific
+    inference logic.
 
     Returns the generated ABC body text.
     Raises RuntimeError on any model/tokenizer failure.
     """
-    model, tokenizer, device_str, engine = _ModelSingleton.get()
-
-    if engine == "notagen_native":
-        return _run_inference_notagen_native(
-            model, tokenizer, device_str, abc_header,
-            seed=seed,
-            temperature=temperature,
-            top_p=top_p,
-            top_k=top_k,
-            repetition_penalty=repetition_penalty,
-            max_tokens=max_tokens,
-        )
-
-    return _run_inference_hf_causal_lm(
-        model, tokenizer, device_str, abc_header,
+    model, tokenizer, _device_str, engine = _ModelSingleton.get()
+    from .notagen_engines import run_engine_generate  # noqa: PLC0415
+    return run_engine_generate(
+        engine,
+        model,
+        tokenizer,
+        abc_header,
         seed=seed,
         temperature=temperature,
         top_p=top_p,
@@ -594,68 +415,6 @@ def _run_local_inference(
     return abc_text
 
 
-# ─── Mock ABC builder ─────────────────────────────────────────────────────────
-
-def _build_mock_abc(context: ProviderPromptPackingContext, candidate_seed: int) -> str:
-    """Return a deterministic minimal ABC score for testing.
-
-    The content is just enough to pass Phase C validation: valid headers
-    with three voices and a minimal melody per section.  The actual pitches
-    are derived from the seed so different candidates differ.
-    """
-    control_lines = context.get("controlLines") or []
-
-    # Extract key/meter/tempo from control lines
-    key_val = "C"
-    meter_val = "4/4"
-    tempo_val = "92"
-    for line in control_lines:
-        if line.startswith("key="):
-            key_val = line[4:].strip() or key_val
-        elif line.startswith("meter="):
-            meter_val = line[6:].strip() or meter_val
-        elif line.startswith("tempo="):
-            tempo_val = line[6:].strip() or tempo_val
-
-    # Count expected sections from the conditioning header
-    abc_header = build_abc_header(context)
-    section_count = max(1, sum(
-        1 for line in abc_header.splitlines() if line.startswith("%% axiom_section")
-    ))
-
-    # Pitch pool — offset by seed for variety
-    pitch_pool = ["C", "D", "E", "F", "G", "A", "B"]
-    root_idx = candidate_seed % len(pitch_pool)
-    lead_pitch = pitch_pool[root_idx]
-    counter_pitch = pitch_pool[(root_idx + 2) % len(pitch_pool)]
-    bass_pitch = pitch_pool[(root_idx + 4) % len(pitch_pool)].lower()
-
-    # Build a 4-bar pattern per section
-    one_bar = f"{lead_pitch}4 {lead_pitch}4 {lead_pitch}4 {lead_pitch}4"
-    four_bars = " | ".join([one_bar] * 4) + " |"
-
-    counter_bar = f"{counter_pitch}4 {counter_pitch}4 {counter_pitch}4 {counter_pitch}4"
-    counter_bars = " | ".join([counter_bar] * 4) + " |"
-
-    bass_bar = f"{bass_pitch}2 {bass_pitch}2 {bass_pitch}2 {bass_pitch}2"
-    bass_bars = " | ".join([bass_bar] * 4) + " |"
-
-    body_sections = "\n".join([
-        f"%% axiom_section id=s{i + 1}\n"
-        f"[V:V1]{four_bars}\n"
-        f"[V:V2]{counter_bars}\n"
-        f"[V:V3]{bass_bars}"
-        for i in range(section_count)
-    ])
-
-    return (
-        f"X:1\nT:AXIOM Mock Candidate {candidate_seed}\n"
-        f"M:{meter_val}\nL:1/4\nQ:{tempo_val}\nK:{key_val}\n"
-        f"V:V1 name=Violin\nV:V2 name=Viola\nV:V3 name=Cello\n"
-        f"{body_sections}\n"
-    )
-
-
 # ─── Backend class ────────────────────────────────────────────────────────────
 
 class NotagenBackend:
@@ -798,7 +557,8 @@ class NotagenBackend:
         candidate_seed: int,
         candidate_index: int,
     ) -> LearnedSymbolicBackendResult:
-        mock_abc = _build_mock_abc(context, candidate_seed)
+        from .notagen_engines.mock import build_mock_abc  # noqa: PLC0415
+        mock_abc = build_mock_abc(context, candidate_seed)
         sections = list(payload.get("promptPack", {}).get("sections") or [])
         output_path: str | None = str(payload.get("outputPath") or "") or None
         keep_artifacts = (
