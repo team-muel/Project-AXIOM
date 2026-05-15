@@ -23,6 +23,11 @@
  * 17. computeRerankerScore: returns null when feature count mismatches snapshot
  * 18. computePreferenceScore: weightSource is "reranker" when valid snapshot provided
  * 19. selectPreferredCandidate: picks candidate with highest reranker logit when snapshot present
+ *
+ * Global feedback history tests (20–22):
+ * 20. loadGlobalFeedbackHistory: returns empty array when outputDir does not exist
+ * 21. loadGlobalFeedbackHistory: collects records from multiple song directories
+ * 22. selectPreferredCandidate: uses global feedback when ≥ MIN_FEEDBACK_SAMPLES across songs
  */
 
 import test from "node:test";
@@ -36,6 +41,7 @@ const {
     computePreferenceScore,
     computeRerankerScore,
     loadFeedbackHistory,
+    loadGlobalFeedbackHistory,
     loadRerankerSnapshot,
     selectPreferredCandidate,
     CRAFT_HARD_FILTER_THRESHOLDS,
@@ -507,4 +513,110 @@ test("selectPreferredCandidate: picks candidate with highest reranker logit when
         "reranker with strong cadence weight must pick high-cadence candidate");
     assert.equal(result.weightSource, "reranker",
         "weightSource must be reranker");
+});
+
+// ---------------------------------------------------------------------------
+// 20. loadGlobalFeedbackHistory: returns empty for non-existent outputDir
+// ---------------------------------------------------------------------------
+test("loadGlobalFeedbackHistory: returns empty array when outputDir does not exist", async () => {
+    const { config } = await import("../dist/config.js");
+    const realOutputDir = config.outputDir;
+    config.outputDir = path.join(os.tmpdir(), "axiom-no-such-dir-" + Date.now());
+    try {
+        const result = loadGlobalFeedbackHistory();
+        assert.ok(Array.isArray(result), "must return an array");
+        assert.equal(result.length, 0, "must be empty for non-existent directory");
+    } finally {
+        config.outputDir = realOutputDir;
+    }
+});
+
+// ---------------------------------------------------------------------------
+// 21. loadGlobalFeedbackHistory: collects records across multiple songs
+// ---------------------------------------------------------------------------
+test("loadGlobalFeedbackHistory: collects feedback records from multiple song directories", async () => {
+    const { config } = await import("../dist/config.js");
+    const realOutputDir = config.outputDir;
+    const tmpDir = makeTmpDir();
+    config.outputDir = tmpDir;
+    try {
+        // Song A — 2 rated candidates
+        writeCandidateManifest(tmpDir, "song-a", "cand-1", {
+            listenerFeedback: { appeal: 5 },
+            internalScores: { cadenceStrength: 0.9 },
+        });
+        writeCandidateManifest(tmpDir, "song-a", "cand-2", {
+            listenerFeedback: { appeal: 2 },
+            internalScores: { cadenceStrength: 0.3 },
+        });
+        // Song B — 1 rated candidate
+        writeCandidateManifest(tmpDir, "song-b", "cand-3", {
+            listenerFeedback: { appeal: 4 },
+            internalScores: { cadenceStrength: 0.8 },
+        });
+        // _system dir — must be skipped
+        fs.mkdirSync(path.join(tmpDir, "_system", "song-x", "candidates", "c"), { recursive: true });
+
+        const history = loadGlobalFeedbackHistory();
+        assert.equal(history.length, 3, `expected 3 global records; got ${history.length}`);
+        const candidateIds = history.map((r) => r.candidateId).sort();
+        assert.deepEqual(candidateIds, ["cand-1", "cand-2", "cand-3"]);
+    } finally {
+        config.outputDir = realOutputDir;
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+// ---------------------------------------------------------------------------
+// 22. selectPreferredCandidate: uses global history when ≥ MIN_FEEDBACK_SAMPLES
+// ---------------------------------------------------------------------------
+test("selectPreferredCandidate: uses global feedback (learned weights) when enough cross-song history exists", async () => {
+    const { config } = await import("../dist/config.js");
+    const realOutputDir = config.outputDir;
+    const tmpDir = makeTmpDir();
+    config.outputDir = tmpDir;
+    try {
+        // Write 6 rated manifests across 3 different songs (not the test song),
+        // all strongly preferring high cadenceStrength.
+        for (let i = 0; i < 6; i++) {
+            const appeal = i % 2 === 0 ? 5 : 1;
+            // High appeal → high cadenceStrength, low appeal → low cadenceStrength
+            const cadence = appeal === 5 ? 0.9 : 0.2;
+            writeCandidateManifest(tmpDir, `global-song-${i}`, `cand-g${i}`, {
+                listenerFeedback: { appeal },
+                internalScores: {
+                    cadenceStrength: cadence,
+                    tonalReturn: cadence,
+                    voiceIndependence: cadence,
+                    motifSurvival: cadence,
+                    phraseShape: cadence,
+                    registerIdiomaticFit: cadence,
+                    sectionContractFit: cadence,
+                    syntaxValidity: cadence,
+                },
+            });
+        }
+
+        // Test song itself has NO feedback (cold-start for this song alone)
+        const songId = "new-song-" + Date.now();
+
+        const shortlist = [
+            { candidateId: "low-cadence",  craftSummary: makeCraftSummary({ cadenceStrength: 0.1 }) },
+            { candidateId: "high-cadence", craftSummary: makeCraftSummary({ cadenceStrength: 0.95 }) },
+        ];
+
+        const result = selectPreferredCandidate(shortlist, songId, undefined, null);
+
+        // The global history should trigger "learned" weight computation
+        assert.equal(result.weightSource, "learned",
+            `weightSource must be "learned" when global history is present; got "${result.weightSource}"`);
+        assert.ok(result.globalFeedbackSamples >= 6,
+            `globalFeedbackSamples must be ≥ 6; got ${result.globalFeedbackSamples}`);
+        // With globally-learned weights favouring high-cadence candidates:
+        assert.equal(result.selectedCandidateId, "high-cadence",
+            "global learned weights must favour the high-cadence candidate");
+    } finally {
+        config.outputDir = realOutputDir;
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
 });

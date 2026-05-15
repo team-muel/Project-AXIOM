@@ -35,4 +35,6 @@ import "./craft-score.test.mjs";
 import "./listener-feedback.test.mjs";
 import "./notagen-backend.test.mjs";
 import "./preference-model.test.mjs";
+import "./notagen-preference-export-script.test.mjs";
+import "./python-worker-compile.test.mjs";
 

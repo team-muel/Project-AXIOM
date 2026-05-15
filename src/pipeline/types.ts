@@ -1261,6 +1261,17 @@ export interface ComposeProposalEvidence {
     candidateIndex?: number;
     /** Sampling parameters used to generate this candidate. */
     samplingParams?: LearnedSamplingParams;
+    /**
+     * Full prompt pack payload used for this candidate.
+     * Stored as opaque JSON so DPO export and fine-tuning tools can reconstruct the exact
+     * conditioning input without traversing the generation trace.
+     */
+    promptPack?: Record<string, unknown>;
+    /**
+     * Full provider request payload (control lines, conditioning text, ABC header, etc.)
+     * used for this candidate.  Mirrors promptPack — the "input" side of each DPO pair.
+     */
+    providerRequest?: Record<string, unknown>;
 }
 
 export interface ComposeResult {

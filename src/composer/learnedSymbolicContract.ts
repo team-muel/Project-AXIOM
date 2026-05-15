@@ -1,4 +1,4 @@
-import type { SectionTransformSummary } from "../pipeline/types.js";
+import type { SectionTransformSummary, TonicizationWindow } from "../pipeline/types.js";
 
 export interface LearnedSymbolicProposalEvent {
     kind: "note" | "chord" | "rest";
@@ -32,6 +32,7 @@ export interface LearnedSymbolicProposalSection {
     phrasePeaks?: number[];
     secondaryLineMotif?: number[];
     rhythmicDensity?: number;
+    tonicizationWindows?: TonicizationWindow[];
 }
 
 /**
@@ -179,6 +180,23 @@ function validateProposalSection(section: unknown, index: number): void {
     record.supportEvents.forEach((event, eventIndex) => validateProposalEvent(event, `${label}.supportEvents[${eventIndex}]`));
     if (record.transform !== undefined) {
         validateTransform(record.transform, `${label}.transform`);
+    }
+    if (record.tonicizationWindows !== undefined) {
+        if (!Array.isArray(record.tonicizationWindows)) {
+            throw new Error(`malformed learned symbolic response: ${label}.tonicizationWindows must be an array when present`);
+        }
+        for (let i = 0; i < record.tonicizationWindows.length; i++) {
+            const win = asRecord(record.tonicizationWindows[i]);
+            if (!win || typeof win.keyTarget !== "string") {
+                throw new Error(`malformed learned symbolic response: ${label}.tonicizationWindows[${i}].keyTarget must be a string`);
+            }
+            if (win.startMeasure !== undefined && !isFiniteNumber(win.startMeasure)) {
+                throw new Error(`malformed learned symbolic response: ${label}.tonicizationWindows[${i}].startMeasure must be numeric when present`);
+            }
+            if (win.endMeasure !== undefined && !isFiniteNumber(win.endMeasure)) {
+                throw new Error(`malformed learned symbolic response: ${label}.tonicizationWindows[${i}].endMeasure must be numeric when present`);
+            }
+        }
     }
 }
 

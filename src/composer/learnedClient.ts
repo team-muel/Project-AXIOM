@@ -90,5 +90,5 @@ export async function composeWithLearnedSymbolic(
         outputPath: midiOutputPath,
     });
 
-    return normalizeLearnedSymbolicResponse(result, request, songId, executionPlan, workerPayload.promptPack);
+    return normalizeLearnedSymbolicResponse(result, request, songId, executionPlan, workerPayload.promptPack, workerPayload.providerRequest);
 }

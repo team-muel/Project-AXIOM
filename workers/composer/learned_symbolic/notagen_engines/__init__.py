@@ -22,6 +22,7 @@ Environment variable
 --------------------
 NOTAGEN_ENGINE    hf_causal_lm | notagen_native  (default: hf_causal_lm)
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -63,7 +64,10 @@ def run_engine_generate(
     """Generate ABC text using the named engine.
 
     Dispatches to the engine-specific ``generate()`` function.
-    Returns the generated ABC body text string.
+
+    Returns the generated ABC text.  The exact contract is engine-dependent:
+    - ``hf_causal_lm``: returns the ABC body only (continuation after the prompt).
+    - ``notagen_native``: returns the full ABC score (``X:1``, headers, and body).
     """
     if engine == "notagen_native":
         from .notagen_native import generate  # noqa: PLC0415

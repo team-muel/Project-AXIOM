@@ -518,3 +518,212 @@ test("prompt_packing: matching section count is accepted", (t) => {
     const result = runPromptPackingValidation(payload);
     assert.equal(result.ok, true, `should be accepted; error: ${result.error}`);
 });
+
+// ─── Python abc_conditioning.py: control line preservation ───────────────────
+
+/**
+ * Run build_abc_header() via Python subprocess.
+ * @param {object} context  ProviderPromptPackingContext-shaped dict
+ * @returns {{ stdout: string, stderr: string, status: number }}
+ */
+function runBuildAbcHeader(context) {
+    if (!pythonBin) throw new Error("No Python binary found.");
+    const script = [
+        "import sys, json",
+        'sys.path.insert(0, "workers/composer")',
+        "from learned_symbolic.abc_conditioning import build_abc_header",
+        "ctx = json.load(sys.stdin)",
+        "sys.stdout.write(build_abc_header(ctx))",
+    ].join("\n");
+    const result = spawnSync(pythonBin, ["-c", script], {
+        cwd: repoRoot,
+        stdio: ["pipe", "pipe", "pipe"],
+        input: JSON.stringify(context),
+        encoding: "utf8",
+    });
+    if (result.error) throw result.error;
+    return { stdout: result.stdout ?? "", stderr: result.stderr ?? "", status: result.status };
+}
+
+/** Build a minimal ProviderPromptPackingContext with given controlLines. */
+function makeAbcHeaderContext(overrides = {}) {
+    const sig = "lane=string_trio_symbolic|form=miniature|key=g minor|sig=aabb";
+    return {
+        adapter: "notagen_class",
+        version: "learned_notagen_adapter_v1",
+        provider: "learned",
+        model: "learned-symbolic-trio-v1",
+        promptPackVersion: "learned_symbolic_prompt_pack_v1",
+        planSignature: sig,
+        conditioningText:
+            "Generate interleaved ABC notation for a classical string trio miniature in G minor, 3/4, 84 BPM. Preserve the section plan.",
+        controlLines: [
+            "lane=string_trio_symbolic",
+            `plan_signature=${sig}`,
+            "prompt_pack_version=learned_symbolic_prompt_pack_v1",
+            "abc_format=interleaved",
+            "form=miniature",
+            "key=Gmin",
+            "meter=3/4",
+            "tempo=84",
+            "instrumentation=Violin:lead,Viola:counterline,Cello:bass",
+            "section id=s1 role=theme_a label=Theme measures=4 motif_ref=none energy=0.5 density=0.4",
+        ],
+        lane: "string_trio_symbolic",
+        warnings: [],
+        ...overrides,
+    };
+}
+
+test("abc_conditioning: meter from control line, not hardcoded 4/4", (t) => {
+    if (!pythonBin) { t.skip("No Python binary available"); return; }
+    const ctx = makeAbcHeaderContext();
+    const r = runBuildAbcHeader(ctx);
+    assert.equal(r.status, 0, `build_abc_header failed: ${r.stderr}`);
+    // Should use meter=3/4 from controlLines, not the hardcoded M:4/4
+    assert.match(r.stdout, /^M:3\/4$/m, "header must use meter from control lines");
+    assert.ok(!r.stdout.includes("M:4/4"), "must NOT hardcode 4/4 when meter=3/4 is in controlLines");
+});
+
+test("abc_conditioning: instrumentation control line preserved as %% comment", (t) => {
+    if (!pythonBin) { t.skip("No Python binary available"); return; }
+    const ctx = makeAbcHeaderContext();
+    const r = runBuildAbcHeader(ctx);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(
+        r.stdout,
+        /^%% instrumentation=Violin:lead,Viola:counterline,Cello:bass$/m,
+        "instrumentation= control line must appear as %% comment in ABC header",
+    );
+});
+
+test("abc_conditioning: all non-section control lines appear as %% comments", (t) => {
+    if (!pythonBin) { t.skip("No Python binary available"); return; }
+    const ctx = makeAbcHeaderContext();
+    const r = runBuildAbcHeader(ctx);
+    assert.equal(r.status, 0, r.stderr);
+    // These non-section lines must all appear as %% key=value comments
+    const expectedLines = [
+        "%% lane=string_trio_symbolic",
+        "%% prompt_pack_version=learned_symbolic_prompt_pack_v1",
+        "%% abc_format=interleaved",
+        "%% form=miniature",
+        "%% key=Gmin",
+        "%% meter=3/4",
+        "%% tempo=84",
+        "%% instrumentation=Violin:lead,Viola:counterline,Cello:bass",
+    ];
+    for (const expected of expectedLines) {
+        assert.ok(
+            r.stdout.includes(expected),
+            `header must contain "${expected}", got:\n${r.stdout}`,
+        );
+    }
+    // plan_signature is encoded in C: — it must NOT also duplicate as a raw %% line
+    // (it's acceptable but we verify C: is there)
+    assert.match(r.stdout, /^C:AXIOM plan_signature=/m, "C: field must encode plan_signature");
+});
+
+test("abc_conditioning: section lines still appear as %% axiom_section", (t) => {
+    if (!pythonBin) { t.skip("No Python binary available"); return; }
+    const ctx = makeAbcHeaderContext();
+    const r = runBuildAbcHeader(ctx);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^%% axiom_section id=s1/m, "section line must be emitted as %% axiom_section");
+    // Must NOT emit "section id=s1 ..." verbatim (without the axiom_section prefix)
+    assert.ok(
+        !r.stdout.split("\n").some((l) => l.startsWith("%% section ")),
+        "section lines must be emitted as '%% axiom_section', not '%% section'",
+    );
+});
+
+test("abc_conditioning: missing meter falls back to 4/4 (no meter= in controlLines)", (t) => {
+    if (!pythonBin) { t.skip("No Python binary available"); return; }
+    const ctx = makeAbcHeaderContext({
+        conditioningText:
+            "Generate interleaved ABC notation for a classical string trio miniature in G minor, 92 BPM.",
+        controlLines: [
+            "lane=string_trio_symbolic",
+            "plan_signature=x",
+            "section id=s1 role=theme_a label=Theme measures=4 motif_ref=none energy=0.5 density=0.4",
+        ],
+    });
+    const r = runBuildAbcHeader(ctx);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^M:4\/4$/m, "should default to M:4/4 when no meter= control line");
+});
+
+// ─── Bug 3: notagen_native silently drops <AXIOM_REWRITE> block ───────────────
+// Verifies that _generate_local() detects the native engine + rewrite_block
+// combination, strips the rewrite block from the prompt, downgrades
+// generation_mode to a full-regen label, and surfaces a warning on the result.
+
+test("notagen_backend: notagen_native + rewrite_block → warning + full-regen mode (Python)", (t) => {
+    if (!pythonBin) { t.skip("No Python binary available"); return; }
+    const script = `
+import sys, types, json
+sys.path.insert(0, "workers/composer")
+from unittest.mock import patch, MagicMock
+import learned_symbolic.notagen_backend as nb
+
+ABC_HEADER = "X:1\\nT:Test\\nM:3/4\\nL:1/8\\nK:Gmin\\n%% instrumentation=Violin,Viola,Cello\\n"
+REWRITE_BLOCK = "<AXIOM_REWRITE>\\nrewrite_sections=s2\\nkeep_sections=s1,s3\\n</AXIOM_REWRITE>"
+
+# Minimal projection result stub
+proj_result = MagicMock()
+proj_result.ok = True
+proj_result.error = None
+proj_result.normalization_warnings = []
+proj_result.midi_path = None
+proj_result.proposal_sections = [{"sectionId": "s1", "noteHistory": [], "measureCount": 2}]
+
+captured_prompt = []
+
+def fake_inference(prompt, **kwargs):
+    captured_prompt.append(prompt)
+    # Return a minimal valid ABC full score (as notagen_native would)
+    return "X:1\\nT:Test\\nM:3/4\\nL:1/8\\nK:Gmin\\n|:G4:|]"
+
+backend = nb.NotagenBackend()
+with patch.object(nb, "_engine_name", return_value="notagen_native"), \\
+     patch.object(nb, "_run_local_inference", side_effect=fake_inference), \\
+     patch.object(nb, "run_abc_projection_pipeline", return_value=proj_result):
+    result = backend._generate_local(
+        payload={"promptPack": {"sections": [{"sectionId": "s1", "role": "theme_a"}]}},
+        provider_request={},
+        context=MagicMock(),
+        model="test-model",
+        generation_mode="targeted_section_rewrite_notagen_native",
+        abc_header=ABC_HEADER,
+        rewrite_block=REWRITE_BLOCK,
+        rewrite_spec={"rewriteSectionIds": ["s2"], "keepSectionIds": ["s1", "s3"]},
+        is_localized_rewrite=True,
+        candidate_seed=42,
+        candidate_index=0,
+        temperature=0.8,
+        top_p=0.9,
+        top_k=50,
+        repetition_penalty=1.0,
+        max_tokens=512,
+    )
+
+assert "notagen_native_rewrite_block_ignored_full_regen" in result.warnings, \\
+    f"Expected warning not found; warnings={result.warnings}"
+assert result.generation_mode == "notagen_abc_inference_notagen_native", \\
+    f"Expected full-regen generation_mode, got: {result.generation_mode}"
+assert len(captured_prompt) >= 1, "inference must have been called at least once"
+assert REWRITE_BLOCK not in captured_prompt[0], \\
+    f"rewrite_block must NOT appear in prompt passed to inference; got:\\n{captured_prompt[0][:300]}"
+assert ABC_HEADER.strip() in captured_prompt[0] or captured_prompt[0].startswith("X:"), \\
+    f"prompt must start with ABC header; got:\\n{captured_prompt[0][:300]}"
+print("PASS")
+`;
+    const r = spawnSync(pythonBin, ["-c", script], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        timeout: 15000,
+        stdio: ["pipe", "pipe", "pipe"],
+    });
+    assert.equal(r.status, 0, `Python test failed:\nstdout: ${r.stdout}\nstderr: ${r.stderr}`);
+    assert.match(r.stdout, /PASS/, "Python test must print PASS");
+});

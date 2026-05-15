@@ -660,6 +660,7 @@ function selectAttemptWinner(
             songId,
             selectedCandidateId: result.selectedCandidateId,
             feedbackSamples: result.feedbackSamples,
+            globalFeedbackSamples: result.globalFeedbackSamples,
             weightSource: result.weightSource,
             filteredOutCount: result.filteredOutIds.length,
         });

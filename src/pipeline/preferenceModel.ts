@@ -16,12 +16,18 @@
  *   logistic regression coefficients (sigmoid of dot product after
  *   standardization). weightSource = "reranker".
  *
- * Priority 2 — Pairwise agreement weights (in-process learned):
- *   When ≥ MIN_FEEDBACK_SAMPLES rated candidates exist in persisted manifests,
- *   computes per-dimension weights via pairwise sign-agreement correlation.
+ * Priority 2 — Global pairwise learned weights:
+ *   When ≥ MIN_FEEDBACK_SAMPLES rated candidates exist across ALL song
+ *   directories (outputs/*/candidates), computes per-dimension weights via
+ *   pairwise sign-agreement correlation against the global history.
  *   weightSource = "learned".
  *
- * Priority 3 — Cold-start default:
+ * Priority 3 — Song-local pairwise learned weights:
+ *   When ≥ MIN_FEEDBACK_SAMPLES rated candidates exist for the current song
+ *   only (useful for per-song retry/refinement loops when global history is
+ *   too sparse). weightSource = "learned".
+ *
+ * Priority 4 — Cold-start default:
  *   Uniform heuristic weights derived from music-theoretic importance.
  *   weightSource = "default".
  *
@@ -290,19 +296,14 @@ export function craftScorePassesHardFilter(
 }
 
 // ---------------------------------------------------------------------------
-// Feedback history loader
+// Feedback history loaders
 // ---------------------------------------------------------------------------
 
 /**
- * Scans all candidate manifests for a song and returns those that have both
- * internalScores and a numeric appeal rating from listenerFeedback.
+ * Internal helper: reads all rated candidate manifests from a single
+ * `candidates/` directory and returns FeedbackRecord entries.
  */
-export function loadFeedbackHistory(songId: string): FeedbackRecord[] {
-    const candidatesRoot = path.join(config.outputDir, songId, "candidates");
-    if (!fs.existsSync(candidatesRoot)) {
-        return [];
-    }
-
+function _readFeedbackFromCandidatesDir(candidatesRoot: string): FeedbackRecord[] {
     const records: FeedbackRecord[] = [];
     let entries: string[];
     try {
@@ -310,7 +311,6 @@ export function loadFeedbackHistory(songId: string): FeedbackRecord[] {
     } catch {
         return [];
     }
-
     for (const candidateDir of entries) {
         const manifestPath = path.join(candidatesRoot, candidateDir, "candidate-manifest.json");
         if (!fs.existsSync(manifestPath)) {
@@ -339,6 +339,50 @@ export function loadFeedbackHistory(songId: string): FeedbackRecord[] {
         } catch {
             // skip malformed manifests
         }
+    }
+    return records;
+}
+
+/**
+ * Scans all candidate manifests for a specific song and returns those that
+ * have both internalScores and a numeric appeal rating from listenerFeedback.
+ *
+ * Use this for same-song retry/refinement loops where only that song's
+ * accumulated feedback is relevant.
+ */
+export function loadFeedbackHistory(songId: string): FeedbackRecord[] {
+    const candidatesRoot = path.join(config.outputDir, songId, "candidates");
+    if (!fs.existsSync(candidatesRoot)) {
+        return [];
+    }
+    return _readFeedbackFromCandidatesDir(candidatesRoot);
+}
+
+/**
+ * Scans candidate manifests across ALL song directories and returns every
+ * rated entry.  This provides cross-song learned weights so that listener
+ * preferences accumulate globally — each new song benefits from all prior
+ * approved/rejected candidates, not just its own retry history.
+ *
+ * Directories starting with `_` (e.g. `_system`) are skipped.
+ */
+export function loadGlobalFeedbackHistory(): FeedbackRecord[] {
+    const outputsDir = config.outputDir;
+    if (!fs.existsSync(outputsDir)) {
+        return [];
+    }
+    let songDirs: string[];
+    try {
+        songDirs = fs.readdirSync(outputsDir);
+    } catch {
+        return [];
+    }
+    const records: FeedbackRecord[] = [];
+    for (const songDir of songDirs) {
+        if (songDir.startsWith("_")) continue;
+        const candidatesRoot = path.join(outputsDir, songDir, "candidates");
+        if (!fs.existsSync(candidatesRoot)) continue;
+        records.push(..._readFeedbackFromCandidatesDir(candidatesRoot));
     }
     return records;
 }
@@ -486,12 +530,18 @@ export function computePreferenceScore(
  *   1. Discard candidates that fail the craft hard filter.
  *   2. If no candidate passes the filter, fall back to the first element.
  *   3. Load the reranker snapshot once (avoids repeated disk reads).
- *   4. Score each passing candidate via the preference model.
- *   5. Return the highest-scoring candidate id plus diagnostic metadata.
+ *   4. Resolve effective feedback history (global → song-local → empty).
+ *   5. Score each passing candidate via the preference model.
+ *   6. Return the highest-scoring candidate id plus diagnostic metadata.
+ *
+ * History priority (when _historyOverride is not provided):
+ *   • Global history (outputs/*/candidates, all songs) when ≥ MIN_FEEDBACK_SAMPLES
+ *   • Song-local history (outputs/<songId>/candidates) otherwise
+ *   This means accumulated cross-song feedback informs every new composition.
  *
  * @param shortlist   Up to PREFERENCE_SHORTLIST_SIZE candidates, pre-ranked
  *                    by heuristic structure score (best first).
- * @param songId      Used to load feedback history from persisted manifests.
+ * @param songId      Used to load song-local feedback history from persisted manifests.
  * @returns Selected candidateId and diagnostic scores for logging.
  */
 export function selectPreferredCandidate(
@@ -504,15 +554,32 @@ export function selectPreferredCandidate(
     scores: PreferenceScore[];
     filteredOutIds: string[];
     feedbackSamples: number;
+    globalFeedbackSamples: number;
     weightSource: PreferenceScore["weightSource"];
 } {
     if (shortlist.length === 0) {
         throw new Error("selectPreferredCandidate: shortlist is empty");
     }
 
-    const history = _historyOverride ?? loadFeedbackHistory(songId);
     // Load snapshot once — avoids repeated file reads for each candidate
     const snapshot = _snapshotOverride !== undefined ? _snapshotOverride : loadRerankerSnapshot();
+
+    // Resolve history: when _historyOverride is given, use it directly (for tests).
+    // Otherwise prefer global (all songs) when sufficiently large, else song-local.
+    let effectiveHistory: FeedbackRecord[];
+    let globalFeedbackSamples: number;
+    if (_historyOverride !== undefined) {
+        effectiveHistory = _historyOverride;
+        globalFeedbackSamples = _historyOverride.length;
+    } else {
+        const globalHistory = loadGlobalFeedbackHistory();
+        globalFeedbackSamples = globalHistory.length;
+        if (globalHistory.length >= MIN_FEEDBACK_SAMPLES) {
+            effectiveHistory = globalHistory;
+        } else {
+            effectiveHistory = loadFeedbackHistory(songId);
+        }
+    }
 
     // Hard filter
     const filteredOutIds: string[] = [];
@@ -528,14 +595,15 @@ export function selectPreferredCandidate(
     const pool = eligible.length > 0 ? eligible : shortlist; // graceful fallback
 
     // Preference scoring
-    const scores = pool.map((candidate) => computePreferenceScore(candidate, history, snapshot));
+    const scores = pool.map((candidate) => computePreferenceScore(candidate, effectiveHistory, snapshot));
     scores.sort((a, b) => b.preferenceScore - a.preferenceScore);
 
     return {
         selectedCandidateId: scores[0]!.candidateId,
         scores,
         filteredOutIds,
-        feedbackSamples: history.length,
+        feedbackSamples: effectiveHistory.length,
+        globalFeedbackSamples,
         weightSource: scores[0]!.weightSource,
     };
 }

@@ -1,21 +1,27 @@
 """Train a logistic-regression preference reranker from listener feedback.
 
-Reads all candidate-manifest.json files under <output_root>/<song_id>/candidates/
-to build a labelled dataset, then trains a logistic regression model and writes a
-snapshot JSON that preferenceModel.ts can load at runtime.
+Two data sources are supported:
+
+1. JSONL mode (recommended): reads a preferences.jsonl file produced by
+   ``npm run ml:export:notagen-preferences``.
+
+   --snapshot=<id>  reads  outputs/_system/ml/notagen-preferences/<id>/preferences.jsonl
+   --jsonl=<path>   reads an explicit JSONL path
+
+2. Manifest scan mode (legacy): walks outputs/<song_id>/candidates/candidate-manifest.json
+   (used when neither --snapshot nor --jsonl is given).
 
 Label encoding
 ──────────────
-  appeal >= 4  → approved  (1)
-  appeal == 3  → excluded  (ambiguous, skipped)
-  appeal <= 2  → rejected  (0)
+  JSONL mode:    decision == "approved" → 1,  decision == "rejected" → 0
+  Manifest mode: appeal >= 4 → 1,  appeal == 3 → excluded,  appeal <= 2 → 0
 
 Features
 ────────
   Craft dimensions (8):
     syntaxValidity, sectionContractFit, cadenceStrength, tonalReturn,
     motifSurvival, voiceIndependence, phraseShape, registerIdiomaticFit
-  Context features (4):
+  Context features (6):
     normalizationWarningsCount  (int, clipped to [0, 10])
     sectionCount                (int, clipped to [1, 20])
     provider_notagen            (0/1)
@@ -30,6 +36,13 @@ Snapshot output
 
 Usage
 ─────
+  # From latest export snapshot (recommended):
+  python scripts/train-preference-reranker.py --snapshot=2025-05-15
+
+  # From explicit JSONL path:
+  python scripts/train-preference-reranker.py --jsonl=outputs/_system/ml/notagen-preferences/2025-05-15/preferences.jsonl
+
+  # Legacy manifest scan:
   python scripts/train-preference-reranker.py [--root=outputs] [--out=<path>]
                                               [--min-samples=10] [--verbose]
 """
@@ -72,6 +85,11 @@ def _parse_args() -> argparse.Namespace:
                    help="AXIOM output directory (default: outputs)")
     p.add_argument("--out", default=None,
                    help="Snapshot output path (default: <root>/_system/preference-reranker-snapshot.json)")
+    p.add_argument("--snapshot", default=None,
+                   help="Snapshot ID produced by ml:export:notagen-preferences (e.g. 2025-05-15). "
+                        "Reads <root>/_system/ml/notagen-preferences/<id>/preferences.jsonl")
+    p.add_argument("--jsonl", default=None,
+                   help="Explicit path to a preferences.jsonl file to use instead of manifest scanning.")
     p.add_argument("--min-samples", type=int, default=10,
                    help="Minimum labelled samples required to train (default: 10)")
     p.add_argument("--verbose", action="store_true",
@@ -80,7 +98,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 # ---------------------------------------------------------------------------
-# Manifest scanning
+# Feature extraction
 # ---------------------------------------------------------------------------
 
 CRAFT_DIMS = [
@@ -113,8 +131,20 @@ def _safe_float(value: Any, fallback: float = 0.5) -> float:
         return fallback
 
 
+def _provider_and_mode_features(provider: str, mode: str) -> list[float]:
+    """Return the four provider/generationMode one-hot features."""
+    provider = provider.lower()
+    mode = mode.lower()
+    return [
+        1.0 if "notagen" in provider else 0.0,
+        0.0 if ("notagen" in provider or "music21" in provider) else 1.0,
+        1.0 if mode == "mock_notagen_abc" or mode.startswith("mock") else 0.0,
+        1.0 if mode in ("notagen_local", "local") else 0.0,
+    ]
+
+
 def _extract_features(manifest: dict[str, Any]) -> list[float]:
-    """Extract the feature vector from a candidate manifest dict."""
+    """Extract the feature vector from a candidate manifest dict (legacy manifest mode)."""
     craft = (
         manifest.get("structureEvaluation", {}) or {}
     ).get("craftScoreSummary") or {}
@@ -122,40 +152,102 @@ def _extract_features(manifest: dict[str, Any]) -> list[float]:
     evidence = manifest.get("proposalEvidence") or {}
     comp_plan = manifest.get("compositionPlan") or {}
 
-    # Craft dimensions – prefer craftScoreSummary, fall back to internalScores
     feats: list[float] = []
     for dim in CRAFT_DIMS:
         v = craft.get(dim) if craft.get(dim) is not None else internal.get(dim)
         feats.append(_safe_float(v))
 
-    # normalizationWarningsCount
     warnings = evidence.get("normalizationWarnings") or []
-    warnings_count = float(min(len(warnings) if isinstance(warnings, list) else 0, 10))
-    feats.append(warnings_count)
+    feats.append(float(min(len(warnings) if isinstance(warnings, list) else 0, 10)))
 
-    # sectionCount
     sections = comp_plan.get("sections") or []
-    section_count = float(min(max(len(sections) if isinstance(sections, list) else 1, 1), 20))
-    feats.append(section_count)
+    feats.append(float(min(max(len(sections) if isinstance(sections, list) else 1, 1), 20)))
 
-    # provider one-hot: notagen / other  (music21 → reference category = [0,0])
-    provider = str(manifest.get("provider") or evidence.get("provider") or "").lower()
-    feats.append(1.0 if "notagen" in provider else 0.0)
-    feats.append(0.0 if ("notagen" in provider or "music21" in provider) else 1.0)
-
-    # generationMode one-hot: mock / local  (template → reference = [0,0])
-    mode = str(evidence.get("generationMode") or "").lower()
-    feats.append(1.0 if mode == "mock_notagen_abc" or mode.startswith("mock") else 0.0)
-    feats.append(1.0 if mode == "notagen_local" or mode == "local" else 0.0)
+    provider = str(manifest.get("provider") or evidence.get("provider") or "")
+    mode = str(evidence.get("generationMode") or "")
+    feats.extend(_provider_and_mode_features(provider, mode))
 
     return feats
+
+
+def _extract_features_from_jsonl_row(row: dict[str, Any]) -> list[float]:
+    """Extract the feature vector from a preferences.jsonl row."""
+    craft = row.get("craftScoreSummary") or {}
+    evidence = row.get("proposalEvidence") or {}
+    prompt_pack = row.get("promptPack") or {}
+
+    feats: list[float] = []
+    for dim in CRAFT_DIMS:
+        feats.append(_safe_float(craft.get(dim)))
+
+    warnings = evidence.get("normalizationWarnings") or []
+    feats.append(float(min(len(warnings) if isinstance(warnings, list) else 0, 10)))
+
+    sections = prompt_pack.get("sections") or []
+    feats.append(float(min(max(len(sections) if isinstance(sections, list) else 1, 1), 20)))
+
+    provider = str(evidence.get("provider") or "")
+    mode = str(evidence.get("generationMode") or "")
+    feats.extend(_provider_and_mode_features(provider, mode))
+
+    return feats
+
+
+# ---------------------------------------------------------------------------
+# Dataset collection
+# ---------------------------------------------------------------------------
+
+def _collect_dataset_from_jsonl(
+    jsonl_path: Path,
+    verbose: bool = False,
+) -> tuple[list[list[float]], list[int], dict[str, int]]:
+    """Read labelled rows from a preferences.jsonl export file."""
+    X: list[list[float]] = []
+    y: list[int] = []
+    stats = {"scanned": 0, "approved": 0, "rejected": 0, "excluded": 0, "no_feedback": 0}
+
+    if not jsonl_path.is_file():
+        sys.exit(f"ERROR: JSONL file not found: {jsonl_path}")
+
+    with jsonl_path.open(encoding="utf-8") as fh:
+        for line_no, line in enumerate(fh, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                if verbose:
+                    print(f"  [line {line_no}] JSON parse error: {exc}")
+                continue
+
+            stats["scanned"] += 1
+            decision = str(row.get("decision") or "").lower()
+
+            if decision == "approved":
+                label = 1
+                stats["approved"] += 1
+            elif decision == "rejected":
+                label = 0
+                stats["rejected"] += 1
+            else:
+                stats["no_feedback"] += 1
+                continue
+
+            feats = _extract_features_from_jsonl_row(row)
+            X.append(feats)
+            y.append(label)
+            if verbose:
+                print(f"  [{row.get('songId', '?')}] decision={decision} → label={label}")
+
+    return X, y, stats
 
 
 def _collect_dataset(
     output_root: Path,
     verbose: bool = False,
 ) -> tuple[list[list[float]], list[int], dict[str, int]]:
-    """Walk manifest files and return (X, y, stats)."""
+    """Walk manifest files and return (X, y, stats).  Legacy manifest-scan mode."""
     X: list[list[float]] = []
     y: list[int] = []
     stats = {"scanned": 0, "approved": 0, "rejected": 0, "excluded": 0, "no_feedback": 0}
@@ -190,7 +282,6 @@ def _collect_dataset(
                 label = 0
                 stats["rejected"] += 1
             else:
-                # appeal == 3: ambiguous, skip
                 stats["excluded"] += 1
                 continue
 
@@ -281,14 +372,27 @@ def main() -> None:
 
     out_path = Path(args.out) if args.out else output_root / "_system" / "preference-reranker-snapshot.json"
 
-    print(f"Scanning manifests in: {output_root}")
-    X, y, stats = _collect_dataset(output_root, verbose=args.verbose)
+    # Resolve data source
+    if args.jsonl:
+        jsonl_path = Path(args.jsonl)
+        print(f"Reading preferences from JSONL: {jsonl_path}")
+        X, y, stats = _collect_dataset_from_jsonl(jsonl_path, verbose=args.verbose)
+        data_source = str(jsonl_path)
+    elif args.snapshot:
+        jsonl_path = output_root / "_system" / "ml" / "notagen-preferences" / args.snapshot / "preferences.jsonl"
+        print(f"Reading preferences from snapshot '{args.snapshot}': {jsonl_path}")
+        X, y, stats = _collect_dataset_from_jsonl(jsonl_path, verbose=args.verbose)
+        data_source = str(jsonl_path)
+    else:
+        print(f"Scanning manifests in: {output_root}")
+        X, y, stats = _collect_dataset(output_root, verbose=args.verbose)
+        data_source = str(output_root)
 
     print(
-        f"Dataset: {stats['scanned']} manifests scanned, "
+        f"Dataset: {stats['scanned']} records scanned, "
         f"{len(y)} labelled ({stats['approved']} approved, {stats['rejected']} rejected), "
-        f"{stats['excluded']} excluded (appeal=3), "
-        f"{stats['no_feedback']} without feedback",
+        f"{stats.get('excluded', 0)} excluded, "
+        f"{stats.get('no_feedback', 0)} without feedback",
     )
 
     if len(y) < args.min_samples:
@@ -309,7 +413,6 @@ def main() -> None:
     print("Training logistic regression...")
     model_data = _train(X, y, verbose=args.verbose)
 
-    import hashlib
     snapshot_id = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     snapshot = {
         **model_data,
@@ -318,8 +421,9 @@ def main() -> None:
         "sampleCount": len(y),
         "approvedCount": approved_count,
         "rejectedCount": rejected_count,
+        "dataSource": data_source,
         "notes": (
-            f"Trained on {len(y)} labelled candidates. "
+            f"Trained on {len(y)} labelled candidates from {data_source}. "
             f"Use AXIOM_PREFERENCE_RERANKER_SNAPSHOT to override path."
         ),
     }

@@ -59,18 +59,24 @@ Timeout and budget
 The generation loop respects:
 
   max_tokens  — soft cap on total characters emitted (from NOTAGEN_MAX_TOKENS)
-  NOTAGEN_TIMEOUT_MS — hard wall-clock limit (default: 600 000 ms for native)
+  NOTAGEN_TIMEOUT_MS — hard wall-clock limit.
 
-The native engine defaults to 600 s because NotaGen-X (1024-patch context) is
-significantly slower than HF causal decoding.
+The parent subprocess manager (notagen_backend._run_local_inference) enforces
+NOTAGEN_TIMEOUT_MS as a hard kill on the child process.  Its engine-specific
+default is 120 000 ms for hf_causal_lm and 600 000 ms for notagen_native,
+because NotaGen-X (1024-patch context) is significantly slower than HF causal
+decoding.  The inner loop below also reads NOTAGEN_TIMEOUT_MS as a soft limit
+and uses the same 600 000 ms fallback; in practice the parent kill fires first.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import re
 import sys
 import time
+import types
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -92,26 +98,36 @@ def _env_int(key: str, fallback: int) -> int:
 
 # ─── NotaGen repo import ──────────────────────────────────────────────────────
 
-def _ensure_notagen_on_path() -> None:
-    """Add the NotaGen repo to sys.path so its utility modules are importable.
+# Module-level cache so the file-based import runs only once per process.
+_notagen_utils: "types.ModuleType | None" = None
 
-    Tries NOTAGEN_REPO_PATH/gradio and NOTAGEN_REPO_PATH/inference.
-    Falls back to checking if Patchilizer is already importable (installed
-    as a package).
+
+def _load_notagen_utils() -> "types.ModuleType":
+    """Load the NotaGen utils module, isolated from any generic 'utils' on sys.path.
+
+    Resolution order:
+    1. Installed package ``notagen_utils`` (cleanest deployment).
+    2. File-based import from ``NOTAGEN_REPO_PATH/gradio/utils.py`` or
+       ``NOTAGEN_REPO_PATH/inference/utils.py`` or ``NOTAGEN_REPO_PATH/utils.py``.
+       Uses ``importlib.util.spec_from_file_location`` so the module is registered
+       as ``notagen_official_utils`` rather than the generic name ``utils``,
+       preventing collisions with any other ``utils.py`` on sys.path.
+
+    Returns the loaded module.  Raises ImportError on failure.
     """
+    global _notagen_utils  # noqa: PLW0603
+    if _notagen_utils is not None:
+        return _notagen_utils
+
+    # ── Option 1: installed as notagen_utils package ──────────────────────────
     try:
-        from notagen_utils import Patchilizer, NotaGenLMHeadModel  # type: ignore[import]
-        return
+        import notagen_utils as _nu  # type: ignore[import]
+        _notagen_utils = _nu
+        return _notagen_utils
     except ImportError:
         pass
 
-    # Try to import from the NotaGen utils directly
-    try:
-        from utils import Patchilizer, NotaGenLMHeadModel  # type: ignore[import]
-        return
-    except ImportError:
-        pass
-
+    # ── Option 2: file-based import from NOTAGEN_REPO_PATH ───────────────────
     repo_path = _env("NOTAGEN_REPO_PATH")
     if not repo_path:
         raise ImportError(
@@ -126,17 +142,29 @@ def _ensure_notagen_on_path() -> None:
             f"NOTAGEN_REPO_PATH does not exist or is not a directory: {repo_path!r}"
         )
 
-    # Try gradio/ first (has the most complete inference utilities), then inference/
+    # Try gradio/ first (most complete inference utilities), then inference/, then root.
     for subdir in ("gradio", "inference", ""):
         candidate = os.path.join(repo_path, subdir) if subdir else repo_path
         utils_py = os.path.join(candidate, "utils.py")
-        if os.path.isfile(utils_py) and candidate not in sys.path:
-            sys.path.insert(0, candidate)
-            try:
-                from utils import Patchilizer, NotaGenLMHeadModel  # type: ignore[import]
-                return
-            except ImportError:
-                sys.path.remove(candidate)
+        if not os.path.isfile(utils_py):
+            continue
+
+        spec = importlib.util.spec_from_file_location("notagen_official_utils", utils_py)
+        if spec is None or spec.loader is None:
+            continue
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["notagen_official_utils"] = module
+        try:
+            spec.loader.exec_module(module)  # type: ignore[union-attr]
+        except Exception as exc:  # noqa: BLE001
+            del sys.modules["notagen_official_utils"]
+            raise ImportError(
+                f"Failed to exec NotaGen utils.py at {utils_py!r}: {exc}"
+            ) from exc
+
+        _notagen_utils = module
+        return _notagen_utils
 
     raise ImportError(
         f"Could not find NotaGen utils.py under NOTAGEN_REPO_PATH={repo_path!r}. "
@@ -166,6 +194,12 @@ _INSTRUMENTATION_MAP: dict[str, str] = {
     "piano_trio": "Piano_Trio",
     "piano_quartet": "Piano_Quartet",
     "piano_quintet": "Piano_Quintet",
+    # Sorted-name compound keys for the "Instrument:role,..." control-line format.
+    "cello_viola_violin": "String_Trio",
+    "cello_viola_violin_violin": "String_Quartet",
+    "cello_piano_violin": "Piano_Trio",
+    "cello_piano_viola_violin": "Piano_Quartet",
+    "cello_piano_viola_violin_violin": "Piano_Quintet",
 }
 
 # Mapping from AXIOM style/period hints → NotaGen period labels.
@@ -228,9 +262,22 @@ def _axiom_header_to_notagen_prompt(abc_header: str) -> str:
 
     # ── Instrumentation ───────────────────────────────────────────────────────
     instrumentation_raw = ctrl.get("instrumentation", "string_trio").lower()
-    # Strip comma-separated multi-instrument specs to the canonical label
-    instrumentation_key = instrumentation_raw.replace(",", "_").replace(" ", "_").strip("_")
-    instrumentation = _INSTRUMENTATION_MAP.get(instrumentation_key, "String_Trio")
+    # Try direct map lookup first (handles simple keys like "string_trio").
+    instrumentation = _INSTRUMENTATION_MAP.get(instrumentation_raw)
+    if instrumentation is None:
+        # Strip ":role" suffixes from "Instrument:role,Instrument:role" format,
+        # then try the sorted joined instrument names as a compound key.
+        clean_parts = [
+            p.strip().split(":")[0].strip().replace(" ", "_")
+            for p in instrumentation_raw.split(",")
+            if p.strip()
+        ]
+        sorted_key = "_".join(sorted(clean_parts))
+        instrumentation = _INSTRUMENTATION_MAP.get(sorted_key)
+    if instrumentation is None:
+        # Fall back to the first instrument name alone (e.g. "violin" → "Violin").
+        first_name = instrumentation_raw.split(",")[0].split(":")[0].strip().replace(" ", "_")
+        instrumentation = _INSTRUMENTATION_MAP.get(first_name, "String_Trio")
 
     return f"%{period}\n%{composer}\n%{instrumentation}\n"
 
@@ -348,7 +395,7 @@ def _rest_unreduce(abc_lines: list[str]) -> list[str]:
 
 # ─── Core generation loop ─────────────────────────────────────────────────────
 
-_TIMEOUT_DEFAULT_MS = 600_000  # 10 minutes for native engine (NotaGen-X is slow)
+_TIMEOUT_DEFAULT_MS = 600_000  # fallback for inner loop; parent kill fires first
 
 
 def _run_generation_loop(
@@ -569,8 +616,9 @@ def load_model(
     import torch  # type: ignore[import]
     from transformers import GPT2Config  # type: ignore[import]
 
-    _ensure_notagen_on_path()
-    from utils import NotaGenLMHeadModel, Patchilizer  # type: ignore[import]  # noqa: PLC0415
+    _nu = _load_notagen_utils()
+    NotaGenLMHeadModel = _nu.NotaGenLMHeadModel  # type: ignore[attr-defined]
+    Patchilizer = _nu.Patchilizer  # type: ignore[attr-defined]
 
     # Read model config from the .pth filename if possible, otherwise use defaults.
     # Filename convention: weights_*_p_size_<PS>_p_length_<PL>_p_layers_<PL>_c_layers_<CL>_h_size_<HS>_*.pth

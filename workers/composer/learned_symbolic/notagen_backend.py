@@ -44,7 +44,10 @@ Environment variables:
   NOTAGEN_TOKENIZER_PATH     path to tokenizer (falls back to NOTAGEN_MODEL_PATH)
   NOTAGEN_DEVICE             cpu | cuda | mps  (default: cpu)
   NOTAGEN_MAX_TOKENS         integer  (default: 2048)
-  NOTAGEN_TIMEOUT_MS         hard wall-clock timeout per inference call (default: 120000)
+  NOTAGEN_TIMEOUT_MS         hard wall-clock timeout per inference call.
+                             Default is engine-specific: 120000 ms for hf_causal_lm,
+                             600000 ms for notagen_native (NotaGen-X is significantly
+                             slower than HF causal decoding).
                              On timeout the inference subprocess is killed.
   NOTAGEN_RESAMPLE_BUDGET    additional inference retries on validation failure (default: 2)
                              Timeout failures are NOT retried.
@@ -75,6 +78,7 @@ PROVIDER = "notagen"
 MODEL_DEFAULT = "notagen-abc-v1"
 
 # ─── Environment helpers ──────────────────────────────────────────────────────
+
 
 def _env(key: str, fallback: str = "") -> str:
     return os.environ.get(key, fallback).strip()
@@ -115,6 +119,7 @@ def _engine_name() -> str:
 
 
 # ─── Model singleton (local mode only) ───────────────────────────────────────
+
 
 class _ModelSingleton:
     """Lazy-loaded, thread-safe model singleton for local inference.
@@ -178,9 +183,7 @@ def _validate_model_path() -> tuple[str, str, str]:
             "Set this variable to the checkpoint directory before using notagen_local mode."
         )
     if not os.path.exists(model_path):
-        raise FileNotFoundError(
-            f"NOTAGEN_MODEL_PATH does not exist: {model_path!r}"
-        )
+        raise FileNotFoundError(f"NOTAGEN_MODEL_PATH does not exist: {model_path!r}")
     return model_path, tokenizer_path, device_str
 
 
@@ -193,11 +196,13 @@ def _load_model() -> tuple[Any, Any, str, str]:
     engine = _engine_name()
     model_path, tokenizer_path, device_str = _validate_model_path()
     from .notagen_engines import load_engine_model  # noqa: PLC0415
+
     model, tokenizer = load_engine_model(engine, model_path, tokenizer_path, device_str)
     return model, tokenizer, device_str, engine
 
 
 # ─── Local inference ──────────────────────────────────────────────────────────
+
 
 def _run_inference_inline(
     abc_header: str,
@@ -219,11 +224,16 @@ def _run_inference_inline(
     Delegates to ``notagen_engines.run_engine_generate()`` for engine-specific
     inference logic.
 
-    Returns the generated ABC body text.
+    Returns the generated ABC text.  The exact contract is engine-dependent:
+    - ``hf_causal_lm``: returns the ABC body only (continuation after the prompt).
+    - ``notagen_native``: returns the full ABC score (``X:1``, headers, and body).
+    Callers that concatenate the header must check the engine via
+    ``_engine_name()`` before doing so.
     Raises RuntimeError on any model/tokenizer failure.
     """
     model, tokenizer, _device_str, engine = _ModelSingleton.get()
     from .notagen_engines import run_engine_generate  # noqa: PLC0415
+
     return run_engine_generate(
         engine,
         model,
@@ -239,6 +249,7 @@ def _run_inference_inline(
 
 
 # ─── Subprocess inference manager ─────────────────────────────────────────────
+
 
 class _InferenceSubprocessManager:
     """Manages a single persistent inference child process.
@@ -371,6 +382,7 @@ class _InferenceSubprocessManager:
 
 # ─── Public local inference entry point ───────────────────────────────────────
 
+
 def _run_local_inference(
     abc_header: str,
     *,
@@ -392,7 +404,11 @@ def _run_local_inference(
     Returns the generated ABC text.
     Raises TimeoutError on hard timeout, RuntimeError on other failures.
     """
-    timeout_ms = _env_int("NOTAGEN_TIMEOUT_MS", 120_000)
+    engine = _engine_name()
+    # Use engine-specific defaults: native hierarchical decoding is significantly
+    # slower than HF causal LM, so it gets a longer hard timeout.
+    default_timeout_ms = 600_000 if engine == "notagen_native" else 120_000
+    timeout_ms = _env_int("NOTAGEN_TIMEOUT_MS", default_timeout_ms)
     request = {
         "abc_header": abc_header,
         "seed": seed,
@@ -402,10 +418,13 @@ def _run_local_inference(
         "repetition_penalty": repetition_penalty,
         "max_tokens": max_tokens,
     }
-    response = _InferenceSubprocessManager.call(request, timeout_sec=timeout_ms / 1000.0)
+    response = _InferenceSubprocessManager.call(
+        request, timeout_sec=timeout_ms / 1000.0
+    )
     if not response.get("ok"):
         raise RuntimeError(
-            response.get("error") or "Inference subprocess returned ok=false without error detail"
+            response.get("error")
+            or "Inference subprocess returned ok=false without error detail"
         )
     abc_text = response.get("abc_text", "")
     if not isinstance(abc_text, str):
@@ -416,6 +435,7 @@ def _run_local_inference(
 
 
 # ─── Backend class ────────────────────────────────────────────────────────────
+
 
 class NotagenBackend:
     """NotaGen-class ABC inference backend.
@@ -447,8 +467,7 @@ class NotagenBackend:
             sampling_params.get("repetitionPenalty") or 1.1
         )
         max_tokens: int = int(
-            sampling_params.get("maxTokens")
-            or _env_int("NOTAGEN_MAX_TOKENS", 2048)
+            sampling_params.get("maxTokens") or _env_int("NOTAGEN_MAX_TOKENS", 2048)
         )
         stable_seed: int = int(payload.get("stableSeed") or 0)
         candidate_seed = stable_seed + candidate_index + seed_offset
@@ -502,8 +521,7 @@ class NotagenBackend:
         # ── Build deterministic ABC conditioning header ───────────────────────
         abc_header = build_abc_header(context)
         section_count = sum(
-            1 for line in abc_header.splitlines()
-            if line.startswith("%% axiom_section")
+            1 for line in abc_header.splitlines() if line.startswith("%% axiom_section")
         )
 
         # Localized rewrite block
@@ -519,7 +537,9 @@ class NotagenBackend:
         # ── Mode: mock ────────────────────────────────────────────────────────
         if mode == "mock":
             return self._generate_mock(
-                payload, provider_request, context,
+                payload,
+                provider_request,
+                context,
                 model=model,
                 generation_mode=generation_mode,
                 candidate_seed=candidate_seed,
@@ -528,7 +548,9 @@ class NotagenBackend:
 
         # ── Mode: local ───────────────────────────────────────────────────────
         return self._generate_local(
-            payload, provider_request, context,
+            payload,
+            provider_request,
+            context,
             model=model,
             generation_mode=generation_mode,
             abc_header=abc_header,
@@ -558,6 +580,7 @@ class NotagenBackend:
         candidate_index: int,
     ) -> LearnedSymbolicBackendResult:
         from .notagen_engines.mock import build_mock_abc  # noqa: PLC0415
+
         mock_abc = build_mock_abc(context, candidate_seed)
         sections = list(payload.get("promptPack", {}).get("sections") or [])
         output_path: str | None = str(payload.get("outputPath") or "") or None
@@ -587,7 +610,10 @@ class NotagenBackend:
 
         note_ct = sum(len(s.get("noteHistory") or []) for s in result.proposal_sections)
         bar_ct = sum(s.get("measureCount") or 0 for s in result.proposal_sections)
-        mock_warnings = ["mock_backend_not_for_quality_eval", *result.normalization_warnings]
+        mock_warnings = [
+            "mock_backend_not_for_quality_eval",
+            *result.normalization_warnings,
+        ]
         return LearnedSymbolicBackendResult(
             ok=True,
             provider=PROVIDER,
@@ -636,9 +662,26 @@ class NotagenBackend:
             else None
         )
 
-        full_prompt = (
-            (abc_header + "\n" + rewrite_block) if rewrite_block else abc_header
-        )
+        # notagen_native converts the ABC header to a 3-line NotaGen prompt
+        # (%Period / %Composer / %Instrumentation) and cannot honour the
+        # <AXIOM_REWRITE> block at all.  When a rewrite was requested but the
+        # active engine is notagen_native, we:
+        #   • strip the rewrite block from the prompt (pass abc_header only)
+        #   • downgrade generation_mode to a full-regen label
+        #   • clear keep_artifacts so the full fresh output is used as-is
+        #   • surface a warning on every result so callers know the downgrade
+        engine_specific_warnings: list[str] = []
+        if _engine_name() == "notagen_native" and rewrite_block:
+            engine_specific_warnings.append(
+                "notagen_native_rewrite_block_ignored_full_regen"
+            )
+            generation_mode = f"notagen_abc_inference_{_engine_name()}"
+            keep_artifacts = None
+            full_prompt = abc_header
+        else:
+            full_prompt = (
+                (abc_header + "\n" + rewrite_block) if rewrite_block else abc_header
+            )
 
         last_error: str | None = None
         last_abc: str | None = None
@@ -667,14 +710,23 @@ class NotagenBackend:
                     break
                 continue
 
-            abc_full = abc_header + "\n" + abc_body
+            # notagen_native already returns the full ABC score (X:1 + headers +
+            # body).  hf_causal_lm returns only the body, so we prepend the
+            # AXIOM conditioning header.  Concatenating header + full-score
+            # would duplicate the X:/M:/K: fields and break music21 parsing.
+            if _engine_name() == "notagen_native":
+                abc_full = abc_body
+            else:
+                abc_full = abc_header + "\n" + abc_body
             last_abc = abc_full
 
             result = run_abc_projection_pipeline(
                 abc_full,
                 sections,
                 provider_request,
-                output_path=output_path if attempt == 0 or resample_budget == 0 else None,
+                output_path=output_path
+                if attempt == 0 or resample_budget == 0
+                else None,
                 keep_section_artifacts=keep_artifacts,
             )
 
@@ -688,11 +740,18 @@ class NotagenBackend:
                         output_path=output_path,
                         keep_section_artifacts=keep_artifacts,
                     )
-                note_ct = sum(len(s.get("noteHistory") or []) for s in result.proposal_sections)
-                bar_ct = sum(s.get("measureCount") or 0 for s in result.proposal_sections)
+                note_ct = sum(
+                    len(s.get("noteHistory") or []) for s in result.proposal_sections
+                )
+                bar_ct = sum(
+                    s.get("measureCount") or 0 for s in result.proposal_sections
+                )
                 warnings = list(result.normalization_warnings)
                 if attempt > 0:
-                    warnings.append(f"abc_resampled_after_{attempt}_failed_validation_attempts")
+                    warnings.append(
+                        f"abc_resampled_after_{attempt}_failed_validation_attempts"
+                    )
+                warnings.extend(engine_specific_warnings)
                 return LearnedSymbolicBackendResult(
                     ok=True,
                     provider=PROVIDER,
@@ -723,4 +782,5 @@ class NotagenBackend:
                 f"NotaGen generated invalid ABC after {1 + resample_budget} attempt(s). "
                 f"Last error: {last_error}"
             ),
+            warnings=list(engine_specific_warnings),
         )

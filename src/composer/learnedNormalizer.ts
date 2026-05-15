@@ -21,6 +21,7 @@ import {
     resolveLearnedBenchmarkPackVersion,
     type LearnedSymbolicPromptPack,
 } from "./learnedAdapter.js";
+import type { LearnedNotagenProviderRequest } from "./learnedNotagenAdapter.js";
 
 function resolveStructureBinding(selectedModels: ModelBinding[] | undefined): ModelBinding | undefined {
     return selectedModels?.find((binding) => binding.role === "structure");
@@ -63,6 +64,7 @@ export function normalizeLearnedSymbolicResponse(
     songId: string,
     executionPlan: ComposeExecutionPlan,
     promptPack: LearnedSymbolicPromptPack,
+    providerRequest?: LearnedNotagenProviderRequest,
 ): ComposeResult {
     const midiPath = response.proposalMidiPath;
     const structureBinding = resolveStructureBinding(executionPlan.selectedModels);
@@ -105,6 +107,9 @@ export function normalizeLearnedSymbolicResponse(
         ...(Array.isArray(section.phrasePeaks) && section.phrasePeaks.length > 0 ? { phrasePeaks: [...section.phrasePeaks] } : {}),
         ...(Array.isArray(section.secondaryLineMotif) && section.secondaryLineMotif.length > 0 ? { secondaryLineMotif: [...section.secondaryLineMotif] } : {}),
         ...(section.rhythmicDensity !== undefined ? { rhythmicDensity: section.rhythmicDensity } : {}),
+        ...(Array.isArray(section.tonicizationWindows)
+            ? { tonicizationWindows: section.tonicizationWindows.map((w) => ({ ...w })) }
+            : {}),
     }));
     const sectionTransforms = (response.proposalSections ?? [])
         .filter((section): section is LearnedSymbolicProposalSection & { transform: SectionTransformSummary } => Boolean(section.transform))
@@ -169,6 +174,11 @@ export function normalizeLearnedSymbolicResponse(
         ...(proposalSummary && Object.keys(proposalSummary).length > 0 ? { summary: proposalSummary } : {}),
         ...(resolvedCandidateIndex !== undefined ? { candidateIndex: resolvedCandidateIndex } : {}),
         ...(resolvedSamplingParams ? { samplingParams: resolvedSamplingParams } : {}),
+        // Store full input payloads so DPO export can reconstruct prompt/control pairs.
+        promptPack: JSON.parse(JSON.stringify(promptPack)) as Record<string, unknown>,
+        ...(providerRequest
+            ? { providerRequest: JSON.parse(JSON.stringify(providerRequest)) as Record<string, unknown> }
+            : {}),
     };
 
     return {
