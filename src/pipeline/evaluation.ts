@@ -36,6 +36,7 @@ import type {
     TonalityMode,
 } from "./types.js";
 import { computeCraftScoreSummary } from "./craftScoring.js";
+import { applyPianoPlayabilityGate } from "./pianoCraftScoring.js";
 
 interface StructureEvaluationOptions {
     sections?: SectionPlan[];
@@ -6272,6 +6273,14 @@ export function buildStructureEvaluation(result: CritiqueResult, options?: Struc
             options?.compositionPlan,
             baseReport,
         );
+    }
+
+    // Gate 3 — Piano playability hard gate.
+    // When the plan targets piano solo, a section whose pianoPlayabilityScore
+    // falls below 0.50 must fail unconditionally before craft scoring (Gate 4).
+    // Non-piano compositions are unaffected.
+    if (options?.compositionPlan?.pianoPlan && sectionArtifacts?.length) {
+        return applyPianoPlayabilityGate(baseReport, sectionArtifacts);
     }
 
     return baseReport;
