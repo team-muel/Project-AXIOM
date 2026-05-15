@@ -10,6 +10,8 @@ import type {
 export const LEARNED_SYMBOLIC_PROMPT_PACK_VERSION = "learned_symbolic_prompt_pack_v1";
 export const STRING_TRIO_SYMBOLIC_LANE = "string_trio_symbolic";
 export const STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION = "string_trio_symbolic_benchmark_pack_v1";
+/** Solo piano lane: single keyboard instrument with PianoPlan attached. */
+export const SOLO_PIANO_SYMBOLIC_LANE = "solo_piano_symbolic";
 export const APPROVAL_REVIEW_RUBRIC_VERSION = "approval_review_rubric_v1";
 
 export type LearnedBenchmarkRequest = Pick<

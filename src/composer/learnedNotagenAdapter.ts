@@ -1,5 +1,5 @@
-import type { LocalizedRewriteSpec, LearnedSamplingParams, ModelBinding } from "../pipeline/types.js";
-import { STRING_TRIO_SYMBOLIC_LANE } from "../pipeline/learnedSymbolicContract.js";
+import type { LocalizedRewriteSpec, LearnedSamplingParams, ModelBinding, PianoPlan, PianoSectionPlan } from "../pipeline/types.js";
+import { SOLO_PIANO_SYMBOLIC_LANE, STRING_TRIO_SYMBOLIC_LANE } from "../pipeline/learnedSymbolicContract.js";
 import type {
     LearnedSymbolicPromptPack,
     LearnedSymbolicPromptPackSection,
@@ -91,6 +91,9 @@ function resolveConditioningInstrumentationDescription(promptPack: LearnedSymbol
     if (promptPack.lane === STRING_TRIO_SYMBOLIC_LANE) {
         return "classical string trio";
     }
+    if (promptPack.lane === SOLO_PIANO_SYMBOLIC_LANE) {
+        return "solo piano";
+    }
     if (promptPack.instrumentation.length > 0) {
         return promptPack.instrumentation.map((e) => normalizeText(e.name)).join(", ");
     }
@@ -124,6 +127,12 @@ function resolveInstrumentationControlLine(
         );
         return "instrumentation=Violin:lead,Viola:counterline,Cello:bass";
     }
+    if (promptPack.lane === SOLO_PIANO_SYMBOLIC_LANE) {
+        warnings.push(
+            "instrumentation missing for solo_piano_symbolic lane; defaulting to Piano:lead|chordal_support|bass",
+        );
+        return "instrumentation=Piano:lead|chordal_support|bass";
+    }
     return "instrumentation=default";
 }
 
@@ -143,6 +152,65 @@ function buildSamplingControlLine(p: LearnedSamplingParams): string {
     if (p.topK !== undefined) parts.push(`top_k=${p.topK}`);
     if (p.seedOffset !== undefined) parts.push(`seed_offset=${p.seedOffset}`);
     return `sampling ${parts.join(" ")}`;
+}
+
+/** Maps a numeric densityTarget (1–6) to a human-readable density label. */
+function resolveDensityLabel(densityTarget: number | undefined): string {
+    const n = densityTarget ?? 2;
+    if (n <= 1) return "sparse";
+    if (n <= 2) return "medium";
+    if (n <= 3) return "rich";
+    return "dense";
+}
+
+/**
+ * Emits a `piano_global` control line summarising the plan-wide texture idiom,
+ * dominant pedal strategy, hand-crossing intent, and maximum comfortable span.
+ *
+ * Preserved verbatim in controlLines even when native NotaGen cannot act on all
+ * fields — downstream projection, repair, and fine-tuning export pipelines rely on it.
+ */
+function formatPianoGlobalControlLine(pianoPlan: PianoPlan): string {
+    const sections = pianoPlan.sections;
+    // Dominant texture: first section's texture is taken as the governing idiom.
+    const globalTexture = sections[0]?.textureKind ?? "melody_accompaniment";
+    // Dominant pedal: mode of pedal strategies across sections.
+    const pedalCounts = new Map<string, number>();
+    for (const s of sections) {
+        const strat = s.pedal.strategy;
+        pedalCounts.set(strat, (pedalCounts.get(strat) ?? 0) + 1);
+    }
+    let dominantPedal = "none";
+    let maxCount = 0;
+    for (const [strat, count] of pedalCounts) {
+        if (count > maxCount) { maxCount = count; dominantPedal = strat; }
+    }
+    // hand_crossing: true if any section hand plan permits crossing.
+    const handCrossing = sections.some(
+        (s) => s.rightHand.allowCrossing === true || s.leftHand.allowCrossing === true,
+    );
+    // max_span: largest maxComfortableSpan across all hand plans.
+    const maxSpan = sections.reduce((acc, s) => {
+        return Math.max(acc, s.rightHand.maxComfortableSpan, s.leftHand.maxComfortableSpan);
+    }, 0);
+    return `piano_global texture=${globalTexture} pedal=${dominantPedal} hand_crossing=${handCrossing} max_span=${maxSpan}`;
+}
+
+/**
+ * Emits a `piano_section` control line for one PianoSectionPlan.
+ *
+ * Format: `piano_section id=<id> texture=<kind> rh=<roles> lh=<pattern|roles> pedal=<strategy> density=<label>`
+ *
+ * The lh field prefers the explicit accompanimentPattern when set (e.g. "broken_chord"),
+ * otherwise falls back to the left-hand primary roles joined with "|".
+ */
+function formatPianoSectionControlLine(section: PianoSectionPlan): string {
+    const rhRoles = section.rightHand.primaryRoles.join("|") || "lead";
+    const lhValue = section.accompanimentPattern
+        ?? (section.leftHand.primaryRoles.join("|") || "bass");
+    const pedal = section.pedal.strategy;
+    const density = resolveDensityLabel(section.rightHand.densityTarget);
+    return `piano_section id=${section.sectionId} texture=${section.textureKind} rh=${rhRoles} lh=${lhValue} pedal=${pedal} density=${density}`;
 }
 
 export interface LearnedNotagenProviderRequestOpts {
@@ -222,7 +290,27 @@ export function buildLearnedNotagenProviderRequest(
         `meter=${meter}`,
         `tempo=${tempo}`,
         instrumentationLine,
-        ...promptPack.sections.map((section) => formatSectionControlLine(section)),
+        // Piano-specific global header lines (present only when a PianoPlan is attached).
+        // Preserved verbatim even when native NotaGen cannot follow all fields —
+        // projection, evaluator, repair solver, and fine-tuning export pipelines rely on them.
+        ...(promptPack.pianoPlan
+            ? [`difficulty=${promptPack.pianoPlan.difficultyTarget}`]
+            : []),
+        ...(promptPack.pianoPlan
+            ? [formatPianoGlobalControlLine(promptPack.pianoPlan)]
+            : []),
+        // Section lines: for piano plans, each `section` line is immediately followed by
+        // its matching `piano_section` line so downstream consumers see them as pairs.
+        ...promptPack.sections.flatMap((section) => {
+            const sectionLine = formatSectionControlLine(section);
+            if (!promptPack.pianoPlan) return [sectionLine];
+            const pianoSection = promptPack.pianoPlan.sections.find(
+                (ps) => ps.sectionId === section.sectionId,
+            );
+            return pianoSection
+                ? [sectionLine, formatPianoSectionControlLine(pianoSection)]
+                : [sectionLine];
+        }),
         ...(promptPack.motifPolicy
             ? [
                 `motif_policy reuse_required=${String(Boolean(promptPack.motifPolicy.reuseRequired))}`

@@ -10,12 +10,14 @@ import type {
     ModelBinding,
     MotifTransformPolicy,
     OrnamentPlan,
+    PianoPlan,
     TempoMotionPlan,
     TextureGuidance,
 } from "../pipeline/types.js";
 import {
     FIXED_STRING_TRIO_SYMBOLIC_BENCHMARK_PACK,
     LEARNED_SYMBOLIC_PROMPT_PACK_VERSION,
+    SOLO_PIANO_SYMBOLIC_LANE,
     STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION,
     STRING_TRIO_SYMBOLIC_LANE,
 } from "../pipeline/learnedSymbolicContract.js";
@@ -88,6 +90,8 @@ export interface LearnedSymbolicPromptPack {
     styleCue: LearnedSymbolicPromptPackStyleCue;
     instrumentation: InstrumentAssignment[];
     sections: LearnedSymbolicPromptPackSection[];
+    /** Present when compositionPlan.pianoPlan is set; carries piano IR for prompt formatting, projection, and fine-tuning datasets. */
+    pianoPlan?: PianoPlan;
     motifPolicy?: MotifTransformPolicy;
     sketchSummary?: {
         motifDraftCount: number;
@@ -214,6 +218,11 @@ function resolveLane(request: ComposeRequest, instrumentation: InstrumentAssignm
 
     if (form.includes("miniature") && (orchestrationFamily === "string_trio" || stableStringify(instrumentNames) === stableStringify(canonicalTrio))) {
         return STRING_TRIO_SYMBOLIC_LANE;
+    }
+
+    // Solo piano lane: any form with a PianoPlan attached and at least one Piano instrument.
+    if (request.compositionPlan?.pianoPlan !== undefined && instrumentNames.includes("piano")) {
+        return SOLO_PIANO_SYMBOLIC_LANE;
     }
 
     // TODO(generic_symbolic): generic_symbolic lane is not yet supported.
@@ -446,6 +455,9 @@ export function buildLearnedSymbolicPromptPack(request: ComposeRequest): Learned
         styleCue,
         instrumentation,
         sections,
+        ...(normalizedRequest.compositionPlan?.pianoPlan
+            ? { pianoPlan: normalizedRequest.compositionPlan.pianoPlan }
+            : {}),
         ...(normalizedRequest.compositionPlan?.motifPolicy
             ? { motifPolicy: cloneJsonValue(normalizedRequest.compositionPlan.motifPolicy) }
             : {}),

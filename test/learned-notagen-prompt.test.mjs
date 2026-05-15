@@ -653,7 +653,163 @@ test("abc_conditioning: missing meter falls back to 4/4 (no meter= in controlLin
     assert.match(r.stdout, /^M:4\/4$/m, "should default to M:4/4 when no meter= control line");
 });
 
-// ─── Bug 3: notagen_native silently drops <AXIOM_REWRITE> block ───────────────
+// ─── Piano prompt tests ───────────────────────────────────────────────────────
+
+/** Build a minimal ComposeRequest for the solo piano lane. */
+function makePianoRequest(overrides = {}) {
+    return {
+        prompt: "A nocturne in F minor",
+        form: "nocturne",
+        key: "F minor",
+        tempo: 72,
+        workflow: "symbolic_only",
+        compositionPlan: {
+            version: "1",
+            brief: "A nocturne in F minor",
+            mood: [],
+            form: "nocturne",
+            key: "F minor",
+            meter: "6/8",
+            tempo: 72,
+            workflow: "symbolic_only",
+            instrumentation: [
+                { name: "Piano", family: "keyboard", roles: ["lead", "chordal_support", "bass"] },
+            ],
+            orchestration: { family: "keyboard", instrumentNames: ["Piano"], sections: [] },
+            motifPolicy: { reuseRequired: false },
+            rationale: "",
+            sections: [
+                { id: "s1", role: "theme_a", label: "Primary theme", measures: 8, energy: 0.6, density: 0.5 },
+                { id: "s2", role: "development", label: "Development", measures: 8, energy: 0.7, density: 0.6 },
+                { id: "s3", role: "recap", label: "Recap", measures: 8, energy: 0.5, density: 0.4 },
+            ],
+            pianoPlan: {
+                instrument: "Piano",
+                difficultyTarget: "advanced",
+                sections: [
+                    {
+                        sectionId: "s1",
+                        textureKind: "melody_accompaniment",
+                        rightHand: { hand: "right", primaryRoles: ["lead"], registerMin: 60, registerMax: 84, maxComfortableSpan: 12, densityTarget: 2 },
+                        leftHand: { hand: "left", primaryRoles: ["bass", "chordal_support"], registerMin: 36, registerMax: 59, maxComfortableSpan: 12, densityTarget: 3 },
+                        pedal: { enabled: true, strategy: "harmonic", changeOnHarmony: true },
+                        accompanimentPattern: "broken_chord",
+                        difficultyTarget: "advanced",
+                    },
+                    {
+                        sectionId: "s2",
+                        textureKind: "arpeggiated_texture",
+                        rightHand: { hand: "right", primaryRoles: ["lead"], registerMin: 64, registerMax: 88, maxComfortableSpan: 12, densityTarget: 3, allowCrossing: true },
+                        leftHand: { hand: "left", primaryRoles: ["bass"], registerMin: 36, registerMax: 64, maxComfortableSpan: 12, densityTarget: 4, allowCrossing: true },
+                        pedal: { enabled: true, strategy: "coloristic" },
+                        accompanimentPattern: "wide_spread_arpeggio",
+                        difficultyTarget: "advanced",
+                    },
+                    {
+                        sectionId: "s3",
+                        textureKind: "melody_accompaniment",
+                        rightHand: { hand: "right", primaryRoles: ["lead"], registerMin: 60, registerMax: 84, maxComfortableSpan: 12, densityTarget: 1 },
+                        leftHand: { hand: "left", primaryRoles: ["bass", "chordal_support"], registerMin: 36, registerMax: 59, maxComfortableSpan: 12, densityTarget: 3 },
+                        pedal: { enabled: true, strategy: "harmonic", changeOnHarmony: true },
+                        accompanimentPattern: "broken_chord",
+                        difficultyTarget: "intermediate",
+                    },
+                ],
+            },
+        },
+        ...overrides,
+    };
+}
+
+const PIANO_EXECUTION_PLAN = {
+    workflow: "symbolic_only",
+    composeWorker: "learned_symbolic",
+    selectedModels: [{ role: "structure", provider: "learned", model: "learned-symbolic-piano-v1" }],
+};
+
+function buildPianoPayload(requestOverrides = {}) {
+    const req = makePianoRequest(requestOverrides);
+    return buildLearnedSymbolicWorkerPayload(req, "nocturne-test", "/tmp/nocturne.mid", PIANO_EXECUTION_PLAN);
+}
+
+test("notagen-adapter piano: lane resolves to solo_piano_symbolic", () => {
+    const payload = buildPianoPayload();
+    assert.equal(payload.promptPack.lane, "solo_piano_symbolic");
+    const laneLine = payload.providerRequest.controlLines.find((l) => l.startsWith("lane="));
+    assert.equal(laneLine, "lane=solo_piano_symbolic");
+});
+
+test("notagen-adapter piano: promptPack carries pianoPlan", () => {
+    const payload = buildPianoPayload();
+    assert.ok(payload.promptPack.pianoPlan, "promptPack.pianoPlan must be set");
+    assert.equal(payload.promptPack.pianoPlan?.instrument, "Piano");
+    assert.equal(payload.promptPack.pianoPlan?.difficultyTarget, "advanced");
+    assert.equal(payload.promptPack.pianoPlan?.sections.length, 3);
+});
+
+test("notagen-adapter piano: controlLines contains difficulty and piano_global before sections", () => {
+    const lines = buildPianoPayload().providerRequest.controlLines;
+    const idxDiff = lines.findIndex((l) => l.startsWith("difficulty="));
+    const idxGlobal = lines.findIndex((l) => l.startsWith("piano_global "));
+    const idxSection = lines.findIndex((l) => l.startsWith("section "));
+    assert.ok(idxDiff >= 0, "difficulty= line missing");
+    assert.ok(idxGlobal >= 0, "piano_global line missing");
+    assert.ok(idxSection >= 0, "section line missing");
+    assert.ok(idxDiff < idxGlobal, "difficulty must come before piano_global");
+    assert.ok(idxGlobal < idxSection, "piano_global must come before first section");
+    assert.equal(lines[idxDiff], "difficulty=advanced");
+    // piano_global should include texture, pedal, hand_crossing, max_span
+    assert.match(lines[idxGlobal], /texture=melody_accompaniment/);
+    assert.match(lines[idxGlobal], /pedal=harmonic/);  // harmonic is dominant (2 of 3 sections)
+    assert.match(lines[idxGlobal], /hand_crossing=true/);  // s2 has allowCrossing
+    assert.match(lines[idxGlobal], /max_span=12/);
+});
+
+test("notagen-adapter piano: each section line is immediately followed by piano_section line", () => {
+    const lines = buildPianoPayload().providerRequest.controlLines;
+    const sectionIndexes = lines.reduce((acc, l, i) => {
+        if (l.startsWith("section ")) acc.push(i);
+        return acc;
+    }, /** @type {number[]} */ ([]));
+    assert.equal(sectionIndexes.length, 3, "should have 3 section lines");
+    for (const idx of sectionIndexes) {
+        const sectionId = lines[idx].match(/id=(\S+)/)?.[1];
+        const nextLine = lines[idx + 1] ?? "";
+        assert.match(nextLine, /^piano_section /, `section ${sectionId}: expected piano_section immediately after, got: ${nextLine}`);
+        assert.match(nextLine, new RegExp(`id=${sectionId}`), `piano_section must match sectionId=${sectionId}`);
+        assert.match(nextLine, /texture=/, `piano_section for ${sectionId} missing texture=`);
+        assert.match(nextLine, /rh=/, `piano_section for ${sectionId} missing rh=`);
+        assert.match(nextLine, /lh=/, `piano_section for ${sectionId} missing lh=`);
+        assert.match(nextLine, /pedal=/, `piano_section for ${sectionId} missing pedal=`);
+        assert.match(nextLine, /density=/, `piano_section for ${sectionId} missing density=`);
+    }
+});
+
+test("notagen-adapter piano: density labels match densityTarget thresholds", () => {
+    const lines = buildPianoPayload().providerRequest.controlLines;
+    const pianoSections = lines.filter((l) => l.startsWith("piano_section "));
+    // s1 rh densityTarget=2 → medium
+    const s1 = pianoSections.find((l) => l.includes("id=s1"));
+    assert.ok(s1?.includes("density=medium"), `s1 expected density=medium, got: ${s1}`);
+    // s2 rh densityTarget=3 → rich
+    const s2 = pianoSections.find((l) => l.includes("id=s2"));
+    assert.ok(s2?.includes("density=rich"), `s2 expected density=rich, got: ${s2}`);
+    // s3 rh densityTarget=1 → sparse
+    const s3 = pianoSections.find((l) => l.includes("id=s3"));
+    assert.ok(s3?.includes("density=sparse"), `s3 expected density=sparse, got: ${s3}`);
+});
+
+test("notagen-adapter piano: lh= uses accompanimentPattern when present, roles as fallback", () => {
+    const lines = buildPianoPayload().providerRequest.controlLines;
+    const pianoSections = lines.filter((l) => l.startsWith("piano_section "));
+    // s1 has accompanimentPattern=broken_chord
+    const s1 = pianoSections.find((l) => l.includes("id=s1"));
+    assert.ok(s1?.includes("lh=broken_chord"), `s1 expected lh=broken_chord, got: ${s1}`);
+    // s2 has accompanimentPattern=wide_spread_arpeggio
+    const s2 = pianoSections.find((l) => l.includes("id=s2"));
+    assert.ok(s2?.includes("lh=wide_spread_arpeggio"), `s2 expected lh=wide_spread_arpeggio, got: ${s2}`);
+});
+
 // Verifies that _generate_local() detects the native engine + rewrite_block
 // combination, strips the rewrite block from the prompt, downgrades
 // generation_mode to a full-regen label, and surfaces a warning on the result.
