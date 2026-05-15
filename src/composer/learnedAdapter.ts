@@ -6,6 +6,7 @@ import type {
     HarmonicPlan,
     InstrumentAssignment,
     LearnedSamplingParams,
+    LocalizedPianoRewriteSpec,
     LocalizedRewriteSpec,
     ModelBinding,
     MotifTransformPolicy,
@@ -135,6 +136,8 @@ export interface LearnedSymbolicWorkerPayload {
     learnedSampling?: LearnedSamplingParams;
     /** When present, instructs the backend to rewrite only the specified sections. */
     localizedRewriteSpec?: LocalizedRewriteSpec;
+    /** When present, describes piano-specific localized repairs/rewrites for the solo_piano_symbolic lane. */
+    localizedPianoRewriteSpec?: LocalizedPianoRewriteSpec;
     revisionDirectives?: ComposeRequest["revisionDirectives"];
     sectionArtifacts?: ComposeRequest["sectionArtifacts"];
     compositionPlan?: ComposeRequest["compositionPlan"];
@@ -507,6 +510,7 @@ export function buildLearnedSymbolicWorkerPayload(
     const candidateIndex = deriveCandidateIndex(request.candidateVariantKey);
     const learnedSampling = request.learnedSampling;
     const localizedRewriteSpec = request.localizedRewriteSpec;
+    const localizedPianoRewriteSpec = request.localizedPianoRewriteSpec;
 
     return {
         prompt: request.prompt,
@@ -519,6 +523,7 @@ export function buildLearnedSymbolicWorkerPayload(
             candidateIndex,
             samplingParams: learnedSampling,
             localizedRewriteSpec,
+            localizedPianoRewriteSpec,
         }),
         ...(request.key ? { key: request.key } : {}),
         ...(request.tempo !== undefined ? { tempo: request.tempo } : {}),
@@ -527,6 +532,7 @@ export function buildLearnedSymbolicWorkerPayload(
         ...(candidateIndex !== undefined ? { candidateIndex } : {}),
         ...(learnedSampling ? { learnedSampling } : {}),
         ...(localizedRewriteSpec ? { localizedRewriteSpec } : {}),
+        ...(localizedPianoRewriteSpec ? { localizedPianoRewriteSpec } : {}),
         ...(request.revisionDirectives?.length ? { revisionDirectives: request.revisionDirectives } : {}),
         ...(request.sectionArtifacts?.length ? { sectionArtifacts: request.sectionArtifacts } : {}),
         ...(request.compositionPlan ? { compositionPlan: request.compositionPlan } : {}),

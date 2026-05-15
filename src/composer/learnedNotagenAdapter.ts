@@ -1,4 +1,4 @@
-import type { LocalizedRewriteSpec, LearnedSamplingParams, ModelBinding, PianoPlan, PianoSectionPlan } from "../pipeline/types.js";
+import type { LocalizedRewriteSpec, LearnedSamplingParams, ModelBinding, PianoPlan, PianoSectionPlan, LocalizedPianoRewriteSpec, PianoRevisionDirective } from "../pipeline/types.js";
 import { SOLO_PIANO_SYMBOLIC_LANE, STRING_TRIO_SYMBOLIC_LANE } from "../pipeline/learnedSymbolicContract.js";
 import type {
     LearnedSymbolicPromptPack,
@@ -29,6 +29,15 @@ export interface LearnedNotagenProviderRequest {
     samplingParams?: LearnedSamplingParams;
     /** When present, the backend performs a localized section rewrite instead of whole-piece generation. */
     rewriteSpec?: LocalizedRewriteSpec;
+    /**
+     * When present, describes piano-specific localized repairs/rewrites.
+     * Native NotaGen that cannot act on this block should strip it and fall
+     * back to PianoRepairSolver; downstream fine-tuned models consume it directly.
+     * Preserved verbatim in controlLines metadata for projection and dataset export.
+     */
+    pianoRewriteSpec?: LocalizedPianoRewriteSpec;
+    /** Rendered `<AXIOM_PIANO_REWRITE>` block derived from pianoRewriteSpec. Passed after the main control block. */
+    pianoRewriteBlock?: string;
 }
 
 function normalizeText(value: string | undefined): string {
@@ -217,6 +226,8 @@ export interface LearnedNotagenProviderRequestOpts {
     candidateIndex?: number;
     samplingParams?: LearnedSamplingParams;
     localizedRewriteSpec?: LocalizedRewriteSpec;
+    /** Piano-specific localized rewrite spec; produces an AXIOM_PIANO_REWRITE block. */
+    localizedPianoRewriteSpec?: LocalizedPianoRewriteSpec;
 }
 
 /** Maps RevisionDirectiveKind values to human-readable rewrite target descriptions. */
@@ -263,6 +274,65 @@ export function buildRewriteBlock(spec: LocalizedRewriteSpec): string {
     ].filter(Boolean);
 
     return `<AXIOM_REWRITE>\n${innerLines.join("\n")}\n</AXIOM_REWRITE>`;
+}
+
+/** Maps PianoRevisionDirectiveKind to human-readable repair/rewrite target strings. */
+const PIANO_DIRECTIVE_KIND_TO_TARGETS: Record<string, string[]> = {
+    reduce_hand_span:                 ["keep maximum hand span <= 12 semitones", "arpeggiate chords that exceed the span limit"],
+    smooth_left_hand_leaps:           ["reduce left-hand leap distance", "use stepwise or broken-chord motion in left hand"],
+    clarify_right_hand_melody:        ["keep right-hand melody above accompaniment", "reduce inner-voice density that obscures the melody"],
+    strengthen_left_hand_bass:        ["reinforce bass note on downbeats", "ensure left-hand lowest voice is rhythmically stable"],
+    thin_overdense_chords:            ["use broken-chord accompaniment instead of dense block chords", "reduce simultaneous note count per hand"],
+    improve_pedal_changes:            ["change sustain pedal on each new harmony", "avoid cross-harmony pedal blur"],
+    separate_registers:               ["keep left-hand register below right-hand register", "resolve register collision between hands"],
+    increase_accompaniment_consistency: ["apply uniform accompaniment pattern throughout the section", "avoid sudden texture changes within the section"],
+    reduce_hand_crossing:             ["avoid hand-crossing unless idiomatic", "reposition voices to natural hand territories"],
+    make_texture_more_pianistic:      ["replace non-pianistic writing with idiomatic piano figuration", "match texture to declared textureKind"],
+};
+
+/**
+ * Build an `<AXIOM_PIANO_REWRITE>` block from a `LocalizedPianoRewriteSpec`.
+ *
+ * Native NotaGen that cannot act on this block should strip it and route the
+ * request to PianoRepairSolver.  Fine-tuned piano rewrite models consume it
+ * directly.  The block is always preserved in `pianoRewriteBlock` on the
+ * provider request for downstream projection and dataset export.
+ */
+export function buildPianoRewriteBlock(spec: LocalizedPianoRewriteSpec): string {
+    const targets = new Set<string>();
+    for (const directive of spec.directives) {
+        const mappedTargets = PIANO_DIRECTIVE_KIND_TO_TARGETS[directive.kind];
+        if (mappedTargets) {
+            for (const t of mappedTargets) targets.add(t);
+        } else {
+            targets.add(directive.reason);
+        }
+    }
+    targets.add("preserve harmonic rhythm and measure count");
+
+    const targetLines = [...targets].map((t) => `- ${t}`).join("\n");
+    const keepLine = spec.keepSectionIds.length > 0
+        ? `keep_sections=${spec.keepSectionIds.join(",")}`
+        : "";
+    const rewriteLine = `rewrite_sections=${spec.rewriteSectionIds.join(",")}`;
+
+    // Fallback strategy summary: group directives by preferred strategy.
+    const repairOnly = spec.directives.filter((d) => d.fallbackStrategy === "repairSolver").map((d) => d.kind);
+    const rewriteOnly = spec.directives.filter((d) => d.fallbackStrategy === "rewrite").map((d) => d.kind);
+
+    const innerLines = [
+        "mode=localized_piano_rewrite",
+        keepLine,
+        rewriteLine,
+        `reason="${spec.reason.replace(/"/g, "'")}"`,
+        ...(spec.repairAlreadyApplied ? ["repair_already_applied=true"] : []),
+        ...(repairOnly.length ? [`repair_solver_directives=${repairOnly.join(",")}`] : []),
+        ...(rewriteOnly.length ? [`rewrite_directives=${rewriteOnly.join(",")}`] : []),
+        "target:",
+        targetLines,
+    ].filter(Boolean);
+
+    return `<AXIOM_PIANO_REWRITE>\n${innerLines.join("\n")}\n</AXIOM_PIANO_REWRITE>`;
 }
 
 export function buildLearnedNotagenProviderRequest(
@@ -373,5 +443,11 @@ export function buildLearnedNotagenProviderRequest(
         ...(opts?.candidateIndex !== undefined ? { candidateIndex: opts.candidateIndex } : {}),
         ...(opts?.samplingParams && hasSamplingParams(opts.samplingParams) ? { samplingParams: opts.samplingParams } : {}),
         ...(opts?.localizedRewriteSpec ? { rewriteSpec: opts.localizedRewriteSpec } : {}),
+        ...(opts?.localizedPianoRewriteSpec
+            ? {
+                pianoRewriteSpec: opts.localizedPianoRewriteSpec,
+                pianoRewriteBlock: buildPianoRewriteBlock(opts.localizedPianoRewriteSpec),
+            }
+            : {}),
     };
 }

@@ -18,7 +18,7 @@
  *
  * Priority 2 — Global pairwise learned weights:
  *   When ≥ MIN_FEEDBACK_SAMPLES rated candidates exist across ALL song
- *   directories (outputs/*/candidates), computes per-dimension weights via
+ *   directories (outputs/&lt;songId&gt;/candidates), computes per-dimension weights via
  *   pairwise sign-agreement correlation against the global history.
  *   weightSource = "learned".
  *
@@ -535,7 +535,7 @@ export function computePreferenceScore(
  *   6. Return the highest-scoring candidate id plus diagnostic metadata.
  *
  * History priority (when _historyOverride is not provided):
- *   • Global history (outputs/*/candidates, all songs) when ≥ MIN_FEEDBACK_SAMPLES
+ *   • Global history (outputs/&lt;songId&gt;/candidates, all songs) when ≥ MIN_FEEDBACK_SAMPLES
  *   • Song-local history (outputs/<songId>/candidates) otherwise
  *   This means accumulated cross-song feedback informs every new composition.
  *

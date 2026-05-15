@@ -47,6 +47,7 @@ const pythonBin = detectPythonBin();
 // ─── TypeScript imports from compiled dist ────────────────────────────────
 
 const { buildLearnedSymbolicWorkerPayload } = await import("../dist/composer/learnedAdapter.js");
+const { buildPianoRewriteBlock } = await import("../dist/composer/learnedNotagenAdapter.js");
 
 const STRING_TRIO_LANE = "string_trio_symbolic";
 
@@ -810,10 +811,6 @@ test("notagen-adapter piano: lh= uses accompanimentPattern when present, roles a
     assert.ok(s2?.includes("lh=wide_spread_arpeggio"), `s2 expected lh=wide_spread_arpeggio, got: ${s2}`);
 });
 
-// Verifies that _generate_local() detects the native engine + rewrite_block
-// combination, strips the rewrite block from the prompt, downgrades
-// generation_mode to a full-regen label, and surfaces a warning on the result.
-
 test("notagen_backend: notagen_native + rewrite_block → warning + full-regen mode (Python)", (t) => {
     if (!pythonBin) { t.skip("No Python binary available"); return; }
     const script = `
@@ -882,4 +879,67 @@ print("PASS")
     });
     assert.equal(r.status, 0, `Python test failed:\nstdout: ${r.stdout}\nstderr: ${r.stderr}`);
     assert.match(r.stdout, /PASS/, "Python test must print PASS");
+});
+
+// ─── Piano rewrite block tests ───────────────────────────────────────────────
+
+const PIANO_REWRITE_SPEC_BASE = {
+    rewriteSectionIds: ["s2"],
+    keepSectionIds: ["s1", "s3"],
+    reason: "left hand leaps are too large; melody is buried by inner chords",
+    directives: [
+        { kind: "smooth_left_hand_leaps",    priority: 1, reason: "LH leaps > octave", fallbackStrategy: "repairSolver" },
+        { kind: "clarify_right_hand_melody", priority: 2, reason: "melody buried",      fallbackStrategy: "rewrite" },
+    ],
+    repairAlreadyApplied: false,
+};
+
+test("buildPianoRewriteBlock: emits AXIOM_PIANO_REWRITE tags and mode=localized_piano_rewrite", () => {
+    const block = buildPianoRewriteBlock(PIANO_REWRITE_SPEC_BASE);
+    assert.match(block, /^<AXIOM_PIANO_REWRITE>/);
+    assert.match(block, /<\/AXIOM_PIANO_REWRITE>$/);
+    assert.match(block, /mode=localized_piano_rewrite/);
+});
+
+test("buildPianoRewriteBlock: rewrite_sections and keep_sections are present", () => {
+    const block = buildPianoRewriteBlock(PIANO_REWRITE_SPEC_BASE);
+    assert.match(block, /rewrite_sections=s2/);
+    assert.match(block, /keep_sections=s1,s3/);
+    assert.match(block, /reason="/);
+});
+
+test("buildPianoRewriteBlock: target bullets come from PIANO_DIRECTIVE_KIND_TO_TARGETS", () => {
+    const block = buildPianoRewriteBlock(PIANO_REWRITE_SPEC_BASE);
+    // smooth_left_hand_leaps → "reduce left-hand leap distance"
+    assert.match(block, /reduce left-hand leap distance/);
+    // clarify_right_hand_melody → "keep right-hand melody above accompaniment"
+    assert.match(block, /keep right-hand melody above accompaniment/);
+    // Always appended
+    assert.match(block, /preserve harmonic rhythm and measure count/);
+});
+
+test("buildPianoRewriteBlock: repair_already_applied=true emitted when set", () => {
+    const spec = { ...PIANO_REWRITE_SPEC_BASE, repairAlreadyApplied: true };
+    const block = buildPianoRewriteBlock(spec);
+    assert.match(block, /repair_already_applied=true/);
+    // verify absence when false
+    const blockFalse = buildPianoRewriteBlock(PIANO_REWRITE_SPEC_BASE);
+    assert.doesNotMatch(blockFalse, /repair_already_applied/);
+});
+
+test("buildPianoRewriteBlock: repair_solver_directives and rewrite_directives separation", () => {
+    const block = buildPianoRewriteBlock(PIANO_REWRITE_SPEC_BASE);
+    // smooth_left_hand_leaps has fallbackStrategy=repairSolver
+    assert.match(block, /repair_solver_directives=smooth_left_hand_leaps/);
+    // clarify_right_hand_melody has fallbackStrategy=rewrite
+    assert.match(block, /rewrite_directives=clarify_right_hand_melody/);
+});
+
+test("buildLearnedSymbolicWorkerPayload: pianoRewriteSpec + pianoRewriteBlock carried on providerRequest", () => {
+    const req = makePianoRequest({ localizedPianoRewriteSpec: PIANO_REWRITE_SPEC_BASE });
+    const payload = buildLearnedSymbolicWorkerPayload(req, "rewrite-test", "/tmp/rewrite.mid", PIANO_EXECUTION_PLAN);
+    assert.ok(payload.localizedPianoRewriteSpec, "payload must carry localizedPianoRewriteSpec");
+    assert.ok(payload.providerRequest.pianoRewriteSpec, "providerRequest must carry pianoRewriteSpec");
+    assert.ok(payload.providerRequest.pianoRewriteBlock, "providerRequest must carry pianoRewriteBlock");
+    assert.match(payload.providerRequest.pianoRewriteBlock, /AXIOM_PIANO_REWRITE/);
 });

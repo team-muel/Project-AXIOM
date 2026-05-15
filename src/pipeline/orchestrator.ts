@@ -1271,7 +1271,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             midiData: candidate.midiData,
                             abcText: candidateComposeResult.proposalEvidence?.abcText,
                             evaluatedAt: manifest.updatedAt,
-                    }
+                        });
 
                     if (composeResult?.isRendered || effectiveExecutionPlan.workflow === "audio_only") {
                         break;
@@ -1300,6 +1300,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                     }
 
                     const initialAttemptWinner = selectAttemptWinner(attemptCandidates, manifest.songId);
+                    bestSymbolicCandidate = initialAttemptWinner;
 
                     composeResult = initialAttemptWinner.composeResult;
                     effectiveExecutionPlan = initialAttemptWinner.executionPlan;
@@ -1472,7 +1473,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             midiData: branchCandidate.midiData,
                             abcText: branchComposeResult.proposalEvidence?.abcText,
                             evaluatedAt: manifest.updatedAt,
-                    }
+                        });
 
                     const attemptWinner = selectAttemptWinner(attemptCandidates, manifest.songId);
 
@@ -1714,12 +1715,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                     midiData: resolvedCandidate.midiData,
                     abcText: composeResult.proposalEvidence?.abcText,
                     evaluatedAt: manifest.updatedAt,
-                    manifest.songId,
-                    resolvedCandidate.candidateId,
-                    resolvedCandidate.attempt,
-                    manifest.qualityControl?.stopReason,
-                    appliedPromotion,
-                );
+                });
                 runStructureRerankerShadowScoring(manifest.songId);
 
                 if (!resumeStage) {
@@ -1934,6 +1930,8 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
             }
 
             break qualityRevisionLoop;
+                }
+            }
         }
 
         // STORE
