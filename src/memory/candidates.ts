@@ -92,6 +92,8 @@ export interface StructureCandidateManifest {
     artifacts: {
         midi?: string;
         sectionArtifacts?: string;
+        /** Path to the candidate.abc sidecar file (full ABC score text). */
+        abc?: string;
     };
 }
 
@@ -161,6 +163,9 @@ export interface SaveStructureCandidateSnapshotInput {
     sectionTonalities?: SectionTonalitySummary[];
     sectionTransforms?: SectionTransformSummary[];
     midiData?: Buffer;
+    /** Full ABC score text to persist as a sidecar file (candidate.abc).
+     *  Populated when the symbolic backend produces ABC text output. */
+    abcText?: string;
     evaluatedAt?: string;
 }
 
@@ -221,6 +226,10 @@ export function structureCandidateMidiPath(songId: string, candidateId: string):
     return path.join(structureCandidateDir(songId, candidateId), "composition.mid");
 }
 
+export function structureCandidateAbcPath(songId: string, candidateId: string): string {
+    return path.join(structureCandidateDir(songId, candidateId), "score.abc");
+}
+
 export function structureCandidateRerankerScorePath(songId: string, candidateId: string): string {
     return path.join(structureCandidateDir(songId, candidateId), "reranker-score.json");
 }
@@ -277,6 +286,8 @@ export function saveStructureCandidateSnapshot(input: SaveStructureCandidateSnap
     const candidateManifestPath = structureCandidateManifestPath(input.songId, input.candidateId);
     const candidateSectionArtifactsPath = structureCandidateSectionArtifactsPath(input.songId, input.candidateId);
     const candidateMidiFilePath = structureCandidateMidiPath(input.songId, input.candidateId);
+    const candidateAbcFilePath = structureCandidateAbcPath(input.songId, input.candidateId);
+    const hasAbcText = typeof input.abcText === "string" && input.abcText.trim().length > 0;
     const index = loadStructureCandidateIndex(input.songId);
     const selected = index.selectedCandidateId === input.candidateId;
     const candidateManifest: StructureCandidateManifest = {
@@ -307,6 +318,7 @@ export function saveStructureCandidateSnapshot(input: SaveStructureCandidateSnap
         artifacts: {
             midi: input.midiData?.length ? candidateMidiFilePath : undefined,
             sectionArtifacts: input.sectionArtifacts?.length ? candidateSectionArtifactsPath : undefined,
+            abc: hasAbcText ? candidateAbcFilePath : undefined,
         },
     };
 
@@ -319,6 +331,11 @@ export function saveStructureCandidateSnapshot(input: SaveStructureCandidateSnap
     if (input.midiData?.length) {
         ensureDir(path.dirname(candidateMidiFilePath));
         fs.writeFileSync(candidateMidiFilePath, input.midiData);
+    }
+
+    if (hasAbcText) {
+        ensureDir(path.dirname(candidateAbcFilePath));
+        fs.writeFileSync(candidateAbcFilePath, input.abcText as string, "utf-8");
     }
 
     const nextEntry: StructureCandidateIndexEntry = {

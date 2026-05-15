@@ -1269,9 +1269,8 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             sectionTonalities: candidateComposeResult.sectionTonalities,
                             sectionTransforms: candidateComposeResult.sectionTransforms,
                             midiData: candidate.midiData,
+                            abcText: candidateComposeResult.proposalEvidence?.abcText,
                             evaluatedAt: manifest.updatedAt,
-                        });
-                        bestSymbolicCandidate = chooseBetterSymbolicCandidate(bestSymbolicCandidate, candidate);
                     }
 
                     if (composeResult?.isRendered || effectiveExecutionPlan.workflow === "audio_only") {
@@ -1471,9 +1470,8 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             sectionTonalities: branchComposeResult.sectionTonalities,
                             sectionTransforms: branchComposeResult.sectionTransforms,
                             midiData: branchCandidate.midiData,
+                            abcText: branchComposeResult.proposalEvidence?.abcText,
                             evaluatedAt: manifest.updatedAt,
-                        });
-                        bestSymbolicCandidate = chooseBetterSymbolicCandidate(bestSymbolicCandidate, branchCandidate);
                     }
 
                     const attemptWinner = selectAttemptWinner(attemptCandidates, manifest.songId);
@@ -1714,9 +1712,8 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                     sectionTonalities: composeResult.sectionTonalities,
                     sectionTransforms: composeResult.sectionTransforms,
                     midiData: resolvedCandidate.midiData,
+                    abcText: composeResult.proposalEvidence?.abcText,
                     evaluatedAt: manifest.updatedAt,
-                });
-                markSelectedStructureCandidate(
                     manifest.songId,
                     resolvedCandidate.candidateId,
                     resolvedCandidate.attempt,

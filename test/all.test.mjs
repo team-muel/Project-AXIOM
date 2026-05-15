@@ -37,4 +37,5 @@ import "./notagen-backend.test.mjs";
 import "./preference-model.test.mjs";
 import "./notagen-preference-export-script.test.mjs";
 import "./python-worker-compile.test.mjs";
+import "./notagen-sft-export-script.test.mjs";
 
