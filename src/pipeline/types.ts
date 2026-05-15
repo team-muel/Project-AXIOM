@@ -1187,51 +1187,69 @@ export interface CraftScoreSummary {
 
 // ─── Piano-specific craft scoring ────────────────────────────────────────────
 
+/**
+ * Piano craft score summary.
+ *
+ * Dimension weights (sum = 1.00):
+ *   handPlayability              0.20  — gate dimension; unplayable ≠ piano
+ *   melodicClarity               0.15
+ *   bassCoherence                0.15
+ *   voicingIdiomaticFit          0.12
+ *   accompanimentPatternCoherence 0.12
+ *   registerSpacing              0.10
+ *   handIndependence             0.08
+ *   pedalPlausibility            0.05
+ *   difficultyFit                0.03
+ *   ─────────────────────────────────
+ *   total                        1.00
+ */
 export interface PianoCraftScoreSummary {
-    /**
-     * Proportion of chordal events within playable span; derived from
-     * PianoVoiceLayoutSummary. Weight: 0.20 (highest — unplayable ≠ piano).
-     */
+    /** Proportion of chordal events within playable span. Weight: 0.20. */
     handPlayability: number;
     /**
-     * Melodic interval smoothness in the right-hand lead voice;
-     * penalises excessive leaps (> 12 semitones). Weight: 0.15.
+     * Right-hand melodic clarity: small average leaps, moderate density,
+     * smooth contour. Incorporates leap penalty. Weight: 0.15.
      */
-    rightHandMelodicClarity: number;
+    melodicClarity: number;
     /**
-     * Left-hand bass motion coherence: rewards stepwise / pedal bass over
-     * random leaping. Weight: 0.15.
+     * Left-hand bass coherence: stepwise / pedal bass rewarded; leaping
+     * LH penalised; bass pitch out of LH zone penalised. Weight: 0.15.
      */
-    leftHandBassCoherence: number;
+    bassCoherence: number;
     /**
-     * Register separation score: rewards a clear gap between the RH median
-     * pitch and the LH median pitch (idiomatic spread). Weight: 0.15.
+     * Idiomatic chord voicing: voice count fit + awkward-span ratio.
+     * Replaces the former chordDensity + excessiveLeapPenalty split.
+     * Weight: 0.12.
+     */
+    voicingIdiomaticFit: number;
+    /**
+     * Rhythmic regularity and pattern stability of accompaniment (LH).
+     * Weight: 0.12.
+     */
+    accompanimentPatternCoherence: number;
+    /**
+     * Register separation between RH median and LH median (idiomatic spread).
+     * Weight: 0.10.
      */
     registerSpacing: number;
     /**
-     * Rhythmic regularity of the accompaniment (LH) events across sections.
-     * Weight: 0.10.
+     * Independence of the two hands: rewards density balance and contrary
+     * motion; penalises one hand dominating or mirroring the other.
+     * Weight: 0.08.
      */
-    accompanimentPatternConsistency: number;
+    handIndependence: number;
     /**
-     * Fraction of large melodic leaps (> octave) relative to all melody
-     * intervals; lower is better (score is 1 − excessive_rate). Weight: 0.10.
-     */
-    excessiveLeapPenalty: number;
-    /**
-     * Chord voice count fit: 1 if avgChordVoiceCount ≤ 6, degrades above.
-     * Weight: 0.10.
-     */
-    chordDensity: number;
-    /**
-     * Plausibility of pedal use relative to section length and dynamics.
+     * Plausibility of pedal use given section texture and dynamics.
      * Weight: 0.05.
      */
-    pedalLegaPlausibility: number;
+    pedalPlausibility: number;
     /**
-     * Weighted composite (weights above sum to 1.00).
+     * Fit between the plan's difficultyTarget and the realised span / density.
+     * Weight: 0.03.
      */
-    finalPianoCraftScore: number;
+    difficultyFit: number;
+    /** Weighted composite (weights above sum to 1.00). */
+    finalPianoScore: number;
     /** Optional per-dimension human-readable notes keyed by dimension name. */
     dimensionNotes?: Record<string, string>;
 }
@@ -1528,6 +1546,36 @@ export type PianoTextureKind =
     | "etude_figuration";
 
 /**
+ * Discrete accompaniment pattern identifiers.
+ *
+ * Used in PianoSectionPlan.accompanimentPattern to constrain prompts and
+ * drive texture-coherence validation.
+ */
+export type AccompanimentPattern =
+    | "alberti_bass"
+    | "broken_chord"
+    | "arpeggiated"
+    | "wide_spread_arpeggio"
+    | "block_chord"
+    | "waltz_bass"
+    | "octave_bass"
+    | "scale_passage"
+    | "repeated_figure"
+    | "inner_voice_sigh"
+    | "ornamental_turns"
+    | "tremolo_octave";
+
+/**
+ * High-level piano style paradigms that map to texture sequences.
+ *
+ * classical_sonata    — Alberti bass / broken chord / counterpoint / chorale
+ * romantic_character  — melody + wide arpeggiation / inner-voice / octave melody
+ * nocturne            — cantabile melody / spread LH waves / sustained pedal
+ * etude               — repeated figuration / toccata / progressive difficulty
+ */
+export type PianoStyleKind = "classical_sonata" | "romantic_character" | "nocturne" | "etude";
+
+/**
  * Plan for one hand within a section.
  *
  * registerMin / registerMax are MIDI pitch numbers (inclusive).
@@ -1594,10 +1642,10 @@ export interface PianoSectionPlan {
     leftHand: PianoHandPlan;
     pedal: PianoPedalPlan;
     /**
-     * Human-readable label for the accompaniment pattern (e.g. "Alberti C4 triplet",
-     * "block chord quarter notes").  Used by the ABC prompt builder.
+     * Discrete accompaniment pattern for this section.
+     * Constrains the prompt builder and drives texture-coherence validation.
      */
-    accompanimentPattern?: string;
+    accompanimentPattern?: AccompanimentPattern;
     /**
      * Chord voicing strategy for chordal events:
      *   close       — all voices within one octave
@@ -1621,6 +1669,44 @@ export interface PianoPlan {
     difficultyTarget: PianoDifficulty;
     /** One PianoSectionPlan per section in CompositionPlan.sections. */
     sections: PianoSectionPlan[];
+}
+
+/**
+ * Canonical grammar template for a single PianoTextureKind.
+ *
+ * Captures the default hand roles, register ranges, density targets,
+ * accompaniment pattern, voicing strategy, and pedal strategy that define
+ * each texture idiom.  Use `getTextureTemplate()` in pianoIR.ts to retrieve.
+ *
+ * These templates are the authoritative source for:
+ *   • buildPianoSectionPlanFromTemplate()
+ *   • buildPianoSectionPlanForStyle()
+ *   • texture-coherence validation
+ */
+export interface PianoTextureTemplate {
+    textureKind: PianoTextureKind;
+    /** Style idioms this texture is characteristically used in. */
+    styleHints: PianoStyleKind[];
+    // Right-hand defaults
+    rhRoles: TextureRole[];
+    rhRegisterMin: number;
+    rhRegisterMax: number;
+    rhDensityTarget: number;
+    // Left-hand defaults
+    lhRoles: TextureRole[];
+    lhRegisterMin: number;
+    lhRegisterMax: number;
+    lhDensityTarget: number;
+    accompanimentPattern?: AccompanimentPattern;
+    voicingStrategy: "close" | "open" | "drop_2" | "spread" | "octave_doubled";
+    pedalStrategy: "none" | "harmonic" | "legato" | "half_pedal" | "coloristic";
+    pedalChangeOnHarmony?: boolean;
+    pedalMaxMeasures?: number;
+    allowRepeatedOctaves?: boolean;
+    /** Whether LH may extend into the RH register (e.g. chorale inner-voice writing). */
+    allowCrossing?: boolean;
+    /** One-sentence description of the texture idiom. */
+    description: string;
 }
 
 // ─── Multi-movement cycle types ───────────────────────────────────────────────
