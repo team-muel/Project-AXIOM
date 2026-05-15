@@ -38,4 +38,12 @@ import "./preference-model.test.mjs";
 import "./notagen-preference-export-script.test.mjs";
 import "./python-worker-compile.test.mjs";
 import "./notagen-sft-export-script.test.mjs";
+import "./piano-dataset.test.mjs";
+import "./piano-ir.test.mjs";
+import "./piano-craft-scoring.test.mjs";
+import "./piano-projection.test.mjs";
+import "./piano-repair-solver.test.mjs";
+import "./piano-voice-layout.test.mjs";
+import "./sonata-cycle-planner.test.mjs";
+import "./learned-backend-routing.test.mjs";
 

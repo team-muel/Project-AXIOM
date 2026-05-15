@@ -7,7 +7,10 @@ import type {
     ComposeExecutionPlan,
     ComposeQualityPolicy,
     CompositionPlan,
+    CraftScoreSummary,
     ListenerFeedback,
+    PianoCraftScoreSummary,
+    PianoDataLoopEvidence,
     RevisionDirective,
     SectionArtifactSummary,
     SectionTonalitySummary,
@@ -89,6 +92,19 @@ export interface StructureCandidateManifest {
     listenerScores?: Record<string, number>;
     /** Full structured listener feedback attached when a human approves or rejects this candidate */
     listenerFeedback?: ListenerFeedback;
+    /**
+     * Piano-specific craft scores.  Present only for solo-piano candidates that
+     * passed the piano playability gate.  Mirrors pianoCraftScoreSummary in
+     * structureEvaluation but surfaced here for quick access by dataset exporters.
+     */
+    pianoCraftScore?: PianoCraftScoreSummary;
+    /**
+     * Flat piano evidence fields aggregated across all sections for this candidate.
+     * Populated by pianoDataset.buildPianoDataLoopEvidence() when the candidate is
+     * a piano-solo generation.  Used by exportPianoPlayabilityDataset() and
+     * exportPianoPreferenceDataset().
+     */
+    pianoEvidence?: PianoDataLoopEvidence;
     artifacts: {
         midi?: string;
         sectionArtifacts?: string;
@@ -167,6 +183,17 @@ export interface SaveStructureCandidateSnapshotInput {
      *  Populated when the symbolic backend produces ABC text output. */
     abcText?: string;
     evaluatedAt?: string;
+    /**
+     * Piano-specific craft scores.  Supply when the candidate went through the
+     * piano lane so the manifest can serve as a self-contained data loop entry.
+     */
+    pianoCraftScore?: PianoCraftScoreSummary;
+    /**
+     * Flat piano evidence aggregate.  Supply alongside pianoCraftScore so
+     * dataset exporters can build playability and preference examples without
+     * re-reading section artifacts.
+     */
+    pianoEvidence?: PianoDataLoopEvidence;
 }
 
 function cloneJson<T>(value: T): T {
@@ -315,6 +342,8 @@ export function saveStructureCandidateSnapshot(input: SaveStructureCandidateSnap
         ...(selected && index.rerankerPromotion
             ? { rerankerPromotion: cloneJson(index.rerankerPromotion) }
             : {}),
+        ...(input.pianoCraftScore ? { pianoCraftScore: cloneJson(input.pianoCraftScore) } : {}),
+        ...(input.pianoEvidence ? { pianoEvidence: cloneJson(input.pianoEvidence) } : {}),
         artifacts: {
             midi: input.midiData?.length ? candidateMidiFilePath : undefined,
             sectionArtifacts: input.sectionArtifacts?.length ? candidateSectionArtifactsPath : undefined,
@@ -469,19 +498,35 @@ export function saveListenerFeedbackToSelectedCandidate(
     if (internalScores) {
         candidateManifest.internalScores = { ...internalScores };
     } else {
-        // Derive from craftScoreSummary if available
+        // Derive from craftScoreSummary + pianoCraftScore if available
         const craft = candidateManifest.structureEvaluation?.craftScoreSummary;
-        if (craft) {
+        const piano = candidateManifest.structureEvaluation?.pianoCraftScoreSummary
+            ?? candidateManifest.pianoCraftScore;
+        if (craft || piano) {
             candidateManifest.internalScores = {
-                syntaxValidity: craft.syntaxValidity,
-                sectionContractFit: craft.sectionContractFit,
-                cadenceStrength: craft.cadenceStrength,
-                tonalReturn: craft.tonalReturn,
-                motifSurvival: craft.motifSurvival,
-                voiceIndependence: craft.voiceIndependence,
-                phraseShape: craft.phraseShape,
-                registerIdiomaticFit: craft.registerIdiomaticFit,
-                finalCraftScore: craft.finalCraftScore,
+                ...(craft ? {
+                    syntaxValidity: craft.syntaxValidity,
+                    sectionContractFit: craft.sectionContractFit,
+                    cadenceStrength: craft.cadenceStrength,
+                    tonalReturn: craft.tonalReturn,
+                    motifSurvival: craft.motifSurvival,
+                    voiceIndependence: craft.voiceIndependence,
+                    phraseShape: craft.phraseShape,
+                    registerIdiomaticFit: craft.registerIdiomaticFit,
+                    finalCraftScore: craft.finalCraftScore,
+                } : {}),
+                ...(piano ? {
+                    piano_handPlayability: piano.handPlayability,
+                    piano_melodicClarity: piano.melodicClarity,
+                    piano_bassCoherence: piano.bassCoherence,
+                    piano_voicingIdiomaticFit: piano.voicingIdiomaticFit,
+                    piano_accompanimentPatternCoherence: piano.accompanimentPatternCoherence,
+                    piano_registerSpacing: piano.registerSpacing,
+                    piano_handIndependence: piano.handIndependence,
+                    piano_pedalPlausibility: piano.pedalPlausibility,
+                    piano_difficultyFit: piano.difficultyFit,
+                    piano_finalPianoScore: piano.finalPianoScore,
+                } : {}),
             };
         }
     }

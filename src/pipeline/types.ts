@@ -1815,3 +1815,250 @@ export interface SonataCyclePlan {
     /** Tension values (0–1) sampled uniformly across the full cycle, in ordinal order. */
     globalTensionCurve: number[];
 }
+
+// ─── Piano data loop ──────────────────────────────────────────────────────────
+// Persistent capture of every piano generation round.  Entries accumulate in
+// outputs/_system/piano-data-loop.jsonl and are exported as four fine-tuning
+// dataset files by exportAllPianoDatasets().
+
+/**
+ * Captured input fields for one piano generation round.
+ *
+ * Stored verbatim from the LearnedNotagenProviderRequest so offline training
+ * tooling can reconstruct the exact control prompt without re-running the
+ * pipeline.
+ */
+export interface PianoDataLoopInput {
+    /** Resolved lane identifier, e.g. "solo_piano_symbolic". */
+    lane: string;
+    /** Flat list of AXIOM control lines (e.g. "instrumentation=Piano:lead|bass"). */
+    controlLines: string[];
+    /** "piano_global" control line if emitted (texture, pedal, max_span, etc.). */
+    pianoGlobalLine?: string;
+    /** All "piano_section" lines indexed by section order. */
+    pianoSectionLines?: string[];
+    /** Conditioning text (period/composer/form blurb) forwarded to NotaGen. */
+    conditioningText?: string;
+    /** Canonical instrumentation string from the provider request. */
+    instrumentation?: string;
+    /** Difficulty label from the provider request. */
+    difficulty?: PianoDifficulty;
+    /** Key string (e.g. "F minor"). */
+    key?: string;
+    /** Time signature string (e.g. "6/8"). */
+    meter?: string;
+    /** Tempo in BPM. */
+    tempo?: number;
+    /** Musical period from the provider request. */
+    period?: string;
+    /** Composer hint forwarded to NotaGen. */
+    composer?: string;
+    /** Form label (e.g. "nocturne", "sonata_allegro"). */
+    form?: string;
+    /** AXIOM_PIANO_REWRITE block text when a localized rewrite was requested. */
+    pianoRewriteBlock?: string;
+}
+
+/**
+ * Flat piano evidence extracted from SectionArtifactSummary.piano* fields for
+ * one candidate.  Stored in the data loop entry for offline analysis.
+ */
+export interface PianoDataLoopEvidence {
+    handSpanMax?: number;
+    handSpanAverage?: number;
+    playabilityScore?: number;
+    idiomaticTextureScore?: number;
+    rightHandPitchMin?: number;
+    rightHandPitchMax?: number;
+    leftHandPitchMin?: number;
+    leftHandPitchMax?: number;
+    rightHandDensity?: number;
+    leftHandDensity?: number;
+    chordDensity?: number;
+    maxSimultaneousNotes?: number;
+    awkwardChordCount?: number;
+    handCrossingCount?: number;
+    registerCollisionCount?: number;
+    repeatedOctaveRate?: number;
+    leapMaxRight?: number;
+    leapMaxLeft?: number;
+    leapAverageRight?: number;
+    leapAverageLeft?: number;
+    pedalChangeCount?: number;
+    pedalBlurRisk?: number;
+}
+
+/**
+ * One captured piano generation round.
+ *
+ * Written by savePianoDataLoopEntry() after piano candidate evaluation.
+ * Loaded by the four exporters to build fine-tuning datasets.
+ */
+export interface PianoDataLoopEntry {
+    version: 1;
+    /** Unique entry ID (uuid-like hash of songId + candidateId + capturedAt). */
+    entryId: string;
+    songId: string;
+    candidateId: string;
+    capturedAt: string;
+    // ── Input ──────────────────────────────────────────────────────────────────
+    input: PianoDataLoopInput;
+    pianoPlan?: PianoPlan;
+    // ── Output ─────────────────────────────────────────────────────────────────
+    /** Full ABC score text produced for this candidate. */
+    abcText?: string;
+    /** True when a MIDI sidecar was saved alongside the ABC. */
+    hasMidi: boolean;
+    /** Flat piano-specific evidence fields (aggregated across all sections). */
+    pianoEvidence?: PianoDataLoopEvidence;
+    /** Piano craft scores for this candidate. */
+    pianoCraftScore?: PianoCraftScoreSummary;
+    /** General craft scores for this candidate. */
+    craftScore?: CraftScoreSummary;
+    // ── Human signal ───────────────────────────────────────────────────────────
+    listenerFeedback?: ListenerFeedback;
+    /** Final approval status.  "approved" entries go into piano_sft_dataset. */
+    approvalStatus?: ApprovalStatus;
+    // ── Repair / rewrite provenance ────────────────────────────────────────────
+    /** True when PianoRepairSolver was applied before this candidate was evaluated. */
+    repairApplied?: boolean;
+    /** True when a localized piano rewrite was requested for this candidate. */
+    rewriteApplied?: boolean;
+    /**
+     * Piano-specific directives used for the localized rewrite.
+     * Populated only when rewriteApplied = true.
+     */
+    rewriteDirectives?: PianoRevisionDirective[];
+    /**
+     * Candidate ID of the parent candidate this one was rewritten from.
+     * Used by exportPianoRewriteDataset() to build (bad, corrected) pairs.
+     */
+    parentCandidateId?: string;
+    /**
+     * Section IDs that were rewritten (from the LocalizedPianoRewriteSpec).
+     * Stored so exporters can extract only the changed sections.
+     */
+    rewrittenSectionIds?: string[];
+}
+
+// ─── Dataset export record types ─────────────────────────────────────────────
+
+/**
+ * Supervised fine-tuning (SFT) example: AXIOM control block + approved ABC.
+ *
+ * Training signal: "given this piano control prompt, produce this approved ABC".
+ * Populated by exportPianoSftDataset() from entries where approvalStatus = "approved".
+ */
+export interface PianoSftExample {
+    kind: "piano_sft";
+    entryId: string;
+    songId: string;
+    candidateId: string;
+    capturedAt: string;
+    /** Assembled AXIOM control prompt (controlLines + pianoGlobalLine + pianoSectionLines). */
+    controlBlock: string;
+    /** Conditioning text forwarded to the model. */
+    conditioningText?: string;
+    /** Full approved ABC score. */
+    approvedAbc: string;
+    /** Piano plan at the time of generation. */
+    pianoPlan?: PianoPlan;
+    /** Listener feedback if available. */
+    listenerFeedback?: ListenerFeedback;
+    /** Piano craft score at the time of approval. */
+    pianoCraftScore?: PianoCraftScoreSummary;
+}
+
+/**
+ * Rewrite training example: bad section + issue report → corrected section.
+ *
+ * Training signal: "given these issues and the original ABC, rewrite the flagged sections".
+ * Populated by exportPianoRewriteDataset() from entries where rewriteApplied = true
+ * and parentCandidateId is set.
+ */
+export interface PianoRewriteExample {
+    kind: "piano_rewrite";
+    entryId: string;
+    songId: string;
+    /** The rewritten (child) candidate. */
+    candidateId: string;
+    /** The parent (pre-rewrite) candidate. */
+    parentCandidateId: string;
+    capturedAt: string;
+    /** Sections that were rewritten. */
+    rewrittenSectionIds: string[];
+    /** Overall reason for the rewrite. */
+    reason: string;
+    /** Directives that drove the rewrite. */
+    directives: PianoRevisionDirective[];
+    /** AXIOM_PIANO_REWRITE block text as sent to the model. */
+    pianoRewriteBlock?: string;
+    /** ABC text before rewrite (parent candidate). */
+    beforeAbc?: string;
+    /** ABC text after rewrite (this candidate). */
+    afterAbc?: string;
+    /** Piano evidence before rewrite (from parent entry). */
+    beforeEvidence?: PianoDataLoopEvidence;
+    /** Piano evidence after rewrite (from this entry). */
+    afterEvidence?: PianoDataLoopEvidence;
+    /** Whether the rewrite improved the piano craft score. */
+    improved?: boolean;
+    beforePianoScore?: number;
+    afterPianoScore?: number;
+}
+
+/**
+ * Preference pair example: same-prompt candidates, chosen vs rejected.
+ *
+ * Training signal: DPO-style "prefer A over B given this control prompt".
+ * Populated by exportPianoPreferenceDataset() from candidates with the
+ * same promptGroupKey and different approval/score outcomes.
+ */
+export interface PianoPreferenceExample {
+    kind: "piano_preference";
+    pairId: string;
+    songId: string;
+    capturedAt: string;
+    controlBlock: string;
+    pianoPlan?: PianoPlan;
+    chosen: {
+        entryId: string;
+        candidateId: string;
+        abc: string;
+        pianoCraftScore?: PianoCraftScoreSummary;
+        listenerFeedback?: ListenerFeedback;
+    };
+    rejected: {
+        entryId: string;
+        candidateId: string;
+        abc: string;
+        pianoCraftScore?: PianoCraftScoreSummary;
+        listenerFeedback?: ListenerFeedback;
+    };
+    /** Reason the chosen was preferred over rejected. */
+    choiceReason: "listener_approved" | "craft_score_higher" | "playability_gate";
+}
+
+/**
+ * Playability label example: generated passage + playable/unplayable label.
+ *
+ * Training signal: "given this piano passage, is it physically playable?".
+ * Populated by exportPianoPlayabilityDataset() from all entries with
+ * pianoEvidence.playabilityScore present.
+ */
+export interface PianoPlayabilityExample {
+    kind: "piano_playability";
+    entryId: string;
+    songId: string;
+    candidateId: string;
+    capturedAt: string;
+    /** ABC text for this passage. */
+    abc: string;
+    /** Computed playability score (0–1). */
+    playabilityScore: number;
+    /** Binary label derived from playabilityScore >= PLAYABILITY_THRESHOLD. */
+    label: "playable" | "unplayable";
+    /** Key piano evidence dimensions used to compute the label. */
+    evidence: PianoDataLoopEvidence;
+    pianoCraftScore?: PianoCraftScoreSummary;
+}
