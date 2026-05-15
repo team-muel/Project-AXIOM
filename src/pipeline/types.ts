@@ -1272,6 +1272,12 @@ export interface ComposeProposalEvidence {
      * used for this candidate.  Mirrors promptPack — the "input" side of each DPO pair.
      */
     providerRequest?: Record<string, unknown>;
+    /**
+     * Full ABC score text produced by the backend.
+     * Present for notagen_mock and notagen_local backends.
+     * Used by the SFT dataset export pipeline as the training target.
+     */
+    abcText?: string;
 }
 
 export interface ComposeResult {

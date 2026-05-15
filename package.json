@@ -22,6 +22,8 @@
         "ml:export:backbone-piece": "node scripts/export-backbone-piece-dataset.mjs",
         "ml:export:localized-rewrite": "node scripts/export-localized-rewrite-dataset.mjs",
         "ml:export:notagen-preferences": "node scripts/export-notagen-preference-dataset.mjs",
+        "ml:export:notagen-sft": "node scripts/export-notagen-sft-dataset.mjs",
+        "ml:train:notagen-adapter": "python scripts/train-notagen-axiom-adapter.py",
         "ml:train:preference-reranker": "python scripts/train-preference-reranker.py",
         "ml:manifest-review:learned-backbone": "node scripts/create-learned-backbone-manifest-review-sheet.mjs",
         "ml:manifest-review:record:learned-backbone": "node --import tsx scripts/record-learned-backbone-manifest-review.mjs",

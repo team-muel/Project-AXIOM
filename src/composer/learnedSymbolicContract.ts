@@ -64,6 +64,10 @@ export interface LearnedSymbolicProposalResponse {
         normalizationWarnings?: string[];
     };
     proposalSections?: LearnedSymbolicProposalSection[];
+    /** Full ABC score text (X:1, headers, body). Present when the backend
+     *  produces text-format output (notagen_mock, notagen_local).
+     *  Used by the SFT dataset export pipeline to build training pairs. */
+    proposalAbcScore?: string;
     error?: string;
 }
 
@@ -275,6 +279,9 @@ export function validateLearnedSymbolicProposalResponse(
 
     if (record.error !== undefined && typeof record.error !== "string") {
         throw new Error("malformed learned symbolic response: error must be a string when present");
+    }
+    if (record.proposalAbcScore !== undefined && typeof record.proposalAbcScore !== "string") {
+        throw new Error("malformed learned symbolic response: proposalAbcScore must be a string when present");
     }
 
     return response;

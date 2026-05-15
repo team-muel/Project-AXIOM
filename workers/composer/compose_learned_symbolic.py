@@ -131,6 +131,10 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "ok": True,
         "proposalMidiPath": result.midi_path,
+        # ABC score text preserved for SFT dataset assembly.
+        # Only present when the backend produces a symbolic ABC representation;
+        # may be None for music21 baseline path.
+        "proposalAbcScore": result.abc_text if isinstance(result.abc_text, str) else None,
         "proposalSummary": {
             "measureCount": result.measure_count,
             "noteCount": result.note_count,

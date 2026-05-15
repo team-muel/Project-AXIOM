@@ -179,6 +179,10 @@ export function normalizeLearnedSymbolicResponse(
         ...(providerRequest
             ? { providerRequest: JSON.parse(JSON.stringify(providerRequest)) as Record<string, unknown> }
             : {}),
+        // Store ABC score text for SFT dataset export (training target).
+        ...(typeof response.proposalAbcScore === "string" && response.proposalAbcScore.trim()
+            ? { abcText: response.proposalAbcScore }
+            : {}),
     };
 
     return {
