@@ -581,7 +581,7 @@ export interface InstrumentAssignment {
     register?: "low" | "mid" | "high" | "wide";
 }
 
-export type OrchestrationFamily = "string_trio";
+export type OrchestrationFamily = "string_trio" | "piano_solo";
 
 export type OrchestrationConversationMode = "support" | "conversational";
 
@@ -745,6 +745,12 @@ export interface CompositionPlan {
     classicalKnowledge?: ClassicalKnowledgePlan;
     sections: SectionPlan[];
     rationale: string;
+    /**
+     * Hand-aware piano IR.  Present only when the instrumentation is solo piano.
+     * Drives RH/LH register planning, texture selection, pedal strategy, and
+     * per-section chord voicing in the piano_solo_symbolic lane.
+     */
+    pianoPlan?: PianoPlan;
 }
 
 export interface ComposeEvaluationPolicy {
@@ -879,6 +885,112 @@ export interface SectionArtifactSummary {
     lastBassPitch?: number;
     lastInterval?: number;
     transform?: SectionTransformSummary;
+    pianoVoiceLayout?: PianoVoiceLayoutSummary;
+
+    // ── Piano projection evidence (flat fields) ──────────────────────────────
+    // Populated by computePianoProjectionEvidence() / applyPianoProjection().
+    // Allows evaluators to distinguish "sounds good in MIDI" from
+    // "actually playable on piano" without unwrapping a nested object.
+
+    /** Pitch range of right-hand (melody) events, MIDI numbers. */
+    pianoRightHandPitchMin?: number;
+    pianoRightHandPitchMax?: number;
+    /** Pitch range of left-hand (accompaniment) events, MIDI numbers. */
+    pianoLeftHandPitchMin?: number;
+    pianoLeftHandPitchMax?: number;
+
+    /** Note events per measure for each hand. */
+    pianoRightHandDensity?: number;
+    pianoLeftHandDensity?: number;
+    /** Maximum simultaneous interval span observed across either hand (semitones). */
+    pianoHandSpanMax?: number;
+    /** Average of the two hands' maximum spans (semitones). */
+    pianoHandSpanAverage?: number;
+
+    /** Largest melodic leap in right-hand / left-hand voice (semitones). */
+    pianoLeapMaxRight?: number;
+    pianoLeapMaxLeft?: number;
+    /** Mean absolute melodic interval in right-hand / left-hand voice. */
+    pianoLeapAverageRight?: number;
+    pianoLeapAverageLeft?: number;
+
+    /** Ratio of chord events to all non-rest events (0–1). */
+    pianoChordDensity?: number;
+    /** Largest simultaneous note count seen in any single chord event. */
+    pianoMaxSimultaneousNotes?: number;
+    /** Number of chords spanning more than a major 9th (14 semitones) — awkward. */
+    pianoAwkwardChordCount?: number;
+
+    /** Number of events where the left-hand top note exceeds the right-hand bottom note. */
+    pianoHandCrossingCount?: number;
+    /** Number of events where left and right hands collide on the same pitch/beat. */
+    pianoRegisterCollisionCount?: number;
+    /** Fraction of consecutive events that are exactly one octave apart (0–1). */
+    pianoRepeatedOctaveRate?: number;
+
+    /** Number of pedal-on/off events or pedal change points detected. */
+    pianoPedalChangeCount?: number;
+    /**
+     * Estimated risk that sustain pedal will blur distinct harmonies (0–1).
+     * High chord density + large spans + many pedal events → high risk.
+     */
+    pianoPedalBlurRisk?: number;
+
+    /**
+     * Overall hand playability score (0–1).
+     * 1.0 = all spans are comfortable; 0.0 = spans exceed the hard ceiling.
+     * Derived from pianoVoiceLayout.playableSpanFit if available.
+     */
+    pianoPlayabilityScore?: number;
+    /**
+     * Overall piano idiomatic texture score (0–1).
+     * Rewards: no collision, spans in range, moderate leaps, balanced density.
+     * Penalises: collisions, unplayable spans, extreme leaps, one-hand dominance.
+     */
+    pianoIdiomaticTextureScore?: number;
+}
+
+export interface PianoVoiceLayoutSummary {
+    /**
+     * Minimum MIDI pitch observed in the right-hand voice(s).
+     * Idiomatic range upper boundary: C4 (60) – C8 (108).
+     */
+    rightHandPitchMin?: number;
+    rightHandPitchMax?: number;
+    /**
+     * Minimum MIDI pitch observed in the left-hand voice(s).
+     * Idiomatic range lower boundary: C1 (24) – C5 (72).
+     */
+    leftHandPitchMin?: number;
+    leftHandPitchMax?: number;
+    /**
+     * Maximum simultaneous interval span observed within a single hand (semitones).
+     * Spans > 19 (a minor 13th) are generally unplayable without arpeggiation.
+     */
+    maxRightHandSpan?: number;
+    maxLeftHandSpan?: number;
+    /**
+     * Number of events where the left-hand top note is higher than the
+     * right-hand bottom note (hand crossing).
+     */
+    handCrossingCount?: number;
+    /**
+     * Number of events where left and right hands collide on the same pitch
+     * within the same beat.
+     */
+    handCollisionCount?: number;
+    /** Average simultaneous voice count across all chordal events. */
+    avgChordVoiceCount?: number;
+    /**
+     * Number of events that carry explicit pedal markings or are flagged for
+     * pedal use by the humanizer.
+     */
+    pedalEventCount?: number;
+    /**
+     * Proportion of chordal events that are within playable span thresholds (0–1).
+     */
+    playableSpanFit?: number;
+    notes?: string[];
 }
 
 export interface SectionTonalitySummary {
@@ -1073,6 +1185,57 @@ export interface CraftScoreSummary {
     dimensionNotes?: Record<string, string>;
 }
 
+// ─── Piano-specific craft scoring ────────────────────────────────────────────
+
+export interface PianoCraftScoreSummary {
+    /**
+     * Proportion of chordal events within playable span; derived from
+     * PianoVoiceLayoutSummary. Weight: 0.20 (highest — unplayable ≠ piano).
+     */
+    handPlayability: number;
+    /**
+     * Melodic interval smoothness in the right-hand lead voice;
+     * penalises excessive leaps (> 12 semitones). Weight: 0.15.
+     */
+    rightHandMelodicClarity: number;
+    /**
+     * Left-hand bass motion coherence: rewards stepwise / pedal bass over
+     * random leaping. Weight: 0.15.
+     */
+    leftHandBassCoherence: number;
+    /**
+     * Register separation score: rewards a clear gap between the RH median
+     * pitch and the LH median pitch (idiomatic spread). Weight: 0.15.
+     */
+    registerSpacing: number;
+    /**
+     * Rhythmic regularity of the accompaniment (LH) events across sections.
+     * Weight: 0.10.
+     */
+    accompanimentPatternConsistency: number;
+    /**
+     * Fraction of large melodic leaps (> octave) relative to all melody
+     * intervals; lower is better (score is 1 − excessive_rate). Weight: 0.10.
+     */
+    excessiveLeapPenalty: number;
+    /**
+     * Chord voice count fit: 1 if avgChordVoiceCount ≤ 6, degrades above.
+     * Weight: 0.10.
+     */
+    chordDensity: number;
+    /**
+     * Plausibility of pedal use relative to section length and dynamics.
+     * Weight: 0.05.
+     */
+    pedalLegaPlausibility: number;
+    /**
+     * Weighted composite (weights above sum to 1.00).
+     */
+    finalPianoCraftScore: number;
+    /** Optional per-dimension human-readable notes keyed by dimension name. */
+    dimensionNotes?: Record<string, string>;
+}
+
 export interface StructureEvaluationReport {
     passed: boolean;
     score?: number;
@@ -1085,6 +1248,7 @@ export interface StructureEvaluationReport {
     sectionFindings?: SectionEvaluationFinding[];
     weakestSections?: SectionEvaluationFinding[];
     craftScoreSummary?: CraftScoreSummary;
+    pianoCraftScoreSummary?: PianoCraftScoreSummary;
 }
 
 export interface AudioEvaluationReport {
@@ -1316,4 +1480,190 @@ export interface HumanizeResult {
 
 export interface RenderResult {
     artifacts: ArtifactPaths;
+}
+
+// ─── Piano Intermediate Representation (Piano IR) ────────────────────────────
+//
+// PianoIR is the hand-aware planning layer between a CompositionPlan and the
+// symbolic backend.  It answers questions that SectionArtifactSummary cannot:
+//   • Which hand plays what register range?
+//   • Is a given chord span playable without arpeggiation?
+//   • What texture/pattern does each hand use per section?
+//   • What is the pedal strategy?
+//
+// PianoPlan is attached to CompositionPlan as an optional field.  Its presence
+// signals to the compose pipeline that the request must go through the piano
+// lane (once activated) rather than the generic learned-symbolic lane.
+
+export type PianoDifficulty = "easy" | "intermediate" | "advanced" | "virtuosic";
+
+/**
+ * Texture vocabulary for a single piano section.
+ *
+ * melody_accompaniment   — RH melody + LH Alberti/chord/broken-chord pattern
+ * chorale                — four-part chorale-style (SATB-ish), both hands chords
+ * alberti_bass           — classic Alberti bass in LH, singable melody in RH
+ * broken_chord           — LH or RH broken arpeggiated chord (not Alberti pattern)
+ * arpeggiated_texture    — both hands use rolled/arpeggio chords throughout
+ * octave_melody          — RH melody doubled at octave; LH bass
+ * counterpoint_two_voice — strict two-voice counterpoint (one voice per hand)
+ * counterpoint_three_voice — three voices distributed across two hands
+ * waltz_bass             — LH: bass note on beat 1 + chord on beats 2–3; RH melody
+ * toccata                — fast repeated-note / perpetual-motion texture
+ * nocturne               — LH wide arpeggios + RH ornamental cantabile melody
+ * etude_figuration       — one hand plays a technical figuration pattern throughout
+ */
+export type PianoTextureKind =
+    | "melody_accompaniment"
+    | "chorale"
+    | "alberti_bass"
+    | "broken_chord"
+    | "arpeggiated_texture"
+    | "octave_melody"
+    | "counterpoint_two_voice"
+    | "counterpoint_three_voice"
+    | "waltz_bass"
+    | "toccata"
+    | "nocturne"
+    | "etude_figuration";
+
+/**
+ * Plan for one hand within a section.
+ *
+ * registerMin / registerMax are MIDI pitch numbers (inclusive).
+ * maxComfortableSpan is the largest simultaneous chord span allowed for this
+ * hand without requiring an arpeggiation marking (semitones; default 10 for
+ * non-virtuosic writing, up to 19 for concert-level).
+ */
+export interface PianoHandPlan {
+    hand: "left" | "right";
+    /** Voice roles this hand is responsible for in the section. */
+    primaryRoles: TextureRole[];
+    /** Lowest MIDI pitch intended for this hand (inclusive). */
+    registerMin: number;
+    /** Highest MIDI pitch intended for this hand (inclusive). */
+    registerMax: number;
+    /**
+     * Maximum simultaneous chord span in semitones before an arpeggio mark
+     * is required.  19 = minor 13th (hard playability ceiling).
+     */
+    maxComfortableSpan: number;
+    /** Whether intentional hand-crossing into the other hand's register is planned. */
+    allowCrossing?: boolean;
+    /** Whether repeated-octave tremolo figures are intended (e.g. toccata texture). */
+    allowRepeatedOctaves?: boolean;
+    /**
+     * Target average simultaneous voice count for this hand per beat (1–6).
+     * 1 = single-note line, 4 = full chord, 6 = dense concert texture.
+     */
+    densityTarget?: number;
+}
+
+/**
+ * Pedal strategy for a section or movement.
+ *
+ * none       — no sustain pedal (staccato, early-keyboard style)
+ * harmonic   — change pedal exactly on each harmony change
+ * legato     — sustain pedal throughout most of the section (blur acceptable)
+ * half_pedal — flutter / half-damper technique for colouristic effect
+ * coloristic — free pedal beyond harmonic logic (impressionistic, extended technique)
+ */
+export interface PianoPedalPlan {
+    enabled: boolean;
+    strategy: "none" | "harmonic" | "legato" | "half_pedal" | "coloristic";
+    /** Change pedal on every new harmony event (requires strategy = "harmonic"). */
+    changeOnHarmony?: boolean;
+    /**
+     * Maximum number of consecutive measures where the pedal may be held
+     * without change before a warning is emitted.
+     */
+    maxPedalMeasures?: number;
+}
+
+/**
+ * Piano-specific plan for a single section.
+ *
+ * Sits alongside (not inside) SectionPlan so the symbolic backend can resolve
+ * exact hand assignments, span checks, and pedal placement for each section
+ * without modifying the generic section-planning types.
+ */
+export interface PianoSectionPlan {
+    sectionId: string;
+    textureKind: PianoTextureKind;
+    rightHand: PianoHandPlan;
+    leftHand: PianoHandPlan;
+    pedal: PianoPedalPlan;
+    /**
+     * Human-readable label for the accompaniment pattern (e.g. "Alberti C4 triplet",
+     * "block chord quarter notes").  Used by the ABC prompt builder.
+     */
+    accompanimentPattern?: string;
+    /**
+     * Chord voicing strategy for chordal events:
+     *   close       — all voices within one octave
+     *   open        — voices spread beyond an octave (with gaps)
+     *   drop_2      — standard drop-2 voicing (second voice from top dropped an octave)
+     *   spread      — wide voicing across two or more octaves
+     *   octave_doubled — outer voices doubled at the octave
+     */
+    voicingStrategy?: "close" | "open" | "drop_2" | "spread" | "octave_doubled";
+    difficultyTarget: PianoDifficulty;
+}
+
+/**
+ * Top-level piano plan attached to a CompositionPlan.
+ *
+ * Its presence signals to the compose pipeline that all sections must be
+ * planned and evaluated through the piano IR layer.
+ */
+export interface PianoPlan {
+    instrument: "Piano";
+    difficultyTarget: PianoDifficulty;
+    /** One PianoSectionPlan per section in CompositionPlan.sections. */
+    sections: PianoSectionPlan[];
+}
+
+// ─── Multi-movement cycle types ───────────────────────────────────────────────
+
+export type MovementForm = "sonata_allegro" | "slow_ternary" | "scherzo_trio" | "rondo_finale";
+
+export type MovementFunction = "opening_argument" | "lyrical_center" | "contrast" | "resolution";
+
+export type CrossMovementRecallKind = "verbatim" | "transformed" | "fragmented";
+
+export interface CrossMovementRecallPlan {
+    /** Movement that contains the recall (the recalling movement). */
+    movementId: string;
+    /** Movement that originally stated the material. */
+    sourceMovementId: string;
+    /** Motif IDs recalled from the source movement. */
+    motifIds: string[];
+    kind: CrossMovementRecallKind;
+    notes?: string[];
+}
+
+export interface MovementPlan {
+    id: string;
+    ordinal: 1 | 2 | 3 | 4;
+    form: MovementForm;
+    key: string;
+    tempo: number;
+    targetDurationSec: number;
+    functionInCycle: MovementFunction;
+    /** Motif IDs inherited from earlier movements. */
+    inheritedMotifs: string[];
+    /** Motif IDs introduced for the first time in this movement. */
+    newMotifs: string[];
+}
+
+export interface SonataCyclePlan {
+    title: string;
+    totalDurationSec: number;
+    globalKey: string;
+    /** Motif IDs that appear in more than one movement. */
+    globalMotifIds: string[];
+    movements: MovementPlan[];
+    crossMovementRecall: CrossMovementRecallPlan[];
+    /** Tension values (0–1) sampled uniformly across the full cycle, in ordinal order. */
+    globalTensionCurve: number[];
 }
