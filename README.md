@@ -61,11 +61,15 @@ IDLE → COMPOSE → CRITIQUE → HUMANIZE → RENDER → STORE → DONE
 
 ### learned track
 
-공개 계약 이름은 `learned_symbolic`. 현재 구현 범위는 narrow `string_trio_symbolic` lane에 한정됩니다.
+공개 계약 이름은 `learned_symbolic`. 현재 두 개의 lane이 구현되어 있습니다.
 
-- `miniature` + `string trio` 조건일 때만 candidate를 제안
+| lane | 조건 | 특이사항 |
+|------|------|----------|
+| `string_trio_symbolic` | `miniature` + `string trio` | hybrid candidate comparison, shadow reranker, narrow promotion 실험 기반 |
+| `solo_piano_symbolic` | `PianoPlan` + piano instrumentation | playability projection / repair / evaluation 포함 |
+
+- 두 lane 모두 composer-grade general model은 아님 — 좁은 조건 범위에서만 candidate를 제안
 - baseline `music21` path는 fallback이자 기준선
-- hybrid candidate comparison, shadow reranker, narrow promotion은 이 좁은 lane 기준으로 실험
 - 특정 외부 vendor/repo를 정식 통합 계약으로 명시하지 않음
 
 ---
