@@ -12,18 +12,18 @@
 node_modules/.bin/tsx src/index.ts
 
 # HTTP MCP (포트 3210)
-node_modules/.bin/tsx src/mcp/httpServer.ts
+node_modules/.bin/tsx src/ops/mcp/httpServer.ts
 
 # stdio MCP (IDE agent용)
-node_modules/.bin/tsx src/mcp/server.ts
+node_modules/.bin/tsx src/ops/mcp/server.ts
 ```
 
 또는 빌드 후:
 
 ```bash
 node dist/index.js
-node dist/mcp/httpServer.js
-node dist/mcp/server.js
+node dist/ops/mcp/httpServer.js
+node dist/ops/mcp/server.js
 ```
 
 ---

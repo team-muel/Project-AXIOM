@@ -167,23 +167,26 @@ outputs/_system/
 
 ```text
 axiom/
-├── src/                 # 런타임 (pipeline, queue, autonomy, MCP, ops surfaces)
-│   ├── pipeline/        # 핵심 작곡 파이프라인 단계
-│   ├── composer/        # COMPOSE 단계
-│   ├── critic/          # CRITIQUE 단계
-│   ├── humanizer/       # HUMANIZE 단계
-│   ├── render/          # RENDER 단계
+├── src/
+│   ├── core/            # 작곡 엔진
+│   │   ├── pipeline/    # 파이프라인 조율, 타입, 평가
+│   │   ├── composer/    # COMPOSE 단계
+│   │   ├── critic/      # CRITIQUE 단계
+│   │   ├── humanizer/   # HUMANIZE 단계
+│   │   ├── render/      # RENDER 단계
+│   │   └── memory/      # manifest, candidate sidecar
+│   ├── ops/             # 운영 계층 (선택 사항)
+│   │   ├── autonomy/    # 자율 스케줄링
+│   │   ├── overseer/    # 품질 감시
+│   │   ├── mcp/         # MCP surfaces (stdio + HTTP)
+│   │   └── operator/    # 운영 요약
 │   ├── queue/           # 작업 큐
-│   ├── autonomy/        # 자율 스케줄링 (ops)
-│   ├── overseer/        # 품질 감시 (ops)
-│   └── mcp/             # MCP surfaces (ops)
+│   └── routes/          # HTTP route handlers
 ├── workers/             # Python compose/humanize/render workers
 ├── scripts/             # operator, dataset export, shadow evaluation
-├── docs/                # 런타임 문서, planning
-├── config/              # env, systemd 예시
+├── docs/                # 문서
 ├── test/                # node --test 회귀 테스트
-├── outputs/             # 생성 artifact
-└── logs/                # 런타임 로그
+└── outputs/             # 생성 artifact
 ```
 
 ---
