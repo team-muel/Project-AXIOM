@@ -69,6 +69,7 @@ IDLE → COMPOSE → CRITIQUE → HUMANIZE → RENDER → STORE → DONE
 | `solo_piano_symbolic` | `PianoPlan` + piano instrumentation | playability projection / repair / evaluation 포함 |
 
 - 두 lane 모두 composer-grade general model은 아님 — 좁은 조건 범위에서만 candidate를 제안
+- 검증 기준: `music21` baseline path와 candidate comparison으로 확인
 - baseline `music21` path는 fallback이자 기준선
 - 특정 외부 vendor/repo를 정식 통합 계약으로 명시하지 않음
 
@@ -173,12 +174,17 @@ outputs/_system/
 axiom/
 ├── src/
 │   ├── core/            # 작곡 엔진
-│   │   ├── pipeline/    # 파이프라인 조율, 타입, 평가
-│   │   ├── composer/    # COMPOSE 단계
-│   │   ├── critic/      # CRITIQUE 단계
+│   │   ├── plan/        # CompositionSketch, formTemplates, SonataCyclePlan
+│   │   ├── pipeline/    # 공유 타입 정의, 상태 열거형
+│   │   ├── music/       # OrchestrationPlan, pianoIR, ClassicalKnowledge
+│   │   ├── composer/    # COMPOSE 단계 (symbolic + learned)
+│   │   ├── generate/    # hybrid candidate pool, shadow reranker
+│   │   ├── evaluate/    # 구조 평가, craft scoring, quality gate
+│   │   ├── repair/      # pianoProjection, pianoRepairSolver
+│   │   ├── expression/  # ExpressionPlan sidecar
+│   │   ├── critic/      # CRITIQUE 단계 (Python critic bridge)
 │   │   ├── humanizer/   # HUMANIZE 단계
-│   │   ├── render/      # RENDER 단계
-│   │   └── memory/      # manifest, candidate sidecar
+│   │   └── render/      # RENDER 단계
 │   ├── ops/             # 운영 계층 (선택 사항)
 │   │   ├── autonomy/    # 자율 스케줄링
 │   │   ├── overseer/    # 품질 감시

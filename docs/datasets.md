@@ -52,44 +52,76 @@ outputs/{songId}/candidates/
 
 ## Export Scripts
 
-> **미구현:** 아래 `ml:*` 명령은 현재 `package.json`에 존재하지 않습니다.  
-> 데이터 수집 자체는 런타임이 자동으로 수행하며(`outputs/` 하위 자동 저장),  
-> export / review / shadow 스크립트는 아직 구현되지 않았습니다.
+> `npm run ml:*` 단축 명령은 `package.json`에 없습니다. `node scripts/...` 로 직접 실행하세요.  
+> 자세한 내용은 [`docs/ops.md`](ops.md)를 참조하세요.
 
-계획된 export 산출물 (구현 전):
-
-| 산출물 | 용도 |
-|--------|------|
-| `structure_rank_v1` snapshot | structure reranker 학습 |
-| `axiom_backbone_piece_v1` | learned backbone fine-tune |
-| `axiom_localized_rewrite_v1` | targeted rewrite 학습 |
-| preference pairs | NotaGen 계열 preference fine-tune |
-| SFT examples | NotaGen 계열 SFT |
+| 스크립트 | 산출물 | 실행 명령 |
+|----------|--------|-----------|
+| `export-structure-reranker-dataset.mjs` | structure reranker 학습용 snapshot | `node scripts/export-structure-reranker-dataset.mjs` |
+| `export-backbone-piece-dataset.mjs` | learned backbone fine-tune용 피스 데이터 | `node scripts/export-backbone-piece-dataset.mjs` |
+| `export-localized-rewrite-dataset.mjs` | targeted rewrite 학습용 pair | `node scripts/export-localized-rewrite-dataset.mjs` |
+| `export-notagen-preference-dataset.mjs` | NotaGen preference fine-tune용 pair | `node scripts/export-notagen-preference-dataset.mjs` |
+| `export-notagen-sft-dataset.mjs` | NotaGen SFT 예제 | `node scripts/export-notagen-sft-dataset.mjs` |
 
 ---
 
 ## Review Workflow
-
-> **미구현:** manifest review 및 blind A/B review 스크립트는 현재 `package.json`에 존재하지 않습니다.
 
 런타임이 자동으로 기록하는 항목:
 - `outputs/{songId}/candidates/` — candidate sidecar (선택/기각 이유 포함)
 - `outputs/_system/preferences.json` — autonomy preference 누적
 - `outputs/_system/operator-actions/` — operator audit trail
 
+수동 manifest review 스크립트:
+
+```bash
+# manifest review 시트 생성
+node scripts/create-learned-backbone-manifest-review-sheet.mjs
+
+# review 팩 생성 (song 묶음 검토용)
+node scripts/create-learned-backbone-review-pack.mjs
+
+# manifest review 기록
+node scripts/record-learned-backbone-manifest-review.mjs
+
+# review 결과 기록
+node scripts/record-learned-backbone-review-result.mjs
+```
+
 ---
 
 ## Shadow Reranker
 
-> **미구현:** shadow scoring 스크립트는 현재 `package.json`에 존재하지 않습니다.
+Shadow mode: 실제 선택에는 영향 없이 reranker 점수를 병렬 기록.
 
-Shadow mode 설계: 실제 선택에는 영향 없이 reranker 점수를 병렬 기록.
+```bash
+# shadow 점수 평가 실행
+node scripts/evaluate-structure-reranker-shadow.mjs
+
+# shadow review 증거 캡처
+node scripts/capture-shadow-review-evidence.mjs
+
+# shadow review 스캐폴딩
+node scripts/scaffold-shadow-review.mjs
+```
 
 ---
 
 ## Summary Tools
 
-> **미구현:** `ml:summarize:*` 스크립트는 현재 `package.json`에 존재하지 않습니다.
+```bash
+# truth-plane 데이터셋 스냅샷 요약
+node scripts/summarize-truth-plane-dataset-snapshot.mjs
+
+# structure shadow 런타임 요약
+node scripts/summarize-structure-shadow-runtime.mjs
+
+# learned backbone 벤치마크 요약
+node scripts/summarize-learned-backbone-benchmark.mjs
+
+# 운영 요약 출력
+node scripts/print-operator-summary.mjs
+```
 
 ---
 
