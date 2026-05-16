@@ -109,7 +109,7 @@ function makePianoRequest({ key, form, difficulty, style, tempo = 96 }) {
             instrumentation: [
                 { name: "Piano", family: "keyboard", roles: ["lead", "chordal_support", "bass"] },
             ],
-            orchestration: { family: "piano_solo", instrumentNames: ["Piano"], sections: [] },
+            orchestration: { family: "solo_piano", instrumentNames: ["Piano"], sections: [] },
             sections: [
                 { id: "s1", role: "theme_a",  label: "Theme A", measures: 8, energy: 0.4, density: 0.35 },
                 { id: "s2", role: "theme_b",  label: "Theme B", measures: 8, energy: 0.5, density: 0.40 },

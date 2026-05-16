@@ -86,7 +86,7 @@ function makePianoRequest(pianoPlan = makeMinimalPianoPlan(), form = "nocturne")
             instrumentation: [
                 { name: "Piano", family: "keyboard", roles: ["lead", "chordal_support", "bass"] },
             ],
-            orchestration: { family: "piano_solo", instrumentNames: ["Piano"], sections: [] },
+            orchestration: { family: "solo_piano", instrumentNames: ["Piano"], sections: [] },
             sections: [
                 { id: "s1", role: "theme_a", label: "Theme A", measures: 8, energy: 0.4, density: 0.35 },
             ],
@@ -144,7 +144,7 @@ function makePianoRequestNoPlan(form = "sonata_allegro") {
             tempo: 120,
             mood: [],
             instrumentation: [{ name: "Piano", family: "keyboard", roles: ["lead"] }],
-            orchestration: { family: "piano_solo", instrumentNames: ["Piano"], sections: [] },
+            orchestration: { family: "solo_piano", instrumentNames: ["Piano"], sections: [] },
             sections: [
                 { id: "s1", role: "theme_a", label: "Theme A", measures: 8, energy: 0.6, density: 0.5 },
             ],

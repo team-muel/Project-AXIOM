@@ -1,10 +1,10 @@
-"""Piano voice-role projection for the piano_solo_symbolic lane.
+"""Piano voice-role projection for the solo_piano_symbolic lane.
 
 Converts a flat event stream (melody + accompaniment) into a two-stave layout
 (rightHandMeasures / leftHandMeasures) and populates a PianoVoiceLayoutSummary.
 
 NOT YET ACTIVE — wired into the compose path only after the 4 prerequisites
-documented in prompt_packing.supports_piano_solo_lane() are satisfied.
+documented in prompt_packing.supports_solo_piano_lane() are satisfied.
 
 Voice-role assignment rules
 ────────────────────────────
@@ -382,7 +382,7 @@ def run_piano_projection(
 ) -> PianoProjectionResult:
     """Entry point analogous to symbolic_projection.run_symbolic_projection().
 
-    NOT YET ACTIVE — see prerequisites in prompt_packing.supports_piano_solo_lane().
+    NOT YET ACTIVE — see prerequisites in prompt_packing.supports_solo_piano_lane().
 
     Takes the normalised payload (with optional sectionArtifacts seeds) and the
     composition plan.  Returns a PianoProjectionResult.

@@ -577,7 +577,7 @@ export function applyPianoPlayabilityGate(
  * plan, an existing evaluation report, and the optional piano voice layout.
  *
  * Call instead of (or alongside) computeCraftScoreSummary() when the
- * orchestration family is "piano_solo".
+ * orchestration family is "solo_piano".
  */
 export function computePianoCraftScoreSummary(
     sectionArtifacts: SectionArtifactSummary[],

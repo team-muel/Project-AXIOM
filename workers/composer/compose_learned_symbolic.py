@@ -27,7 +27,11 @@ from learned_symbolic.prompt_packing import (
     resolve_form,
     resolve_provider_prompt_packing_context,
     supports_narrow_lane,
+    supports_solo_piano_lane,
 )
+
+STRING_TRIO_SYMBOLIC_LANE = "string_trio_symbolic"
+SOLO_PIANO_SYMBOLIC_LANE = "solo_piano_symbolic"
 
 
 def read_payload() -> dict[str, Any]:
@@ -81,17 +85,62 @@ def _write_feedback_evidence(
         pass  # Evidence write is best-effort; never block the main response.
 
 
+def _resolve_supported_lane(
+    payload: dict[str, Any],
+    plan: dict[str, Any],
+    form: str,
+    context: dict[str, Any] | None,
+) -> tuple[str | None, str | None]:
+    requested_lane = (
+        str(context.get("lane") or "").strip()
+        if context is not None
+        else str(get_prompt_pack(payload).get("lane") or "").strip()
+    )
+
+    if requested_lane == STRING_TRIO_SYMBOLIC_LANE:
+        if supports_narrow_lane(payload, plan, form):
+            return STRING_TRIO_SYMBOLIC_LANE, None
+        return None, (
+            "unsupported learned-symbolic lane 'string_trio_symbolic'; "
+            "requires string_trio miniature composition plan"
+        )
+
+    if requested_lane == SOLO_PIANO_SYMBOLIC_LANE:
+        if supports_solo_piano_lane(payload, plan, form):
+            return SOLO_PIANO_SYMBOLIC_LANE, None
+        return None, (
+            "unsupported learned-symbolic lane 'solo_piano_symbolic'; "
+            "requires compositionPlan.pianoPlan and Piano instrumentation"
+        )
+
+    if requested_lane:
+        return None, f"unsupported learned-symbolic lane '{requested_lane}'"
+
+    if supports_narrow_lane(payload, plan, form):
+        return STRING_TRIO_SYMBOLIC_LANE, None
+    if supports_solo_piano_lane(payload, plan, form):
+        return SOLO_PIANO_SYMBOLIC_LANE, None
+    return None, (
+        "unsupported learned-symbolic lane; requires string_trio miniature "
+        "or solo piano composition plan"
+    )
+
+
+def _summary_instruments_for_lane(lane: str) -> tuple[int, list[str]]:
+    if lane == SOLO_PIANO_SYMBOLIC_LANE:
+        return 1, ["Piano"]
+    return 3, ["Violin", "Viola", "Cello"]
+
+
 def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     plan = as_record(payload.get("compositionPlan")) or {}
     prompt_pack = get_prompt_pack(payload)
     context = resolve_provider_prompt_packing_context(payload, prompt_pack)
     form = resolve_form(payload, plan)
 
-    if not supports_narrow_lane(payload, plan, form):
-        return {
-            "ok": False,
-            "error": "unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan",
-        }
+    lane, lane_error = _resolve_supported_lane(payload, plan, form, context)
+    if lane is None:
+        return {"ok": False, "error": lane_error or "unsupported learned-symbolic lane"}
 
     output_path = str(payload.get("outputPath") or "").strip()
     if not output_path:
@@ -119,14 +168,12 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     _write_feedback_evidence(
         output_path=output_path,
         plan_signature=(context["planSignature"] if context is not None else ""),
-        lane=(
-            context["lane"]
-            if context is not None and context.get("lane")
-            else "string_trio_symbolic"
-        ),
+        lane=lane,
         result=result,
         attempt_index=normalized_attempt_index,
     )
+
+    part_count, part_instrument_names = _summary_instruments_for_lane(lane)
 
     return {
         "ok": True,
@@ -138,18 +185,14 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
         "proposalSummary": {
             "measureCount": result.measure_count,
             "noteCount": result.note_count,
-            "partCount": 3,
-            "partInstrumentNames": ["Violin", "Viola", "Cello"],
+            "partCount": part_count,
+            "partInstrumentNames": part_instrument_names,
             "key": result.key_name,
             "tempo": result.tempo_bpm,
             "form": result.form,
         },
         "proposalMetadata": {
-            "lane": (
-                context["lane"]
-                if context is not None and context.get("lane")
-                else "string_trio_symbolic"
-            ),
+            "lane": lane,
             "provider": result.provider,
             "model": result.model,
             "generationMode": result.generation_mode,

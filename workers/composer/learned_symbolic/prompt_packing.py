@@ -219,32 +219,19 @@ def supports_narrow_lane(
     )
 
 
-# ─── Piano solo lane gate (NOT YET ACTIVE) ───────────────────────────────────
+# ─── Piano solo lane gate ─────────────────────────────────────────────────────
 #
-# This function is the readiness gate for a future piano_solo_symbolic lane.
-# It is NOT wired into build_response() or compose_learned_symbolic.py yet.
-#
-# Prerequisites before activation:
-#   1. NotaGen fine-tuning data covering solo piano (Keyboard label) is stable.
-#   2. symbolic_projection.py supports rightHandMeasures / leftHandMeasures split.
-#   3. abc_validate.py covers 2-voice ABC (treble + bass clef staves).
-#   4. PianoVoiceLayoutSummary evaluation is integrated into the structure critic.
-#
-# When those are satisfied, replace the supports_narrow_lane() call in
-# compose_learned_symbolic.py with:
-#
-#   if supports_narrow_lane(payload, plan, form):
-#       lane = "string_trio_symbolic"
-#   elif supports_piano_solo_lane(payload, plan, form):
-#       lane = "piano_solo_symbolic"
-#   else:
-#       return {"ok": False, "error": "unsupported lane"}
+# Active worker gate for the TypeScript solo_piano_symbolic lane.  It mirrors
+# learnedAdapter.ts: a request must carry compositionPlan.pianoPlan and include
+# Piano in the resolved instrumentation.  The piano control lines remain
+# preserved for projection, repair, and fine-tuning datasets even when a native
+# NotaGen model cannot yet obey every field directly.
 
 # ─── Piano packing control hints ─────────────────────────────────────────────
 
 
 class PianoPackingControlHints(TypedDict):
-    """Conditioning hints for the piano_solo_symbolic lane.
+    """Conditioning hints for the solo_piano_symbolic lane.
 
     These hints are NOT yet consumed by any active compose path.
     They document the expected control-line semantics so that when the
@@ -360,38 +347,38 @@ def build_piano_packing_control_hints(
     }
 
 
-def supports_piano_solo_lane(
+def supports_solo_piano_lane(
     payload: dict[str, Any], plan: dict[str, Any], form: str
 ) -> bool:
-    """Return True when the request targets a solo piano miniature or sonata.
+    """Return True when the request targets the active solo_piano_symbolic lane.
 
     Checks:
-    - form contains "miniature" or "sonata"
-    - instrumentation is exactly [piano] or [keyboard] (single instrument,
-      family=keyboard)
+    - compositionPlan.pianoPlan is present
+    - instrumentation contains Piano, or orchestration identifies a piano solo
 
-    Does NOT check whether the NotaGen backend is trained or capable;
-    that validation belongs in the backend router.
+    Does not check whether a specific backend/model is trained or capable; that
+    validation belongs in the backend router.
     """
-    normalized_form = form.lower()
-    if "miniature" not in normalized_form and "sonata" not in normalized_form:
+    _ = form  # kept for signature symmetry with supports_narrow_lane().
+    piano_plan = as_record(plan.get("pianoPlan"))
+    if piano_plan is None:
         return False
 
     orchestration = plan.get("orchestration")
     orchestration_record = as_record(orchestration)
     if orchestration_record is not None:
         family = normalize_name(orchestration_record.get("family"))
-        if family == "piano_solo":
+        if family == "solo_piano":
             return True
         instrument_names_raw = orchestration_record.get("instrumentNames")
         if isinstance(instrument_names_raw, list):
             normalized = [normalize_name(n) for n in as_list(instrument_names_raw)]
-            if sorted(normalized) in (["keyboard"], ["piano"]):
+            if "piano" in normalized:
                 return True
 
     instrument_names = resolve_instrument_names(payload, plan)
     normalized_names = [normalize_name(n) for n in instrument_names]
-    return sorted(normalized_names) in (["keyboard"], ["piano"])
+    return "piano" in normalized_names
 
 
 def _find_control_value(control_lines: list[str], prefix: str) -> str | None:

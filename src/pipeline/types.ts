@@ -641,7 +641,7 @@ export interface InstrumentAssignment {
     register?: "low" | "mid" | "high" | "wide";
 }
 
-export type OrchestrationFamily = "string_trio" | "piano_solo";
+export type OrchestrationFamily = "string_trio" | "solo_piano";
 
 export type OrchestrationConversationMode = "support" | "conversational";
 
@@ -808,7 +808,7 @@ export interface CompositionPlan {
     /**
      * Hand-aware piano IR.  Present only when the instrumentation is solo piano.
      * Drives RH/LH register planning, texture selection, pedal strategy, and
-     * per-section chord voicing in the piano_solo_symbolic lane.
+     * per-section chord voicing in the solo_piano_symbolic lane.
      */
     pianoPlan?: PianoPlan;
 }
