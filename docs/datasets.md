@@ -52,63 +52,44 @@ outputs/{songId}/candidates/
 
 ## Export Scripts
 
-| 명령 | 산출물 | 용도 |
-|------|--------|------|
-| `npm run ml:export:structure-rank` | `structure_rank_v1` snapshot | structure reranker 학습 |
-| `npm run ml:export:backbone-piece` | `axiom_backbone_piece_v1` | learned backbone fine-tune |
-| `npm run ml:export:localized-rewrite` | `axiom_localized_rewrite_v1` | targeted rewrite 학습 |
-| `npm run ml:export:notagen-preferences` | preference pairs | NotaGen 계열 preference fine-tune |
-| `npm run ml:export:notagen-sft` | SFT examples | NotaGen 계열 SFT |
+> **미구현:** 아래 `ml:*` 명령은 현재 `package.json`에 존재하지 않습니다.  
+> 데이터 수집 자체는 런타임이 자동으로 수행하며(`outputs/` 하위 자동 저장),  
+> export / review / shadow 스크립트는 아직 구현되지 않았습니다.
+
+계획된 export 산출물 (구현 전):
+
+| 산출물 | 용도 |
+|--------|------|
+| `structure_rank_v1` snapshot | structure reranker 학습 |
+| `axiom_backbone_piece_v1` | learned backbone fine-tune |
+| `axiom_localized_rewrite_v1` | targeted rewrite 학습 |
+| preference pairs | NotaGen 계열 preference fine-tune |
+| SFT examples | NotaGen 계열 SFT |
 
 ---
 
 ## Review Workflow
 
-### Manifest Review (learned backbone)
+> **미구현:** manifest review 및 blind A/B review 스크립트는 현재 `package.json`에 존재하지 않습니다.
 
-```bash
-# pending run → worksheet 생성
-npm run ml:manifest-review:learned-backbone -- --snapshot <sheet>
-
-# worksheet 작성 후 (approvalStatus 열 채우기) ingest
-npm run ml:manifest-review:record:learned-backbone -- --resultsFile outputs/_system/ml/review-manifests/learned-backbone/<sheet>/review-sheet.csv
-```
-
-`source=autonomy` row는 기존 approve/reject service를 통해 operator audit trail + preferences humanFeedbackSummary 갱신.  
-`source=api` row는 manifest만 직접 갱신 (autonomy preference memory 오염 방지).
-
-### Blind A/B Review (learned backbone)
-
-```bash
-# music21 vs learned_symbolic candidate를 blind A/B MIDI pack으로 복사
-npm run ml:review-pack:learned-backbone -- --snapshot <pack>
-
-# 청취 후 review-sheet.csv 작성 → ingest
-npm run ml:review-pack:record:learned-backbone
-```
+런타임이 자동으로 기록하는 항목:
+- `outputs/{songId}/candidates/` — candidate sidecar (선택/기각 이유 포함)
+- `outputs/_system/preferences.json` — autonomy preference 누적
+- `outputs/_system/operator-actions/` — operator audit trail
 
 ---
 
 ## Shadow Reranker
 
-**Shadow mode:** 실제 선택에는 영향 없이 reranker 점수를 병렬 기록.
+> **미구현:** shadow scoring 스크립트는 현재 `package.json`에 존재하지 않습니다.
 
-```bash
-# shadow scoring 실행
-npm run ml:shadow:structure-rank -- --snapshot <snapshot>
-
-# 24시간 창 disagreement 요약
-npm run ml:shadow:structure-rank:runtime-summary -- --windowHours 24
-```
+Shadow mode 설계: 실제 선택에는 영향 없이 reranker 점수를 병렬 기록.
 
 ---
 
 ## Summary Tools
 
-```bash
-npm run ml:summarize:learned-backbone   # narrow learned lane 벤치마크 요약
-npm run ml:summarize:truth-plane        # dataset snapshot manifest, tier counts, split leakage 점검
-```
+> **미구현:** `ml:summarize:*` 스크립트는 현재 `package.json`에 존재하지 않습니다.
 
 ---
 

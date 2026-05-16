@@ -17,41 +17,41 @@ AXIOM의 작곡 엔진은 6개의 음악적 질문에 답하는 순서로 동작
 User Intent (POST /compose)
         │
         ▼
-[1] CompositionPlan         pipeline/sketch.ts
-                            composer/index.ts (Python planner)
-                            pipeline/classicalKnowledge.ts
+[1] CompositionPlan         src/core/plan/sketch.ts
+                            src/core/composer/index.ts (Python planner)
+                            src/core/music/classicalKnowledge.ts
         │
         ▼
-[2] OrchestrationPlan       pipeline/orchestrationPlan.ts
+[2] OrchestrationPlan       src/core/music/orchestrationPlan.ts
         │
         ▼
-[3] Section / Movement Plan pipeline/formTemplates.ts
-                            pipeline/sonataCyclePlanner.ts
-                            pipeline/longSpan.ts
+[3] Section / Movement Plan src/core/plan/formTemplates.ts
+                            src/core/plan/sonataCyclePlanner.ts
+                            src/core/plan/longSpan.ts
         │
         ▼
 [4] Motif & Harmonic Plan   (CompositionPlan 내 motifs[], harmonicPlan, ClassicalHarmonyKnowledge)
         │
         ▼
-[5] Symbolic Generator      composer/index.ts → workers/composer/
-                            pipeline/hybridSymbolicCandidatePool.ts (복수 candidate)
+[5] Symbolic Generator      src/core/composer/index.ts → workers/composer/
+                            src/core/generate/hybridSymbolicCandidatePool.ts (복수 candidate)
         │
         ▼
-[6] Projection / Repair     pipeline/pianoIR.ts
-                            pipeline/pianoProjection.ts
-                            pipeline/pianoRepairSolver.ts
+[6] Projection / Repair     src/core/music/pianoIR.ts
+                            src/core/repair/pianoProjection.ts
+                            src/core/repair/pianoRepairSolver.ts
         │
         ▼
-[7] Musical Evaluator       critic/index.ts → Python critique worker
-                            pipeline/evaluation.ts
-                            pipeline/craftScoring.ts
-                            pipeline/cycleEvaluation.ts
+[7] Musical Evaluator       src/core/critic/index.ts → Python critique worker
+                            src/core/evaluate/evaluation.ts
+                            src/core/evaluate/craftScoring.ts
+                            src/core/evaluate/cycleEvaluation.ts
         │
         ▼
-[8] Renderer                humanizer/index.ts + render/index.ts → Python workers
+[8] Renderer                src/core/humanizer/index.ts + src/core/render/index.ts → Python workers
         │
         ▼
-[9] Feedback Dataset        memory/candidates.ts, memory/pianoDataset.ts
+[9] Feedback Dataset        outputs/{songId}/candidates/, outputs/_system/
                             → autonomy preferences → 다음 CompositionPlan bias
 ```
 
@@ -61,7 +61,7 @@ User Intent (POST /compose)
 
 ### [1] CompositionPlan — 무엇을 쓸 것인가
 
-**파일:** `pipeline/sketch.ts`, `composer/index.ts`, `pipeline/classicalKnowledge.ts`
+**파일:** `src/core/plan/sketch.ts`, `src/core/composer/index.ts`, `src/core/music/classicalKnowledge.ts`
 
 `materializeCompositionSketch()`가 `ComposeRequest` + autonomy memory bias → `CompositionSketch` 생성. Python planner가 `CompositionPlan`으로 확장.
 
@@ -87,7 +87,7 @@ autonomy memory bias: `sketch.ts`가 과거 실행의 `motifReturns`, `tensionAr
 
 ### [2] OrchestrationPlan — 어떤 편성인가
 
-**파일:** `pipeline/orchestrationPlan.ts`
+**파일:** `src/core/music/orchestrationPlan.ts`
 
 `CompositionPlan.instrumentation` → `OrchestrationPlan` 도출.
 
@@ -106,7 +106,7 @@ interface OrchestrationPlan {
 
 ### [3] Section / Movement Plan — 어떤 형식인가
 
-**파일:** `pipeline/formTemplates.ts`, `pipeline/sonataCyclePlanner.ts`, `pipeline/longSpan.ts`
+**파일:** `src/core/plan/formTemplates.ts`, `src/core/plan/sonataCyclePlanner.ts`, `src/core/plan/longSpan.ts`
 
 지원 형식: `sonata`, `rondo`, `theme_and_variations`, `fugue_lite`
 
@@ -152,12 +152,13 @@ interface ClassicalHarmonyKnowledge {
 
 ### [5] Symbolic Generator — 생성
 
-**파일:** `composer/index.ts`, `workers/composer/`, `pipeline/hybridSymbolicCandidatePool.ts`
+**파일:** `src/core/composer/index.ts`, `workers/composer/`, `src/core/generate/hybridSymbolicCandidatePool.ts`
 
 | Worker | 조건 |
 |--------|------|
 | `music21` | canonical classical lane (기본) |
-| `learned_symbolic` | narrow string_trio_symbolic lane (실험적, miniature + string trio 한정) |
+| `learned_symbolic` — `string_trio_symbolic` | miniature + string trio (실험적) |
+| `learned_symbolic` — `solo_piano_symbolic` | PianoPlan + piano instrumentation; playability projection/repair/evaluation 포함 |
 | `musicgen` | audio_only workflow |
 
 hybrid mode에서는 `buildHybridSymbolicCandidateRequests()`가 복수 candidate를 생성하고 구조 평가 점수로 선택.
@@ -166,7 +167,7 @@ hybrid mode에서는 `buildHybridSymbolicCandidateRequests()`가 복수 candidat
 
 ### [6] Projection / Repair — 연주 가능한가
 
-**파일:** `pipeline/pianoIR.ts`, `pipeline/pianoProjection.ts`, `pipeline/pianoRepairSolver.ts`
+**파일:** `src/core/music/pianoIR.ts`, `src/core/repair/pianoProjection.ts`, `src/core/repair/pianoRepairSolver.ts`
 
 21개 피아노 연주성 지표 계산:
 
@@ -188,7 +189,7 @@ Repair 지시 종류: `reduce_hand_span`, `smooth_left_hand_leaps`, `clarify_rig
 
 ### [7] Musical Evaluator — 좋은 음악인가
 
-**파일:** `critic/index.ts`, `pipeline/evaluation.ts`, `pipeline/craftScoring.ts`, `pipeline/cycleEvaluation.ts`
+**파일:** `src/core/critic/index.ts`, `src/core/evaluate/evaluation.ts`, `src/core/evaluate/craftScoring.ts`, `src/core/evaluate/cycleEvaluation.ts`
 
 `StructureEvaluationReport` 핵심 차원:
 
@@ -202,7 +203,7 @@ Repair 지시 종류: `reduce_hand_span`, `smooth_left_hand_leaps`, `clarify_rig
 
 craft score = 차원별 가중 합산. quality gate 기준.
 
-재시도 정책 (`pipeline/quality.ts`):
+재시도 정책 (`src/core/evaluate/quality.ts`):
 ```typescript
 shouldRetryStructureAttempt(evaluation, policy, attempt)  // 구조 재시도
 shouldRetryAudioAttempt(evaluation, policy, attempt)       // 오디오 재시도
@@ -212,7 +213,7 @@ shouldRetryAudioAttempt(evaluation, policy, attempt)       // 오디오 재시�
 
 ### [8] Renderer — 오디오 생성
 
-**파일:** `humanizer/index.ts`, `render/index.ts`, `workers/humanizer/`, `workers/render/`
+**파일:** `src/core/humanizer/index.ts`, `src/core/render/index.ts`, `workers/humanizer/`, `workers/render/`
 
 **Humanize:** ExpressionPlanSidecar 적용
 - `humanizationStyle`: `"mechanical"` | `"restrained"` | `"expressive"`
@@ -224,7 +225,7 @@ shouldRetryAudioAttempt(evaluation, policy, attempt)       // 오디오 재시�
 
 ### [9] Feedback Dataset
 
-매 실행 결과가 자동으로 학습 데이터 후보가 된다. 자세한 내용은 [`datasets.md`](datasets.md).
+매 실행 결과가 자동으로 학습 데이터 후보가 된다 (`outputs/{songId}/candidates/`, `outputs/_system/`). 자세한 내용은 [`datasets.md`](datasets.md).
 
 ---
 
