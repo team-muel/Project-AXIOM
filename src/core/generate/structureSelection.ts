@@ -307,6 +307,15 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
         ? Math.max(0, (0.5 - craft.evidenceCoverageScore) * 50)
         : 0;
 
+    // Harmony contract penalty: each missing required harmony field
+    // (cadenceApproach, harmonicColorCues, harmonicRealizationSummary) in a
+    // harmonyGrammar-annotated section is a craft evidence failure.
+    // Unlike the smooth coverage penalty, this is a hard per-violation deduction
+    // so that generators with systematic missing fields rank noticeably lower.
+    const harmonyContractPenalty = craft?.harmonyContractViolations !== undefined
+        ? craft.harmonyContractViolations * 8
+        : 0;
+
     return Number(((evaluation.passed ? 1_000 : 0)
         + (baseScore * 10)
         + averageSectionScore
@@ -327,6 +336,7 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
         - weakestSectionPenalty
         - contractPenalty
         - evidenceCoveragePenalty
+        - harmonyContractPenalty
         - (tensionMismatch * 40)).toFixed(4));
 }
 

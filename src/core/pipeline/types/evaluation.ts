@@ -134,6 +134,22 @@ export interface CraftScoreSummary {
     motifEvidenceCoverage?: number;
     /** Average of the three domain coverage scores (0–1); below 0.5 triggers a finalCraftScore penalty */
     evidenceCoverageScore?: number;
+
+    // ── Harmony realization contract ──────────────────────────────────────────
+    // Per-field contract violations in sections that carry a harmonyGrammar plan.
+    // Missing required fields are craft evidence failures, not neutral fallbacks.
+
+    /**
+     * Number of required-severity harmony contract violations across all sections.
+     * Each missing required field (cadenceApproach, harmonicColorCues,
+     * harmonicRealizationSummary) in a harmonyGrammar-annotated section counts as one.
+     */
+    harmonyContractViolations?: number;
+    /**
+     * Fraction of required harmony fields present across all evaluated sections (0–1).
+     * 1.0 = all required fields present. Below 1.0 triggers proportional penalty.
+     */
+    harmonyContractScore?: number;
 }
 
 // ─── Piano-specific craft scoring ────────────────────────────────────────────

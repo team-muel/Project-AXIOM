@@ -12,6 +12,7 @@ import { computePhraseGrammarScoreSummary } from "./phraseGrammarScoring.js";
 import { computeHarmonyGrammarScoreSummary } from "./harmonyGrammarScoring.js";
 import { computeMotifDevelopmentScoreSummary } from "./motifDevelopmentScoring.js";
 import { computeEvidenceCoverageReport } from "./evidenceCoverage.js";
+import { checkHarmonyRealizationContract } from "./harmonyRealizationContract.js";
 
 // craftScoring.ts — role boundary
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1176,8 +1177,17 @@ export function computeCraftScoreSummary(
     // scores in grammar evaluators pass unchallenged; we apply a small but
     // visible penalty to push the generator toward producing richer artifacts.
     const coverageReport = computeEvidenceCoverageReport(sectionArtifacts, plan);
+
+    // ── Harmony realization contract ──────────────────────────────────────────
+    // Hard per-field check: each missing required harmony field (cadenceApproach,
+    // harmonicColorCues, harmonicRealizationSummary) in a harmonyGrammar section
+    // is a craft evidence failure.  Penalty is proportional to the contract score
+    // shortfall (0 = all fields present, 0.12 = all required fields absent).
+    const contractReport = checkHarmonyRealizationContract(sectionArtifacts, plan);
+    const harmonyContractPenalty = Math.max(0, (1.0 - contractReport.contractScore) * 0.12);
+
     const finalCraftScore = Number(
-        clamp01(finalCraftScoreRaw - coverageReport.coveragePenalty).toFixed(4),
+        clamp01(finalCraftScoreRaw - coverageReport.coveragePenalty - harmonyContractPenalty).toFixed(4),
     );
 
     const dimensionNotes: Record<string, string> = {};
@@ -1246,5 +1256,7 @@ export function computeCraftScoreSummary(
         harmonyEvidenceCoverage:          Number(coverageReport.harmonyEvidenceCoverage.toFixed(4)),
         motifEvidenceCoverage:            Number(coverageReport.motifEvidenceCoverage.toFixed(4)),
         evidenceCoverageScore:            Number(coverageReport.overallCoverage.toFixed(4)),
+        harmonyContractViolations:        contractReport.requiredViolationCount,
+        harmonyContractScore:             Number(contractReport.contractScore.toFixed(4)),
     };
 }

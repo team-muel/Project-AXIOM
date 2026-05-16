@@ -965,3 +965,100 @@ test("scoreStructureEvaluationForCandidateSelection ranks higher advancedCraftSc
         `High advancedCraftScore (${scoreHigh}) should rank above low (${scoreLow})`,
     );
 });
+
+// ─── Harmony Realization Contract ────────────────────────────────────────────
+
+const {
+    checkSectionHarmonyContract,
+    checkHarmonyRealizationContract,
+} = await import("../dist/core/evaluate/harmonyRealizationContract.js");
+
+const harmonyGrammar = {
+    functionalSequence: ["tonic", "predominant", "dominant"],
+    cadenceApproach: "cad64",
+};
+
+test("checkSectionHarmonyContract: no violations when all required fields present", () => {
+    const artifact = makeArtifact({
+        sectionId: "s1",
+        role: "development",
+        cadenceApproach: "dominant",
+        harmonicColorCues: [{ tag: "cadential_64", startMeasure: 3 }],
+        harmonicRealizationSummary: { targetedMeasureCount: 4, realizedMeasureCount: 4, realizedNoteCount: 24 },
+    });
+    const planSection = { id: "s1", role: "development", label: "Dev", measures: 4, energy: 0.7, density: 0.5, harmonyGrammar };
+    const violations = checkSectionHarmonyContract(artifact, planSection);
+    assert.strictEqual(violations.length, 0, `Expected 0 violations, got ${violations.length}`);
+});
+
+test("checkSectionHarmonyContract: missing cadenceApproach is a required violation", () => {
+    const artifact = makeArtifact({
+        sectionId: "s1",
+        role: "development",
+        harmonicColorCues: [{ tag: "cadential_64" }],
+        harmonicRealizationSummary: { targetedMeasureCount: 4, realizedMeasureCount: 4, realizedNoteCount: 24 },
+    });
+    const planSection = { id: "s1", role: "development", label: "Dev", measures: 4, energy: 0.7, density: 0.5, harmonyGrammar };
+    const violations = checkSectionHarmonyContract(artifact, planSection);
+    const required = violations.filter((v) => v.severity === "required");
+    assert.ok(required.length >= 1, "cadenceApproach missing → required violation");
+    assert.ok(required.some((v) => v.field === "cadenceApproach"), "field should be cadenceApproach");
+});
+
+test("checkSectionHarmonyContract: missing harmonicColorCues is a required violation", () => {
+    const artifact = makeArtifact({
+        sectionId: "s1",
+        role: "development",
+        cadenceApproach: "dominant",
+        harmonicRealizationSummary: { targetedMeasureCount: 4, realizedMeasureCount: 4, realizedNoteCount: 24 },
+    });
+    const planSection = { id: "s1", role: "development", label: "Dev", measures: 4, energy: 0.7, density: 0.5, harmonyGrammar };
+    const violations = checkSectionHarmonyContract(artifact, planSection);
+    assert.ok(violations.some((v) => v.field === "harmonicColorCues" && v.severity === "required"));
+});
+
+test("checkSectionHarmonyContract: no harmonyGrammar plan → no violations", () => {
+    const artifact = makeArtifact({ sectionId: "s1", role: "theme_a" });
+    const planSection = { id: "s1", role: "theme_a", label: "Theme A", measures: 4, energy: 0.5, density: 0.4 };
+    const violations = checkSectionHarmonyContract(artifact, planSection);
+    assert.strictEqual(violations.length, 0, "No harmonyGrammar plan → no violations expected");
+});
+
+test("checkHarmonyRealizationContract: contractScore = 1.0 when no sections have harmonyGrammar", () => {
+    const artifacts = [makeArtifact({ sectionId: "s1" })];
+    const plan = makePlan();
+    const report = checkHarmonyRealizationContract(artifacts, plan);
+    assert.strictEqual(report.contractScore, 1.0, "no harmonyGrammar sections → perfect score");
+    assert.strictEqual(report.sectionCount, 0);
+    assert.strictEqual(report.requiredViolationCount, 0);
+});
+
+test("checkHarmonyRealizationContract: 3 violations and degraded contractScore when all required fields absent", () => {
+    const plan = makePlan({
+        sections: [
+            {
+                id: "s1", role: "development", label: "Dev", measures: 4, energy: 0.7, density: 0.5,
+                harmonyGrammar: { functionalSequence: ["tonic", "dominant"], cadenceApproach: "basic" },
+            },
+        ],
+    });
+    const artifacts = [makeArtifact({ sectionId: "s1", role: "development" })];
+    const report = checkHarmonyRealizationContract(artifacts, plan);
+    assert.strictEqual(report.requiredViolationCount, 3, "all 3 required fields absent → 3 violations");
+    assert.strictEqual(report.contractScore, 0, "no required fields present → contractScore = 0");
+    assert.ok(report.failingSections.includes("s1"), "s1 should be in failingSections");
+});
+
+test("scoreStructureEvaluationForCandidateSelection penalises candidates with harmonyContractViolations", () => {
+    const baseCraft = {
+        syntaxValidity: 1, sectionContractFit: 0.8, cadenceStrength: 0.8,
+        tonalReturn: 0.8, motifSurvival: 0.8, voiceIndependence: 0.8,
+        phraseShape: 0.8, registerIdiomaticFit: 0.8, finalCraftScore: 0.8,
+        evidenceCoverageScore: 0.8,
+    };
+    const cleanContract = makeEvaluation({ passed: true, craftScoreSummary: { ...baseCraft, harmonyContractViolations: 0 } });
+    const dirtyContract = makeEvaluation({ passed: true, craftScoreSummary: { ...baseCraft, harmonyContractViolations: 4 } });
+    const scoreClean = scoreStructureEvaluationForCandidateSelection(cleanContract);
+    const scoreDirty = scoreStructureEvaluationForCandidateSelection(dirtyContract);
+    assert.ok(scoreClean > scoreDirty, `0 violations (${scoreClean}) should rank above 4 violations (${scoreDirty})`);
+});
