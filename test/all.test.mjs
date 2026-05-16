@@ -51,4 +51,4 @@ import "./python-compose-piano-lane.test.mjs";
 import "./python-compose-piano-e2e.test.mjs";
 import "./piano-strict-gates.test.mjs";
 import "./piano-benchmark.test.mjs";
-
+import "./musical-quality-regression.test.mjs";
