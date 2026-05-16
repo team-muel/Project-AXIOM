@@ -28,6 +28,13 @@
  * 20. loadGlobalFeedbackHistory: returns empty array when outputDir does not exist
  * 21. loadGlobalFeedbackHistory: collects records from multiple song directories
  * 22. selectPreferredCandidate: uses global feedback when ≥ MIN_FEEDBACK_SAMPLES across songs
+ *
+ * Piano preference model tests (23–27):
+ * 23. computePreferenceScore: piano candidate with pianoCraftSummary uses piano default weights
+ * 24. computePreferenceScore: piano candidate — higher handPlayability yields higher score
+ * 25. computePreferenceScore: piano dimension contributions include piano_* keys
+ * 26. computePreferenceScore: generic reranker snapshot (N=14) falls back to piano default weights for piano candidate
+ * 27. computePreferenceScore: piano-aware reranker snapshot (N=23) is accepted for piano candidate
  */
 
 import test from "node:test";
@@ -619,4 +626,153 @@ test("selectPreferredCandidate: uses global feedback (learned weights) when enou
         config.outputDir = realOutputDir;
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+});
+
+// ---------------------------------------------------------------------------
+// Piano preference model tests (23–27)
+// ---------------------------------------------------------------------------
+
+/** @param {Record<string,number>} overrides */
+function makePianoCraftSummary(overrides = {}) {
+    return {
+        handPlayability: 0.80,
+        melodicClarity: 0.75,
+        bassCoherence: 0.70,
+        voicingIdiomaticFit: 0.72,
+        accompanimentPatternCoherence: 0.68,
+        registerSpacing: 0.73,
+        handIndependence: 0.65,
+        pedalPlausibility: 0.60,
+        difficultyFit: 0.85,
+        finalPianoScore: 0.74,
+        ...overrides,
+    };
+}
+
+// 23. piano candidate uses piano default weights (not generic)
+test("computePreferenceScore: piano candidate with pianoCraftSummary uses piano default weights", () => {
+    const candidate = {
+        candidateId: "piano-c1",
+        craftSummary: makeCraftSummary(),
+        pianoCraftSummary: makePianoCraftSummary(),
+    };
+    const result = computePreferenceScore(candidate, [], null);
+    assert.equal(result.weightSource, "default");
+    const hasAnyPianoKey = Object.keys(result.dimensionContributions)
+        .some((k) => k.startsWith("piano_"));
+    assert.ok(hasAnyPianoKey,
+        "dimensionContributions must contain piano_* keys for piano candidate");
+    const hasGenericKey = Object.keys(result.dimensionContributions)
+        .some((k) => k === "cadenceStrength");
+    assert.ok(!hasGenericKey,
+        "dimensionContributions must not contain cadenceStrength for piano candidate");
+    assert.ok(result.preferenceScore >= 0 && result.preferenceScore <= 1);
+});
+
+// 24. higher handPlayability → higher preference score for piano candidate
+test("computePreferenceScore: piano candidate — higher handPlayability yields higher score", () => {
+    const low = computePreferenceScore({
+        candidateId: "low-play",
+        craftSummary: makeCraftSummary(),
+        pianoCraftSummary: makePianoCraftSummary({ handPlayability: 0.20, finalPianoScore: 0.35 }),
+    }, [], null);
+    const high = computePreferenceScore({
+        candidateId: "high-play",
+        craftSummary: makeCraftSummary(),
+        pianoCraftSummary: makePianoCraftSummary({ handPlayability: 0.95, finalPianoScore: 0.92 }),
+    }, [], null);
+    assert.ok(high.preferenceScore > low.preferenceScore,
+        `high handPlayability (${high.preferenceScore}) must beat low (${low.preferenceScore})`);
+});
+
+// 25. piano contributions include all required piano_* keys
+test("computePreferenceScore: piano dimension contributions include expected piano_* keys", () => {
+    const result = computePreferenceScore({
+        candidateId: "piano-c3",
+        craftSummary: makeCraftSummary(),
+        pianoCraftSummary: makePianoCraftSummary(),
+        pianoHandSpanMax: 14,
+        pianoRegisterCollisionCount: 2,
+        pianoPlayabilityScore: 0.78,
+    }, [], null);
+    const requiredKeys = [
+        "piano_finalPianoScore",
+        "piano_handPlayability",
+        "piano_melodicClarity",
+        "piano_bassCoherence",
+        "piano_voicingIdiomaticFit",
+        "piano_pedalPlausibility",
+        "piano_playabilityScore",
+        "piano_handSpanNorm",
+        "piano_registerCollisionNorm",
+    ];
+    for (const key of requiredKeys) {
+        assert.ok(
+            typeof result.dimensionContributions[key] === "number",
+            `dimensionContributions must contain ${key}`,
+        );
+    }
+});
+
+// 26. generic reranker snapshot (N=14) falls back to piano default weights for piano candidate
+test("computePreferenceScore: generic reranker snapshot (N=14) falls back to piano weights for piano candidate", () => {
+    const N = 14;
+    /** @type {import("../dist/pipeline/preferenceModel.js").PreferenceRerankerSnapshot} */
+    const snapshot = {
+        version: 1,
+        algorithm: "logistic_regression",
+        snapshotId: "generic-snap",
+        trainedAt: "2025-01-01T00:00:00Z",
+        sampleCount: 20,
+        approvedCount: 10,
+        rejectedCount: 10,
+        featureNames: Array.from({ length: N }, (_, i) => `f${i}`),
+        scalerMean: Array(N).fill(0),
+        scalerScale: Array(N).fill(1),
+        coefficients: Array(N).fill(0.05),
+        intercept: 0,
+        threshold: 0.5,
+        crossValAccuracy: null,
+    };
+    const result = computePreferenceScore({
+        candidateId: "piano-c4",
+        craftSummary: makeCraftSummary(),
+        pianoCraftSummary: makePianoCraftSummary(),
+    }, [], snapshot);
+    assert.equal(result.weightSource, "default",
+        "generic snapshot (N=14) must be rejected for piano candidate (N=23); fallback to default");
+    const hasAnyPianoKey = Object.keys(result.dimensionContributions)
+        .some((k) => k.startsWith("piano_"));
+    assert.ok(hasAnyPianoKey, "must use piano default weights after reranker rejection");
+});
+
+// 27. piano-aware reranker snapshot (N=23) is accepted for piano candidate
+test("computePreferenceScore: piano-aware reranker snapshot (N=23) is accepted for piano candidate", () => {
+    const N = 23;
+    /** @type {import("../dist/pipeline/preferenceModel.js").PreferenceRerankerSnapshot} */
+    const snapshot = {
+        version: 1,
+        algorithm: "logistic_regression",
+        snapshotId: "piano-snap",
+        trainedAt: "2025-01-01T00:00:00Z",
+        sampleCount: 20,
+        approvedCount: 10,
+        rejectedCount: 10,
+        featureNames: Array.from({ length: N }, (_, i) => `f${i}`),
+        scalerMean: Array(N).fill(0),
+        scalerScale: Array(N).fill(1),
+        coefficients: Array(N).fill(0.05),
+        intercept: 0,
+        threshold: 0.5,
+        crossValAccuracy: null,
+    };
+    const result = computePreferenceScore({
+        candidateId: "piano-c5",
+        craftSummary: makeCraftSummary(),
+        pianoCraftSummary: makePianoCraftSummary(),
+    }, [], snapshot);
+    assert.equal(result.weightSource, "reranker",
+        "piano-aware snapshot (N=23) must be applied for piano candidate");
+    assert.ok(typeof result.rerankerScore === "number", "rerankerScore must be populated");
+    assert.ok(result.preferenceScore >= 0 && result.preferenceScore <= 1);
 });

@@ -39,7 +39,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "../config.js";
-import type { CraftScoreSummary } from "./types.js";
+import type { CraftScoreSummary, PianoCraftScoreSummary } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -82,6 +82,32 @@ const DEFAULT_DIMENSION_WEIGHTS: Record<string, number> = {
     syntaxValidity:      0.03,
 };
 
+/**
+ * Default weight vector for solo_piano lane candidates (cold-start).
+ * Keys are prefixed with `piano_` to match the flattened internalScores
+ * keys stored in candidate manifests by the piano pipeline.
+ *
+ * Priority ordering mirrors the piano craft score weights (see pianoCraftScoring.ts)
+ * but re-normalised to include evidence-derived dimensions that are not part of
+ * PianoCraftScoreSummary (playabilityScore, handSpanNorm, registerCollisionNorm).
+ *
+ * Sums to 1.0.
+ */
+const PIANO_DEFAULT_DIMENSION_WEIGHTS: Record<string, number> = {
+    piano_finalPianoScore:               0.20,
+    piano_handPlayability:               0.17,
+    piano_melodicClarity:                0.13,
+    piano_bassCoherence:                 0.12,
+    piano_voicingIdiomaticFit:           0.10,
+    piano_accompanimentPatternCoherence: 0.08,
+    piano_registerSpacing:               0.07,
+    piano_handIndependence:              0.05,
+    piano_pedalPlausibility:             0.04,
+    piano_playabilityScore:              0.02,
+    piano_handSpanNorm:                  0.01,
+    piano_registerCollisionNorm:         0.01,
+};
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -90,6 +116,32 @@ const DEFAULT_DIMENSION_WEIGHTS: Record<string, number> = {
 export interface PreferenceCandidate {
     candidateId: string;
     craftSummary: CraftScoreSummary;
+    /**
+     * Piano craft score summary.  When present, the candidate is treated as a
+     * solo_piano lane candidate and piano-specific ranking dimensions replace the
+     * generic craft dimensions in all preference model paths (default weights,
+     * learned weights, reranker feature vector).
+     */
+    pianoCraftSummary?: PianoCraftScoreSummary;
+    /**
+     * Normalised evidence value: max simultaneous hand span in semitones.
+     * Stored separately because it comes from SectionArtifactSummary evidence
+     * rather than PianoCraftScoreSummary.  Used in ranking as
+     * `piano_handSpanNorm = max(0, 1 - max(0, handSpanMax - 12) / 12)`.
+     */
+    pianoHandSpanMax?: number;
+    /**
+     * Number of RH/LH register collision events detected during projection.
+     * Used in ranking as
+     * `piano_registerCollisionNorm = max(0, 1 - registerCollisionCount / 5)`.
+     */
+    pianoRegisterCollisionCount?: number;
+    /**
+     * Overall piano playability score in [0, 1] from the evidence evaluator.
+     * Distinct from PianoCraftScoreSummary.handPlayability (craft dimension).
+     * When absent, 0.5 is assumed.
+     */
+    pianoPlayabilityScore?: number;
     /** Count of normalization warning strings from proposalEvidence (0 when absent). */
     normalizationWarningsCount?: number;
     /** Number of sections in the composition plan (from compositionPlan.sections.length). */
@@ -161,6 +213,94 @@ const RERANKER_SNAPSHOT_FEATURE_NAMES = [
 ] as const;
 
 /**
+ * Extended reranker feature names for solo_piano lane snapshots.
+ * Piano-aware snapshots include 9 additional dimensions after the 14 generic
+ * ones.  Generic-only snapshots (length 14) will fail the length validation
+ * in computeRerankerScore(), causing a graceful fallback to learned/default
+ * piano weights — which is the correct behaviour.
+ */
+const PIANO_RERANKER_FEATURE_NAMES = [
+    ...RERANKER_SNAPSHOT_FEATURE_NAMES,
+    "piano_finalPianoScore",
+    "piano_handPlayability",
+    "piano_melodicClarity",
+    "piano_bassCoherence",
+    "piano_voicingIdiomaticFit",
+    "piano_pedalPlausibility",
+    "piano_playabilityScore",
+    "piano_handSpanNorm",
+    "piano_registerCollisionNorm",
+] as const;
+
+// ---------------------------------------------------------------------------
+// Piano evidence normalisation helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalises raw hand-span (semitones) to a [0, 1] score where 1.0 means
+ * comfortably within a 12-semitone octave span and 0.0 means a 24+ semitone
+ * span that is essentially unplayable in a single position.
+ */
+function normalisePianoHandSpan(handSpanMax: number | undefined): number {
+    if (typeof handSpanMax !== "number") return 0.5; // absent → neutral
+    return Math.max(0, 1 - Math.max(0, handSpanMax - 12) / 12);
+}
+
+/**
+ * Normalises a register-collision count to a [0, 1] score where 1.0 means
+ * no collisions and 0.0 means 5+ collisions (effectively unplayable texture).
+ */
+function normalisePianoRegisterCollisions(collisionCount: number | undefined): number {
+    if (typeof collisionCount !== "number") return 0.5; // absent → neutral
+    return Math.max(0, 1 - collisionCount / 5);
+}
+
+// ---------------------------------------------------------------------------
+// Effective dimension map builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a flat `Record<string, number>` that merges the generic craft
+ * dimensions with piano-specific dimensions (when available).
+ *
+ * Piano dimensions are stored under `piano_*` keys so they can be looked up
+ * uniformly in computePreferenceScore() and in candidate manifests'
+ * `internalScores`.
+ *
+ * When the candidate has no pianoCraftSummary, only the generic craft
+ * dimensions are returned (identical behaviour to the old code path).
+ */
+function buildEffectiveDimensions(candidate: PreferenceCandidate): Record<string, number> {
+    const dims: Record<string, number> = {};
+
+    // Generic craft dimensions
+    const craft = candidate.craftSummary as unknown as Record<string, unknown>;
+    for (const key of Object.keys(DEFAULT_DIMENSION_WEIGHTS)) {
+        dims[key] = typeof craft[key] === "number" ? (craft[key] as number) : 0.5;
+    }
+
+    // Piano dimensions — only added when pianoCraftSummary is present
+    const p = candidate.pianoCraftSummary;
+    if (p) {
+        dims["piano_finalPianoScore"]               = p.finalPianoScore ?? 0.5;
+        dims["piano_handPlayability"]               = p.handPlayability ?? 0.5;
+        dims["piano_melodicClarity"]                = p.melodicClarity ?? 0.5;
+        dims["piano_bassCoherence"]                 = p.bassCoherence ?? 0.5;
+        dims["piano_voicingIdiomaticFit"]           = p.voicingIdiomaticFit ?? 0.5;
+        dims["piano_accompanimentPatternCoherence"] = p.accompanimentPatternCoherence ?? 0.5;
+        dims["piano_registerSpacing"]               = p.registerSpacing ?? 0.5;
+        dims["piano_handIndependence"]              = p.handIndependence ?? 0.5;
+        dims["piano_pedalPlausibility"]             = p.pedalPlausibility ?? 0.5;
+        dims["piano_difficultyFit"]                 = p.difficultyFit ?? 0.5;
+        dims["piano_playabilityScore"]              = candidate.pianoPlayabilityScore ?? 0.5;
+        dims["piano_handSpanNorm"]                  = normalisePianoHandSpan(candidate.pianoHandSpanMax);
+        dims["piano_registerCollisionNorm"]         = normalisePianoRegisterCollisions(candidate.pianoRegisterCollisionCount);
+    }
+
+    return dims;
+}
+
+/**
  * Loads the reranker snapshot from disk.  Returns null if not present or
  * has too few samples to trust.
  */
@@ -194,6 +334,13 @@ export function loadRerankerSnapshot(): PreferenceRerankerSnapshot | null {
 /**
  * Builds the feature vector for a candidate matching the reranker's expected
  * feature order.
+ *
+ * When the candidate carries a pianoCraftSummary, 9 additional piano-specific
+ * dimensions are appended after the 14 generic features.  A generic-only
+ * reranker snapshot (feature length 14) will fail the length check in
+ * computeRerankerScore() and return null, triggering a graceful fallback to
+ * the piano learned/default weight path.  Only piano-aware snapshots (length
+ * 23) will be applied.
  */
 function buildRerankerFeatures(candidate: PreferenceCandidate): number[] {
     const craft = candidate.craftSummary as unknown as Record<string, unknown>;
@@ -231,6 +378,21 @@ function buildRerankerFeatures(candidate: PreferenceCandidate): number[] {
     feats.push(mode === "mock_notagen_abc" || mode.startsWith("mock") ? 1 : 0);
     feats.push(mode === "notagen_local" || mode === "local" ? 1 : 0);
 
+    // Piano dimensions — appended only when candidate is a piano lane candidate.
+    // These must match PIANO_RERANKER_FEATURE_NAMES[14..22].
+    if (candidate.pianoCraftSummary) {
+        const p = candidate.pianoCraftSummary;
+        feats.push(p.finalPianoScore ?? 0.5);
+        feats.push(p.handPlayability ?? 0.5);
+        feats.push(p.melodicClarity ?? 0.5);
+        feats.push(p.bassCoherence ?? 0.5);
+        feats.push(p.voicingIdiomaticFit ?? 0.5);
+        feats.push(p.pedalPlausibility ?? 0.5);
+        feats.push(candidate.pianoPlayabilityScore ?? 0.5);
+        feats.push(normalisePianoHandSpan(candidate.pianoHandSpanMax));
+        feats.push(normalisePianoRegisterCollisions(candidate.pianoRegisterCollisionCount));
+    }
+
     return feats;
 }
 
@@ -240,7 +402,9 @@ function buildRerankerFeatures(candidate: PreferenceCandidate): number[] {
  * before applying the linear model.
  *
  * Returns null if the snapshot's feature list doesn't match expectations
- * (version mismatch guard).
+ * (version mismatch guard).  For piano candidates, the feature vector is 23
+ * elements; a generic snapshot of length 14 will return null here, causing a
+ * graceful fallback to piano learned/default weights in computePreferenceScore().
  */
 export function computeRerankerScore(
     candidate: PreferenceCandidate,
@@ -396,14 +560,21 @@ export function loadGlobalFeedbackHistory(): FeedbackRecord[] {
  * sign-agreement correlation: for each dimension, count how often a higher
  * dimension value coincides with a higher appeal score across all pairs.
  *
+ * When `isPiano` is true, computes weights over the piano dimension set
+ * (PIANO_DEFAULT_DIMENSION_WEIGHTS keys) instead of the generic set.  Piano
+ * candidates store `piano_*` keys in their `internalScores`; non-piano
+ * candidates omit them, so pairwise counting naturally produces 0 useful
+ * pairs and the prior dominates — which is correct behaviour.
+ *
  * Returns null when the history is too short to be reliable.
  */
-function computeLearnedWeights(history: FeedbackRecord[]): Record<string, number> | null {
+function computeLearnedWeights(history: FeedbackRecord[], isPiano = false): Record<string, number> | null {
     if (history.length < MIN_FEEDBACK_SAMPLES) {
         return null;
     }
 
-    const dimensions = Object.keys(DEFAULT_DIMENSION_WEIGHTS);
+    const defaultWeights = isPiano ? PIANO_DEFAULT_DIMENSION_WEIGHTS : DEFAULT_DIMENSION_WEIGHTS;
+    const dimensions = Object.keys(defaultWeights);
     const agreementCounts: Record<string, number> = {};
     const pairCounts: Record<string, number> = {};
 
@@ -438,7 +609,7 @@ function computeLearnedWeights(history: FeedbackRecord[]): Record<string, number
     for (const dim of dimensions) {
         const pairs = pairCounts[dim] ?? 0;
         const agreements = agreementCounts[dim] ?? 0;
-        const priorRate = DEFAULT_DIMENSION_WEIGHTS[dim] ?? (1 / dimensions.length);
+        const priorRate = defaultWeights[dim] ?? (1 / dimensions.length);
         // Posterior: (agreements + prior * PRIOR_STRENGTH) / (pairs + PRIOR_STRENGTH)
         rawWeights[dim] = (agreements + priorRate * PRIOR_STRENGTH) / (pairs + PRIOR_STRENGTH);
     }
@@ -465,25 +636,37 @@ function computeLearnedWeights(history: FeedbackRecord[]): Record<string, number
  *   1. Reranker snapshot (logistic regression) — when loaded and trustworthy
  *   2. Pairwise learned weights — when ≥ MIN_FEEDBACK_SAMPLES history exists
  *   3. Cold-start default weights
+ *
+ * Piano lane behaviour (when candidate.pianoCraftSummary is present):
+ *   • Reranker: piano-extended feature vector (23 dims). A generic-only
+ *     snapshot (14 dims) returns null → fallback to piano learned/default weights.
+ *   • Learned: agreement correlation is computed over PIANO_DEFAULT_DIMENSION_WEIGHTS
+ *     keys (piano_* prefixed), which are stored in candidate manifests' internalScores.
+ *   • Default: PIANO_DEFAULT_DIMENSION_WEIGHTS (replaces generic weights entirely).
+ *   • buildEffectiveDimensions() provides the piano_ keyed values for scoring.
  */
 export function computePreferenceScore(
     candidate: PreferenceCandidate,
     history: FeedbackRecord[],
     snapshot?: PreferenceRerankerSnapshot | null,
 ): PreferenceScore {
+    const isPiano = !!candidate.pianoCraftSummary;
+
     // ── Priority 1: logistic regression reranker ─────────────────────────────
     const effectiveSnapshot = snapshot !== undefined ? snapshot : loadRerankerSnapshot();
     if (effectiveSnapshot) {
         const raw = computeRerankerScore(candidate, effectiveSnapshot);
         if (raw !== null) {
-            // dimensionContributions: show feature → standardized contribution
+            // dimensionContributions: show feature → standardized contribution.
+            // Use the piano-extended name list when the feature vector is longer.
             const feats = buildRerankerFeatures(candidate);
+            const nameList = isPiano ? PIANO_RERANKER_FEATURE_NAMES : RERANKER_SNAPSHOT_FEATURE_NAMES;
             const dimensionContributions: Record<string, number> = {};
-            for (let i = 0; i < RERANKER_SNAPSHOT_FEATURE_NAMES.length && i < feats.length; i++) {
+            for (let i = 0; i < nameList.length && i < feats.length; i++) {
                 const scale = effectiveSnapshot.scalerScale[i] ?? 1;
                 const z = scale > 1e-9 ? (feats[i]! - (effectiveSnapshot.scalerMean[i] ?? 0)) / scale : 0;
                 const contrib = (effectiveSnapshot.coefficients[i] ?? 0) * z;
-                dimensionContributions[RERANKER_SNAPSHOT_FEATURE_NAMES[i]] = Number(contrib.toFixed(4));
+                dimensionContributions[nameList[i]] = Number(contrib.toFixed(4));
             }
             return {
                 candidateId: candidate.candidateId,
@@ -495,17 +678,22 @@ export function computePreferenceScore(
         }
     }
 
-    // ── Priority 2: pairwise learned weights ─────────────────────────────────
-    const learnedWeights = computeLearnedWeights(history);
-    const weights = learnedWeights ?? DEFAULT_DIMENSION_WEIGHTS;
+    // ── Priority 2 & 3: pairwise learned weights / cold-start default ─────────
+    // For piano candidates, learned weights are computed over piano dimensions
+    // (piano_* keys); default weights are piano-specific.
+    const learnedWeights = computeLearnedWeights(history, isPiano);
+    const defaultWeights = isPiano ? PIANO_DEFAULT_DIMENSION_WEIGHTS : DEFAULT_DIMENSION_WEIGHTS;
+    const weights = learnedWeights ?? defaultWeights;
     const weightSource: PreferenceScore["weightSource"] = learnedWeights ? "learned" : "default";
 
-    const craft = candidate.craftSummary as unknown as Record<string, unknown>;
+    // buildEffectiveDimensions() merges craftSummary + pianoCraftSummary values
+    // under a unified flat key space so the weight dict can be applied uniformly.
+    const dims = buildEffectiveDimensions(candidate);
     let weighted = 0;
     const dimensionContributions: Record<string, number> = {};
 
     for (const [dim, w] of Object.entries(weights)) {
-        const value = typeof craft[dim] === "number" ? (craft[dim] as number) : 0.5;
+        const value = typeof dims[dim] === "number" ? dims[dim] : 0.5;
         const contribution = w * value;
         dimensionContributions[dim] = Number(contribution.toFixed(4));
         weighted += contribution;
