@@ -1,4 +1,4 @@
-import type { CraftScoreSummary, StructureEvaluationReport } from "./types.js";
+import type { CraftScoreSummary, PianoCraftScoreSummary, StructureEvaluationReport } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Three-gate candidate selection
@@ -21,14 +21,20 @@ import type { CraftScoreSummary, StructureEvaluationReport } from "./types.js";
 //     (wrong section count, missing final section, mismatched measures).
 //
 //   Tier 3 — validity + contract + craft gate (all three):
-//     All of Tier 2, plus cadenceStrength >= 0.55,
-//     registerIdiomaticFit >= 0.75, voiceIndependence >= 0.35.
+//     Generic lane:  cadenceStrength >= 0.55, registerIdiomaticFit >= 0.75,
+//                    voiceIndependence >= 0.35   (passesCraftGate).
+//     Piano lane:    handPlayability >= 0.55 AND finalPianoScore >= 0.50
+//                    (passesPianoCraftGate).
+//     When pianoCraftScoreSummary is present in the report, the piano gate
+//     replaces the generic craft gate for Tier-3 classification and ranking.
 //     Weeds out candidates that are structurally correct but
-//     musically weak.
+//     musically weak, or—for piano—physically unplayable.
 //
 // Ranking within the shortlist:
 //   Gate-tier bonus:    Tier 3 = +900 pts, Tier 2 = +500, Tier 1 = +200.
 //   Craft-dimension bonus: finalCraftScore * (150 | 75 | 30) by tier.
+//   Piano-lane adds: finalPianoScore * (200 | 100 | 40) instead, so that
+//   piano-idiomatic quality separates candidates more decisively.
 //   The remaining structure score terms are unchanged.
 //
 // The final winner from the shortlist is selected by the listenerFeedback
@@ -49,7 +55,7 @@ export const CANDIDATE_GATE_CONTRACT: Readonly<{
     sectionContractFit: 0.75,
 } as const;
 
-// ── Gate 3: musical craft ────────────────────────────────────────────────────
+// ── Gate 3: musical craft (generic) ──────────────────────────────────────────
 export const CANDIDATE_GATE_CRAFT: Readonly<{
     cadenceStrength: number;
     registerIdiomaticFit: number;
@@ -58,6 +64,18 @@ export const CANDIDATE_GATE_CRAFT: Readonly<{
     cadenceStrength:    0.55,
     registerIdiomaticFit: 0.75,
     voiceIndependence: 0.35,
+} as const;
+
+// ── Gate 3: piano craft ───────────────────────────────────────────────────────
+// Piano candidates are unplayable before they are musically weak.
+// handPlayability is the primary gate dimension; finalPianoScore provides a
+// floor on overall quality.
+export const CANDIDATE_GATE_PIANO_CRAFT: Readonly<{
+    handPlayability: number;
+    finalPianoScore: number;
+}> = {
+    handPlayability: 0.55,
+    finalPianoScore: 0.50,
 } as const;
 
 /**
@@ -84,15 +102,32 @@ export function passesContractGate(craft: CraftScoreSummary): boolean {
 }
 
 /**
- * Gate 3: returns true when the candidate meets the musical-craft thresholds
- * (cadence resolution, idiomatic register, voice independence).
+ * Gate 3 (generic): returns true when the candidate meets the musical-craft
+ * thresholds (cadence resolution, idiomatic register, voice independence).
  * Requires Gates 1 + 2 to pass first.
+ * Not used for piano lane — use passesPianoCraftGate() instead.
  */
 export function passesCraftGate(craft: CraftScoreSummary): boolean {
     return (
         craft.cadenceStrength    >= CANDIDATE_GATE_CRAFT.cadenceStrength
         && craft.registerIdiomaticFit >= CANDIDATE_GATE_CRAFT.registerIdiomaticFit
         && craft.voiceIndependence    >= CANDIDATE_GATE_CRAFT.voiceIndependence
+    );
+}
+
+/**
+ * Gate 3 (piano): replaces the generic craft gate for solo_piano lane.
+ *
+ * A piano candidate must be physically playable before any other quality
+ * consideration.  handPlayability failing here means the piece cannot be
+ * performed regardless of how good the harmony or melody sounds.
+ *
+ * Requires Gates 1 + 2 to pass first.
+ */
+export function passesPianoCraftGate(piano: PianoCraftScoreSummary): boolean {
+    return (
+        piano.handPlayability >= CANDIDATE_GATE_PIANO_CRAFT.handPlayability
+        && piano.finalPianoScore  >= CANDIDATE_GATE_PIANO_CRAFT.finalPianoScore
     );
 }
 
@@ -104,6 +139,11 @@ export function passesCraftGate(craft: CraftScoreSummary): boolean {
  * - 2: validity + contract (Gates 1–2) pass
  * - 3: all three gates pass
  *
+ * When the report carries a pianoCraftScoreSummary the piano gate is used
+ * for Tier-3 classification instead of the generic craft gate.  This ensures
+ * that an unplayable piano piece never reaches Tier 3 even if its generic
+ * craft dimensions look acceptable.
+ *
  * The orchestrator uses this tier to build the preference shortlist, preferring
  * the highest non-empty tier with a staircase fallback to all candidates.
  */
@@ -113,6 +153,14 @@ export function candidateGateTier(
 ): 0 | 1 | 2 | 3 {
     if (!passesValidityGate(evaluation, craft)) return 0;
     if (!passesContractGate(craft)) return 1;
+
+    // Piano lane: use piano-specific Gate 3 when available
+    const piano = evaluation.pianoCraftScoreSummary;
+    if (piano) {
+        return passesPianoCraftGate(piano) ? 3 : 2;
+    }
+
+    // Generic lane
     if (!passesCraftGate(craft)) return 2;
     return 3;
 }
@@ -214,14 +262,37 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
     // craftDimensionBonus scales with the tier so that within a tier the
     // candidates are further ranked by craft quality.
     //
+    // Piano lane replaces craftDimensionBonus with pianoDimensionBonus using
+    // finalPianoScore and a higher multiplier (200/100/40) so that playability
+    // quality separates piano candidates more decisively.
+    //
+    // A piano candidate that fails handPlayability Gate 3 but has a high
+    // genericCraftScore cannot leapfrog a playable piano candidate — the
+    // gate tier difference (+400 pts) dwarfs any craft dimension advantage.
+    //
     // contractPenalty is retained for tier-0 candidates with very poor fit.
     // ──────────────────────────────────────────────────────────────────────────
     const craft = evaluation.craftScoreSummary;
+    const piano = evaluation.pianoCraftScoreSummary;
     const tier = craft ? candidateGateTier(evaluation, craft) : 0;
     const gateTierBonus = tier === 3 ? 900 : tier === 2 ? 500 : tier === 1 ? 200 : 0;
-    const craftDimensionBonus = craft
-        ? craft.finalCraftScore * (tier === 3 ? 150 : tier > 0 ? 75 : 30)
+
+    // Piano lane: use finalPianoScore as the dimension bonus signal.
+    // Generic lane: use finalCraftScore as before.
+    const craftDimensionBonus = piano
+        ? piano.finalPianoScore * (tier === 3 ? 200 : tier > 0 ? 100 : 40)
+        : craft
+            ? craft.finalCraftScore * (tier === 3 ? 150 : tier > 0 ? 75 : 30)
+            : 0;
+
+    // Piano playability penalty: when a piano candidate is at Tier 2 (failed
+    // Gate 3) due to low handPlayability, add an extra penalty proportional
+    // to the shortfall so that barely-failing piano candidates rank below
+    // passing ones even within Tier 2.
+    const pianoPlayabilityPenalty = piano && tier < 3
+        ? Math.max(0, CANDIDATE_GATE_PIANO_CRAFT.handPlayability - piano.handPlayability) * 120
         : 0;
+
     const contractPenalty = craft && craft.sectionContractFit < 0.5
         ? (0.5 - craft.sectionContractFit) * 60
         : 0;
@@ -242,6 +313,7 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
         + orchestrationHandoffBonus
         + gateTierBonus
         + craftDimensionBonus
+        - pianoPlayabilityPenalty
         - weakestSectionPenalty
         - contractPenalty
         - (tensionMismatch * 40)).toFixed(4));
