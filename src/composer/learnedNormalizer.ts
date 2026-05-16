@@ -7,6 +7,7 @@ import type {
     ComposeResult,
     LearnedSamplingParams,
     ModelBinding,
+    PianoVoiceLayoutSummary,
     SectionArtifactSummary,
     SectionTonalitySummary,
     SectionTransformSummary,
@@ -110,6 +111,12 @@ export function normalizeLearnedSymbolicResponse(
         ...(Array.isArray(section.tonicizationWindows)
             ? { tonicizationWindows: section.tonicizationWindows.map((w) => ({ ...w })) }
             : {}),
+        // Piano-specific evidence (solo_piano_symbolic lane only)
+        ...(section.pianoVoiceLayout ? { pianoVoiceLayout: section.pianoVoiceLayout as PianoVoiceLayoutSummary } : {}),
+        ...(Array.isArray(section.rightHandEvents) && section.rightHandEvents.length > 0
+            ? { rightHandEvents: [...section.rightHandEvents] } : {}),
+        ...(Array.isArray(section.leftHandEvents) && section.leftHandEvents.length > 0
+            ? { leftHandEvents: [...section.leftHandEvents] } : {}),
     }));
     const sectionTransforms = (response.proposalSections ?? [])
         .filter((section): section is LearnedSymbolicProposalSection & { transform: SectionTransformSummary } => Boolean(section.transform))

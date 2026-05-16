@@ -200,6 +200,10 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
             "normalizationWarnings": result.warnings,
         },
         "proposalSections": result.proposal_sections,
+        # Piano voice layout summary — present only for solo_piano_symbolic lane.
+        # Mirrors PianoVoiceLayoutSummary in TypeScript.
+        **({"proposalVoiceLayoutSummary": result.voice_layout_summary}
+           if result.voice_layout_summary is not None else {}),
     }
 
 

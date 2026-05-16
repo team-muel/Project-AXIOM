@@ -596,6 +596,7 @@ class NotagenBackend:
             provider_request,
             output_path=output_path,
             keep_section_artifacts=keep_artifacts,
+            lane=str(context.get("lane") or ""),
         )
 
         if not result.ok:
@@ -629,6 +630,7 @@ class NotagenBackend:
             form=str(provider_request.get("form") or ""),
             tempo_bpm=int(provider_request.get("tempo") or 92),
             confidence=0.5,
+            voice_layout_summary=result.voice_layout_summary,
         )
 
     # ── Local inference ───────────────────────────────────────────────────────
@@ -656,6 +658,7 @@ class NotagenBackend:
         resample_budget: int = _env_int("NOTAGEN_RESAMPLE_BUDGET", 2)
         sections = list(payload.get("promptPack", {}).get("sections") or [])
         output_path: str | None = str(payload.get("outputPath") or "") or None
+        resolved_lane = str(context.get("lane") or "")
         keep_artifacts = (
             list(payload.get("sectionArtifacts") or [])
             if is_localized_rewrite
@@ -728,6 +731,7 @@ class NotagenBackend:
                 if attempt == 0 or resample_budget == 0
                 else None,
                 keep_section_artifacts=keep_artifacts,
+                lane=resolved_lane,
             )
 
             if result.ok:
@@ -739,6 +743,7 @@ class NotagenBackend:
                         provider_request,
                         output_path=output_path,
                         keep_section_artifacts=keep_artifacts,
+                        lane=resolved_lane,
                     )
                 note_ct = sum(
                     len(s.get("noteHistory") or []) for s in result.proposal_sections
@@ -767,6 +772,7 @@ class NotagenBackend:
                     form=str(provider_request.get("form") or ""),
                     tempo_bpm=int(provider_request.get("tempo") or 92),
                     confidence=max(0.1, 1.0 - attempt * 0.2),
+                    voice_layout_summary=result.voice_layout_summary,
                 )
 
             last_error = result.error or "ABC validation failed"

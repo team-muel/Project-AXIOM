@@ -258,6 +258,7 @@ test("backend-routing: NOTAGEN_TIMEOUT_MS=1 causes notagen_local to fail fast wi
     }
 });
 
+test("backend-routing: malformed providerRequest never crashes worker", async (t) => {
     if (!pythonBin) { t.skip("No Python binary available"); return; }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
     try {

@@ -40,6 +40,9 @@ class LearnedSymbolicBackendResult:
     # Composition data
     proposal_sections: list[dict[str, Any]] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    # Piano voice layout (solo_piano_symbolic lane only): mirrors PianoVoiceLayoutDict.
+    # Present when run_abc_projection_pipeline() ran piano enrichment successfully.
+    voice_layout_summary: dict[str, Any] | None = None
 
     # Summary metadata (set by backend; used in response summary)
     note_count: int = 0

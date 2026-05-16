@@ -129,6 +129,7 @@ def run_abc_projection_pipeline(
     provider_request: dict[str, Any],
     output_path: str | None = None,
     keep_section_artifacts: list[dict[str, Any]] | None = None,
+    lane: str | None = None,
 ) -> AbcProjectionResult:
     """Run the full ABC validation/repair/projection pipeline.
 
@@ -142,10 +143,15 @@ def run_abc_projection_pipeline(
                                 candidate run.  When given, sections whose IDs appear in
                                 this list are substituted with the preserved artifacts
                                 instead of being reprojected (event-stable preservation).
+        lane:                   Resolved lane identifier (e.g. "solo_piano_symbolic").
+                                When "solo_piano_symbolic", each proposal section is
+                                additionally enriched with RH/LH projection data by
+                                piano_projection.enrich_proposal_sections_with_piano_layout().
 
     Returns:
         AbcProjectionResult.  ok=True with proposal_sections on success.
         ok=False with error description on hard failure.
+        voice_layout_summary is populated when lane == "solo_piano_symbolic".
     """
     warnings: list[str] = []
 
@@ -297,10 +303,31 @@ def run_abc_projection_pipeline(
                 error=f"MIDI conversion failed: {exc}",
             )
 
+    # ── Stage 5: Piano RH/LH enrichment (solo_piano_symbolic lane only) ──────
+    voice_layout_summary: dict[str, Any] | None = None
+    if lane == "solo_piano_symbolic":
+        try:
+            from .piano_projection import enrich_proposal_sections_with_piano_layout
+
+            enriched_sections, piano_layout, piano_warnings = (
+                enrich_proposal_sections_with_piano_layout(list(proposal_sections))
+            )
+            proposal_sections = enriched_sections
+            voice_layout_summary = dict(piano_layout)
+            for w in piano_warnings:
+                if w not in warnings:
+                    warnings.append(w)
+        except Exception:  # noqa: BLE001
+            # Piano enrichment is best-effort; a failure here must not block
+            # the rest of the pipeline — the generic proposal_sections are
+            # still returned without RH/LH fields.
+            warnings.append("piano_projection_enrichment_failed")
+
     return AbcProjectionResult(
         ok=True,
         proposal_sections=list(proposal_sections),
         midi_path=midi_path,
         normalization_warnings=warnings,
         error=None,
+        voice_layout_summary=voice_layout_summary,
     )

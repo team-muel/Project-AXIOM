@@ -74,6 +74,8 @@ class AbcProjectionResult(NamedTuple):
     midi_path: str | None                    # written path, or None if no output_path
     normalization_warnings: list[str]
     error: str | None                        # non-None when ok=False
+    # Present only when lane == "solo_piano_symbolic"; mirrors PianoVoiceLayoutDict.
+    voice_layout_summary: dict[str, Any] | None = None
 
 
 # ─── Piano voice layout constants ────────────────────────────────────────────

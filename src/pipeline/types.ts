@@ -946,6 +946,9 @@ export interface SectionArtifactSummary {
     lastInterval?: number;
     transform?: SectionTransformSummary;
     pianoVoiceLayout?: PianoVoiceLayoutSummary;
+    /** Per-section RH/LH event arrays from piano projection (solo_piano_symbolic lane). */
+    rightHandEvents?: SectionRenderEventArtifact[];
+    leftHandEvents?: SectionRenderEventArtifact[];
 
     // ── Piano projection evidence (flat fields) ──────────────────────────────
     // Populated by computePianoProjectionEvidence() / applyPianoProjection().

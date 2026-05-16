@@ -3,8 +3,8 @@
 Converts a flat event stream (melody + accompaniment) into a two-stave layout
 (rightHandMeasures / leftHandMeasures) and populates a PianoVoiceLayoutSummary.
 
-NOT YET ACTIVE — wired into the compose path only after the 4 prerequisites
-documented in prompt_packing.supports_solo_piano_lane() are satisfied.
+Active: wired into run_abc_projection_pipeline() (abc_project.py) when
+lane == "solo_piano_symbolic".
 
 Voice-role assignment rules
 ────────────────────────────
@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any, NotRequired, TypedDict, cast
 
-from abc_types import (
+from .abc_types import (
     PIANO_LEFT_HAND_PITCH_MAX,
     PIANO_LEFT_HAND_PITCH_MIN,
     PIANO_MAX_CHORD_VOICES,
@@ -382,8 +382,6 @@ def run_piano_projection(
 ) -> PianoProjectionResult:
     """Entry point analogous to symbolic_projection.run_symbolic_projection().
 
-    NOT YET ACTIVE — see prerequisites in prompt_packing.supports_solo_piano_lane().
-
     Takes the normalised payload (with optional sectionArtifacts seeds) and the
     composition plan.  Returns a PianoProjectionResult.
     """
@@ -467,3 +465,79 @@ def run_piano_projection(
         "voiceLayoutSummary": layout_summary,
         "normalizationWarnings": warnings,
     }
+
+
+# ─── ABC projection enrichment helper ────────────────────────────────────────
+
+
+def enrich_proposal_sections_with_piano_layout(
+    proposal_sections: list[dict[str, Any]],
+    split_pitch: int = DEFAULT_HAND_SPLIT_PITCH,
+) -> tuple[list[dict[str, Any]], PianoVoiceLayoutDict, list[str]]:
+    """Enrich generic ABC proposal sections with RH/LH piano projection data.
+
+    Called from abc_project.run_abc_projection_pipeline() when
+    lane == "solo_piano_symbolic".  Takes the sections produced by
+    abc_to_events.convert() (which have leadEvents / supportEvents) and:
+
+    1. Runs project_piano_section() on each section to split events into
+       rightHandEvents / leftHandEvents / rightHandMeasures / leftHandMeasures.
+    2. Computes a per-section PianoVoiceLayoutDict from the section's events.
+    3. Computes a global PianoVoiceLayoutDict from all events combined.
+    4. Merges piano fields back into each section dict (non-destructive).
+
+    Returns:
+        (enriched_sections, global_voice_layout, warnings)
+    """
+    all_rh_events: list[Event] = []
+    all_lh_events: list[Event] = []
+    enriched: list[dict[str, Any]] = []
+    warnings: list[str] = []
+
+    for index, raw_section in enumerate(proposal_sections):
+        section = dict(raw_section)  # shallow copy so we don't mutate the input
+
+        melody_events: list[Event] = [
+            ev for ev in as_list(section.get("leadEvents"))
+            if as_record(ev) is not None
+        ]
+        accompaniment_events: list[Event] = [
+            ev for ev in as_list(section.get("supportEvents"))
+            if as_record(ev) is not None
+        ]
+
+        material = project_piano_section(
+            section=section,
+            section_index=index,
+            events_melody=melody_events,
+            events_accompaniment=accompaniment_events,
+            split_pitch=split_pitch,
+        )
+
+        # Per-section voice layout (used by TypeScript's SectionArtifactSummary.pianoVoiceLayout)
+        section_layout, section_layout_warnings = compute_piano_voice_layout_summary(
+            material["rightHandEvents"], material["leftHandEvents"]
+        )
+        warnings.extend(section_layout_warnings)
+
+        # Merge piano projection fields into the section dict
+        section["rightHandEvents"] = material["rightHandEvents"]
+        section["leftHandEvents"] = material["leftHandEvents"]
+        section["rightHandMeasures"] = material["rightHandMeasures"]
+        section["leftHandMeasures"] = material["leftHandMeasures"]
+        section["handSplits"] = material.get("handSplits", [])
+        section["pianoVoiceLayout"] = section_layout
+
+        all_rh_events.extend(material["rightHandEvents"])
+        all_lh_events.extend(material["leftHandEvents"])
+        enriched.append(section)
+
+    global_layout, global_layout_warnings = compute_piano_voice_layout_summary(
+        all_rh_events, all_lh_events
+    )
+    # De-duplicate warnings (span/collision may fire many times)
+    for w in global_layout_warnings:
+        if w not in warnings:
+            warnings.append(w)
+
+    return enriched, global_layout, warnings

@@ -33,6 +33,10 @@ export interface LearnedSymbolicProposalSection {
     secondaryLineMotif?: number[];
     rhythmicDensity?: number;
     tonicizationWindows?: TonicizationWindow[];
+    // Piano-specific projection fields (solo_piano_symbolic lane only)
+    pianoVoiceLayout?: Record<string, unknown>;
+    rightHandEvents?: LearnedSymbolicProposalEvent[];
+    leftHandEvents?: LearnedSymbolicProposalEvent[];
 }
 
 /**
@@ -68,6 +72,10 @@ export interface LearnedSymbolicProposalResponse {
      *  produces text-format output (notagen_mock, notagen_local).
      *  Used by the SFT dataset export pipeline to build training pairs. */
     proposalAbcScore?: string;
+    /** Global piano voice layout summary for the whole piece.
+     *  Present only when lane === "solo_piano_symbolic" and piano enrichment succeeded.
+     *  Mirrors compute_piano_voice_layout_summary() output from piano_projection.py. */
+    proposalVoiceLayoutSummary?: Record<string, unknown>;
     error?: string;
 }
 
