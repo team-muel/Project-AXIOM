@@ -484,3 +484,85 @@ test("computeMotifDevelopmentScoreSummary: unknown transform returns 0.5 primary
     assert.strictEqual(result.transformKind, "unknown");
     assert.strictEqual(result.primaryScore, 0.5);
 });
+
+// ─── computePlanAwareMotifDevelopmentScore ────────────────────────────────────
+
+import { computePlanAwareMotifDevelopmentScore } from "../dist/core/evaluate/craftScoring.js";
+
+function makePlanSection(id, role, overrides = {}) {
+    return { id, role, label: role, measures: 8, energy: 0.5, density: 0.4, ...overrides };
+}
+
+function makeArtifactCDE(sectionId, role, capturedMotif, overrides = {}) {
+    return {
+        sectionId,
+        role,
+        measureCount: 8,
+        melodyEvents: [],
+        accompanimentEvents: [],
+        noteHistory: [],
+        capturedMotif,
+        ...overrides,
+    };
+}
+
+test("computePlanAwareMotifDevelopmentScore: no plan returns fallback 0.4", () => {
+    const result = computePlanAwareMotifDevelopmentScore([], undefined);
+    assert.ok(result.score >= 0.3 && result.score <= 0.5, `expected ~0.4, got ${result.score}`);
+});
+
+test("computePlanAwareMotifDevelopmentScore: no theme_a source returns fallback 0.4", () => {
+    const plan = { sections: [makePlanSection("s1", "bridge"), makePlanSection("s2", "development")] };
+    const artifacts = [makeArtifactCDE("s1", "bridge", undefined), makeArtifactCDE("s2", "development", undefined)];
+    const result = computePlanAwareMotifDevelopmentScore(artifacts, plan);
+    assert.ok(result.score >= 0.3 && result.score <= 0.5, `expected ~0.4, got ${result.score}`);
+});
+
+test("computePlanAwareMotifDevelopmentScore: no motifDevelopment plans returns fallback", () => {
+    const plan = {
+        sections: [
+            makePlanSection("s1", "theme_a"),
+            makePlanSection("s2", "bridge"),
+        ],
+    };
+    const artifacts = [
+        makeArtifactCDE("s1", "theme_a", [2, 2, 1]),
+        makeArtifactCDE("s2", "bridge", undefined),
+    ];
+    const result = computePlanAwareMotifDevelopmentScore(artifacts, plan);
+    // No motifDevelopment plans → no development sections evaluated
+    assert.ok(result.score >= 0 && result.score <= 1, `out of range: ${result.score}`);
+});
+
+test("computePlanAwareMotifDevelopmentScore: with motifDevelopment plan returns numeric score in [0,1]", () => {
+    const devPlan = { entries: [{ transform: "sequence", transformedIntervals: [4, 4, 3], targetMotif: [4, 4, 3] }] };
+    const plan = {
+        sections: [
+            makePlanSection("s1", "theme_a"),
+            makePlanSection("s2", "development", { motifDevelopment: devPlan }),
+        ],
+    };
+    const artifacts = [
+        makeArtifactCDE("s1", "theme_a", [2, 2, 1]),
+        makeArtifactCDE("s2", "development", [4, 4, 3]),
+    ];
+    const result = computePlanAwareMotifDevelopmentScore(artifacts, plan);
+    assert.ok(result.score >= 0 && result.score <= 1, `out of range: ${result.score}`);
+    assert.ok(typeof result.diversityScore === "number", "diversityScore should be numeric");
+});
+
+test("computePlanAwareMotifDevelopmentScore: returns sectionScores record", () => {
+    const devPlan = { entries: [{ transform: "repeat", transformedIntervals: [2, 2, 1] }] };
+    const plan = {
+        sections: [
+            makePlanSection("s1", "theme_a"),
+            makePlanSection("s2", "recap", { motifDevelopment: devPlan }),
+        ],
+    };
+    const artifacts = [
+        makeArtifactCDE("s1", "theme_a", [2, 2, 1]),
+        makeArtifactCDE("s2", "recap", [2, 2, 1]),
+    ];
+    const result = computePlanAwareMotifDevelopmentScore(artifacts, plan);
+    assert.ok(typeof result.sectionScores === "object", "sectionScores should be an object");
+});

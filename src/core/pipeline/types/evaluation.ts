@@ -99,6 +99,10 @@ export interface CraftScoreSummary {
     tonicizationDepthScore?: number;
     /** Per-section PhraseGrammarPlan-aware phrase grammar quality, averaged across sections (0–1) */
     planAwarePhraseGrammarScore?: number;
+    /** Per-section HarmonyGrammarPlan-aware harmony grammar quality, including inner-voice motion (0–1) */
+    planAwareHarmonyGrammarScore?: number;
+    /** Per-section MotifDevelopmentPlan-aware transformation quality; rewards sequence/fragmentation/inversion diversity (0–1) */
+    planAwareMotifDevelopmentScore?: number;
 }
 
 // ─── Piano-specific craft scoring ────────────────────────────────────────────

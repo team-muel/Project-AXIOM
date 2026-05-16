@@ -634,6 +634,11 @@ export function computePianoCraftScoreSummary(
     if (pedalResult.notes)  dimensionNotes["pedalPlausibility"]             = pedalResult.notes;
     if (diffResult.notes)   dimensionNotes["difficultyFit"]                 = diffResult.notes;
 
+    // ── Supplementary listenability metrics ───────────────────────────────────
+    const melodyProminenceScore = computeMelodyProminenceScore(sectionArtifacts);
+    const pedalBlurRisk         = computePedalBlurRisk(sectionArtifacts);
+    const bassRootSupportScore  = computeBassRootSupportScore(sectionArtifacts);
+
     return {
         handPlayability:               Number(handPlayability.toFixed(4)),
         melodicClarity:                Number(melodicClarity.toFixed(4)),
@@ -646,6 +651,9 @@ export function computePianoCraftScoreSummary(
         difficultyFit:                 Number(difficultyFit.toFixed(4)),
         finalPianoScore,
         dimensionNotes,
+        melodyProminenceScore:         Number(melodyProminenceScore.toFixed(4)),
+        pedalBlurRisk:                 Number(pedalBlurRisk.toFixed(4)),
+        bassRootSupportScore:          Number(bassRootSupportScore.toFixed(4)),
     };
 }
 
@@ -671,3 +679,161 @@ export function computeOverallAppeal(
     return clamp01(0.35 * handPlayability + 0.35 * melodicClarity + 0.30 * bassCoherence);
 }
 
+// ---------------------------------------------------------------------------
+// Supplementary listenability metrics
+// ---------------------------------------------------------------------------
+
+/**
+ * Melody prominence score.
+ *
+ * Rewards cases where the right-hand (melody) sits clearly above the
+ * left-hand accompaniment — both in pitch register and velocity.
+ *
+ * Signals:
+ *   - Pitch center gap: RH pitch center vs LH pitch center.
+ *     A gap of ≥ 12 semitones (one octave) is ideal for clarity.
+ *   - Velocity domination: melodyVelocityMin > accompanimentVelocityMax
+ *     means melody is always louder — excellent but rare; otherwise
+ *     partial credit for melody velocity being higher on average.
+ *
+ * Returns 0.5 when no relevant data is available.
+ */
+export function computeMelodyProminenceScore(
+    sectionArtifacts: SectionArtifactSummary[],
+): number {
+    const scores: number[] = [];
+
+    for (const sa of sectionArtifacts) {
+        const melMin = sa.melodyPitchMin;
+        const melMax = sa.melodyPitchMax;
+        // Use pianoVoiceLayout LH pitch if available, else flat piano LH fields, else bassPitch
+        const lhMin = sa.pianoVoiceLayout?.leftHandPitchMin ?? sa.pianoLeftHandPitchMin ?? sa.bassPitchMin;
+        const lhMax = sa.pianoVoiceLayout?.leftHandPitchMax ?? sa.pianoLeftHandPitchMax ?? sa.bassPitchMax;
+
+        if (melMin === undefined || melMax === undefined) continue;
+        if (lhMin === undefined || lhMax === undefined) continue;
+
+        const melCenter = (melMin + melMax) / 2;
+        const lhCenter  = (lhMin + lhMax) / 2;
+        const pitchGap  = melCenter - lhCenter;
+
+        // Ideal gap ≥ 12 semitones above LH center
+        const pitchProminence =
+            pitchGap >= 12 ? 1.0
+            : pitchGap >= 6  ? clamp01(0.5 + (pitchGap - 6) / 6 * 0.5)
+            : pitchGap >= 0  ? clamp01(0.2 + pitchGap / 6 * 0.3)
+            : 0.1;  // melody below accompaniment = very bad
+
+        // Velocity prominence proxy (if available)
+        let velProminence = 0.5;
+        const melVelMin = sa.melodyVelocityMin;
+        const accVelMax = sa.accompanimentVelocityMax;
+        if (melVelMin !== undefined && accVelMax !== undefined) {
+            const velGap = melVelMin - accVelMax;
+            velProminence =
+                velGap > 0  ? clamp01(0.7 + velGap / 20 * 0.3)  // melody always louder
+                : velGap > -8 ? 0.5
+                : 0.2;  // accompaniment often louder than melody = bad
+        }
+
+        scores.push(clamp01(0.65 * pitchProminence + 0.35 * velProminence));
+    }
+
+    if (scores.length === 0) return 0.5;
+    return clamp01(avg(scores));
+}
+
+/**
+ * Pedal blur risk score.
+ *
+ * Estimates the risk that sustained pedal use will blur harmonic changes.
+ * High risk = many pedal events + dense LH chords in the low register.
+ *
+ * Returns the INVERSE of the risk (1 = no blur risk, 0 = maximum risk).
+ * Falls back to 0.7 (low risk assumed) when no data is available.
+ */
+export function computePedalBlurRisk(
+    sectionArtifacts: SectionArtifactSummary[],
+): number {
+    const riskScores: number[] = [];
+
+    for (const sa of sectionArtifacts) {
+        const layout = sa.pianoVoiceLayout;
+        if (!layout) {
+            riskScores.push(0.0);  // no risk data → assume low risk
+            continue;
+        }
+
+        const pedalCount = layout.pedalEventCount ?? 0;
+        const lhPitchMin = layout.leftHandPitchMin ?? sa.pianoLeftHandPitchMin ?? 48;
+        const accVoices = layout.avgChordVoiceCount ?? 2;
+
+        // Low bass (< C3 = 48) + many voices + many pedal events = blur
+        const lowBassRisk = lhPitchMin < 36 ? 0.8    // very low bass
+            : lhPitchMin < 48 ? 0.5
+            : 0.1;
+
+        const pedalDensityRisk = pedalCount > 20 ? 0.8
+            : pedalCount > 8 ? 0.5
+            : pedalCount > 2 ? 0.3
+            : 0.1;
+
+        const voiceDensityRisk = accVoices > 4 ? 0.6
+            : accVoices > 2.5 ? 0.4
+            : 0.1;
+
+        const combinedRisk = clamp01(
+            0.40 * lowBassRisk + 0.40 * pedalDensityRisk + 0.20 * voiceDensityRisk,
+        );
+        riskScores.push(combinedRisk);
+    }
+
+    if (riskScores.length === 0) return 0.7;  // assume low risk
+    const meanRisk = avg(riskScores);
+    return clamp01(1 - meanRisk);  // invert: higher return = better
+}
+
+/**
+ * Bass root support score.
+ *
+ * A well-grounded piano bass provides harmonic clarity.
+ * Rewards:
+ *   - LH lowest pitch in C2–C3 zone (MIDI 36–60): ideal bass register
+ *   - Bass motion that is stepwise or pedal (not leaping wildly)
+ *   - Absence of very high LH pitches that abandon the bass register
+ *
+ * Returns 0.5 when no LH voice data is available.
+ */
+export function computeBassRootSupportScore(
+    sectionArtifacts: SectionArtifactSummary[],
+): number {
+    const scores: number[] = [];
+
+    for (const sa of sectionArtifacts) {
+        const layout = sa.pianoVoiceLayout;
+
+        // Resolve LH min/max from pianoVoiceLayout → pianoLeftHand fields → bassPitch fields
+        const lhMin = layout?.leftHandPitchMin ?? sa.pianoLeftHandPitchMin ?? sa.bassPitchMin;
+        const lhMax = layout?.leftHandPitchMax ?? sa.pianoLeftHandPitchMax ?? sa.bassPitchMax;
+
+        if (lhMin === undefined) continue;
+
+        // Register score: MIDI 36–52 (C2–E3) is ideal bass register
+        const registerScore =
+            lhMin < 36 ? 0.85   // sub-bass is still good
+            : lhMin < 52 ? clamp01(1.0 - (lhMin - 36) / 24)
+            : 0.2;
+
+        // If LH max goes very high, bass is likely abandoned mid-texture
+        const abandonPenalty = (lhMax !== undefined && lhMax > 72) ? 0.2 : 0.0;
+
+        // Hand collision penalty: collisions suggest LH intrudes on melody zone
+        const collisions = layout?.handCollisionCount ?? 0;
+        const collisionPenalty = collisions > 4 ? 0.15 : 0.0;
+
+        scores.push(clamp01(registerScore - abandonPenalty - collisionPenalty));
+    }
+
+    if (scores.length === 0) return 0.5;
+    return clamp01(avg(scores));
+}

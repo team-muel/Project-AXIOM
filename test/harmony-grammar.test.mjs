@@ -551,3 +551,85 @@ test("computeHarmonyGrammarScoreSummary: ideal evidence scores above 0.75", () =
     const result = computeHarmonyGrammarScoreSummary(plan, artifact);
     assert.ok(result.overall > 0.7, `expected > 0.7, got ${result.overall}`);
 });
+
+// Update summary test: now expects 7 fields including innerVoiceMotionScore
+test("computeHarmonyGrammarScoreSummary: includes innerVoiceMotionScore field", () => {
+    const plan = makeMinimalPlan();
+    const artifact = makeMinimalArtifact();
+    const result = computeHarmonyGrammarScoreSummary(plan, artifact);
+    assert.ok("innerVoiceMotionScore" in result, "missing innerVoiceMotionScore");
+    assert.ok(result.innerVoiceMotionScore >= 0 && result.innerVoiceMotionScore <= 1,
+        `innerVoiceMotionScore out of range: ${result.innerVoiceMotionScore}`);
+});
+
+// ─── computeInnerVoiceMotionScore ─────────────────────────────────────────────
+
+import { computeInnerVoiceMotionScore } from "../dist/core/evaluate/harmonyGrammarScoring.js";
+
+test("computeInnerVoiceMotionScore: no accompaniment returns 0.5", () => {
+    const plan = makeMinimalPlan();
+    const artifact = makeMinimalArtifact({ accompanimentEvents: [] });
+    const score = computeInnerVoiceMotionScore(plan, artifact);
+    assert.ok(score >= 0 && score <= 1, `score out of range: ${score}`);
+    // With no data, independence is unknown → score ~0.5
+    assert.ok(score >= 0.3 && score <= 0.7, `expected ~0.5, got ${score}`);
+});
+
+test("computeInnerVoiceMotionScore: high independence rate scores above 0.6", () => {
+    const plan = makeMinimalPlan();
+    const artifact = makeMinimalArtifact({
+        textureIndependentMotionRate: 0.8,
+        accompanimentEvents: [
+            { type: "note", pitch: 60 },
+            { type: "note", pitch: 62 },
+            { type: "note", pitch: 64 },
+            { type: "note", pitch: 65 },
+            { type: "note", pitch: 67 },
+        ],
+    });
+    const score = computeInnerVoiceMotionScore(plan, artifact);
+    assert.ok(score > 0.6, `expected > 0.6 with high independence, got ${score}`);
+});
+
+test("computeInnerVoiceMotionScore: low independence rate scores below 0.6", () => {
+    const plan = makeMinimalPlan();
+    const artifact = makeMinimalArtifact({
+        textureIndependentMotionRate: 0.05,
+        accompanimentEvents: [
+            { type: "note", pitch: 60 },
+            { type: "note", pitch: 60 },
+            { type: "note", pitch: 60 },
+        ],
+    });
+    const score = computeInnerVoiceMotionScore(plan, artifact);
+    assert.ok(score < 0.65, `expected < 0.65 with low independence, got ${score}`);
+});
+
+test("computeInnerVoiceMotionScore: prolongation plan bonus raises score", () => {
+    const planBase = makeMinimalPlan();
+    const planWithProlongation = makeMinimalPlan({ prolongationMode: "tonic" });
+    const artifact = makeMinimalArtifact({
+        textureIndependentMotionRate: 0.5,
+        accompanimentEvents: [
+            { type: "note", pitch: 60 },
+            { type: "note", pitch: 62 },
+            { type: "note", pitch: 64 },
+            { type: "note", pitch: 65 },
+        ],
+    });
+    const base = computeInnerVoiceMotionScore(planBase, artifact);
+    const withProlongation = computeInnerVoiceMotionScore(planWithProlongation, artifact);
+    assert.ok(withProlongation >= base, `prolongation should not decrease score: base=${base}, extended=${withProlongation}`);
+});
+
+test("computeInnerVoiceMotionScore: return value always in [0, 1]", () => {
+    const cases = [
+        { textureIndependentMotionRate: 0, accompanimentEvents: [] },
+        { textureIndependentMotionRate: 1, accompanimentEvents: [{ type: "note", pitch: 60 }, { type: "note", pitch: 72 }, { type: "note", pitch: 67 }] },
+        { accompanimentEvents: [{ type: "note", pitch: 60 }, { type: "note", pitch: 60 }] },
+    ];
+    for (const overrides of cases) {
+        const score = computeInnerVoiceMotionScore(makeMinimalPlan(), makeMinimalArtifact(overrides));
+        assert.ok(score >= 0 && score <= 1, `out of range: ${score}`);
+    }
+});

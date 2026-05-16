@@ -250,7 +250,70 @@ export function computeProlongationProxyScore(
 }
 
 // ---------------------------------------------------------------------------
-// 7. Summary
+// 7. Inner-voice motion score
+// ---------------------------------------------------------------------------
+
+/**
+ * Proxies inner-voice motion quality.
+ *
+ * In a well-written common-practice piece, inner voices (alto/tenor, or the
+ * accompanying mid-register voices in piano) should:
+ *   - move independently of the bass (not lock-step)
+ *   - provide harmonic filler via moderate pitch variety
+ *   - contain some stepwise motion (not just repeated notes)
+ *
+ * Proxy evidence from SectionArtifactSummary:
+ *   - textureIndependentMotionRate  → inner-voice independence of bass
+ *   - accompanimentEvents pitch variety → harmonic filling
+ *   - accompanimentEvents avg interval size → stepwise vs static
+ *
+ * Returns 0.5 when no accompaniment data is available.
+ */
+export function computeInnerVoiceMotionScore(
+    plan: HarmonyGrammarPlan,
+    artifact: SectionArtifactSummary,
+): number {
+    // ── Independence rate (primary signal) ────────────────────────────────
+    const independenceRate = artifact.textureIndependentMotionRate;
+    const independenceScore = independenceRate !== undefined
+        ? clamp01(0.3 + independenceRate * 0.7)
+        : 0.5;
+
+    // ── Accompaniment pitch variety (harmonic filler) ──────────────────────
+    const accompNotes = artifact.accompanimentEvents
+        .filter((e) => e.type === "note" && e.pitch !== undefined)
+        .map((e) => e.pitch as number);
+
+    let pitchVarietyScore = 0.5;
+    if (accompNotes.length >= 4) {
+        const pitchClasses = new Set(accompNotes.map((p) => p % 12)).size;
+        // ≥ 3 distinct pitch classes = reasonable harmonic filler
+        pitchVarietyScore = clamp01(0.2 + (pitchClasses / 7) * 0.8);
+    }
+
+    // ── Average interval in accompaniment (stepwise preferred over static) ─
+    let stepwiseScore = 0.5;
+    if (accompNotes.length >= 3) {
+        const intervals = [];
+        for (let i = 1; i < accompNotes.length; i++) {
+            intervals.push(Math.abs((accompNotes[i] ?? 0) - (accompNotes[i - 1] ?? 0)));
+        }
+        const avgInterval = intervals.reduce((s, v) => s + v, 0) / intervals.length;
+        // 1–4 semitones average = stepwise inner voice motion
+        stepwiseScore =
+            avgInterval === 0 ? 0.3  // static inner voices = poor
+            : avgInterval <= 4 ? clamp01(0.5 + (avgInterval / 4) * 0.5)
+            : clamp01(1 - (avgInterval - 4) / 8 * 0.5);  // too leapy
+    }
+
+    // ── Plan bonus: prolongation implies sustained inner voice movement ────
+    const planBonus = plan.prolongationMode ? 0.05 : 0.0;
+
+    return clamp01(0.40 * independenceScore + 0.30 * pitchVarietyScore + 0.25 * stepwiseScore + planBonus);
+}
+
+// ---------------------------------------------------------------------------
+// 8. Summary
 // ---------------------------------------------------------------------------
 
 export interface HarmonyGrammarScoreSummary {
@@ -260,21 +323,24 @@ export interface HarmonyGrammarScoreSummary {
     harmonicRhythmConsistencyScore: number;
     cadenceApproachQualityScore: number;
     prolongationProxyScore: number;
+    /** Inner-voice independence and stepwise filler motion (0–1). */
+    innerVoiceMotionScore: number;
     /** Weighted composite. */
     overall: number;
 }
 
 const WEIGHTS = {
-    pdt: 0.25,
-    appliedDominant: 0.15,
-    tonicizationDepth: 0.15,
-    harmonicRhythmConsistency: 0.15,
+    pdt: 0.22,
+    appliedDominant: 0.13,
+    tonicizationDepth: 0.13,
+    harmonicRhythmConsistency: 0.13,
     cadenceApproachQuality: 0.20,
-    prolongationProxy: 0.10,
+    prolongationProxy: 0.09,
+    innerVoiceMotion: 0.10,
 };
 
 /**
- * Produces a HarmonyGrammarScoreSummary by running all six scoring dimensions.
+ * Produces a HarmonyGrammarScoreSummary by running all seven scoring dimensions.
  */
 export function computeHarmonyGrammarScoreSummary(
     plan: HarmonyGrammarPlan,
@@ -286,14 +352,16 @@ export function computeHarmonyGrammarScoreSummary(
     const harmonicRhythmConsistencyScore = computeHarmonicRhythmConsistencyScore(plan, artifact);
     const cadenceApproachQualityScore = computeCadenceApproachQualityScore(plan, artifact);
     const prolongationProxyScore = computeProlongationProxyScore(plan, artifact);
+    const innerVoiceMotionScore = computeInnerVoiceMotionScore(plan, artifact);
 
     const overall = clamp01(
-        WEIGHTS.pdt                      * pdtScore
-        + WEIGHTS.appliedDominant        * appliedDominantScore
-        + WEIGHTS.tonicizationDepth      * tonicizationDepthScore
-        + WEIGHTS.harmonicRhythmConsistency * harmonicRhythmConsistencyScore
-        + WEIGHTS.cadenceApproachQuality * cadenceApproachQualityScore
-        + WEIGHTS.prolongationProxy      * prolongationProxyScore,
+        WEIGHTS.pdt                          * pdtScore
+        + WEIGHTS.appliedDominant            * appliedDominantScore
+        + WEIGHTS.tonicizationDepth          * tonicizationDepthScore
+        + WEIGHTS.harmonicRhythmConsistency  * harmonicRhythmConsistencyScore
+        + WEIGHTS.cadenceApproachQuality     * cadenceApproachQualityScore
+        + WEIGHTS.prolongationProxy          * prolongationProxyScore
+        + WEIGHTS.innerVoiceMotion           * innerVoiceMotionScore,
     );
 
     return {
@@ -303,6 +371,7 @@ export function computeHarmonyGrammarScoreSummary(
         harmonicRhythmConsistencyScore,
         cadenceApproachQualityScore,
         prolongationProxyScore,
+        innerVoiceMotionScore,
         overall,
     };
 }

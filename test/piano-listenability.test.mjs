@@ -294,3 +294,138 @@ test("computeOverallAppeal with missing layout (undefined playability)", () => {
     assert.ok(Number.isFinite(appeal));
     assert.ok(appeal >= 0 && appeal <= 1);
 });
+
+// ─── computeMelodyProminenceScore ─────────────────────────────────────────────
+
+import {
+    computeMelodyProminenceScore,
+    computePedalBlurRisk,
+    computeBassRootSupportScore,
+} from "../dist/core/evaluate/pianoCraftScoring.js";
+
+function makePromSection(overrides = {}) {
+    return {
+        sectionId: "s1",
+        role: "theme_a",
+        measureCount: 8,
+        melodyEvents: [],
+        accompanimentEvents: [],
+        noteHistory: [],
+        ...overrides,
+    };
+}
+
+test("computeMelodyProminenceScore: no data returns 0.5", () => {
+    const score = computeMelodyProminenceScore([makePromSection()]);
+    assert.ok(score >= 0 && score <= 1, `out of range: ${score}`);
+    assert.ok(score >= 0.3 && score <= 0.7, `expected ~0.5, got ${score}`);
+});
+
+test("computeMelodyProminenceScore: melody clearly above LH returns high score", () => {
+    const section = makePromSection({
+        melodyPitchMin: 72, melodyPitchMax: 84,  // RH: C5–C6
+        pianoLeftHandPitchMin: 36, pianoLeftHandPitchMax: 52,  // LH: C2–E3
+    });
+    const score = computeMelodyProminenceScore([section]);
+    assert.ok(score > 0.7, `expected > 0.7 with clear separation, got ${score}`);
+});
+
+test("computeMelodyProminenceScore: melody below LH scores low", () => {
+    const section = makePromSection({
+        melodyPitchMin: 36, melodyPitchMax: 48,  // RH low
+        pianoLeftHandPitchMin: 60, pianoLeftHandPitchMax: 72,  // LH higher than RH
+    });
+    const score = computeMelodyProminenceScore([section]);
+    assert.ok(score < 0.5, `expected < 0.5 with melody below accompaniment, got ${score}`);
+});
+
+test("computeMelodyProminenceScore: velocity gap boosts score", () => {
+    const sectionBase = makePromSection({
+        melodyPitchMin: 67, melodyPitchMax: 79,
+        pianoLeftHandPitchMin: 36, pianoLeftHandPitchMax: 55,
+    });
+    const sectionWithVel = makePromSection({
+        melodyPitchMin: 67, melodyPitchMax: 79,
+        pianoLeftHandPitchMin: 36, pianoLeftHandPitchMax: 55,
+        melodyVelocityMin: 80, accompanimentVelocityMax: 60,
+    });
+    const base = computeMelodyProminenceScore([sectionBase]);
+    const withVel = computeMelodyProminenceScore([sectionWithVel]);
+    assert.ok(withVel >= base, `velocity gap should help or equal: base=${base}, vel=${withVel}`);
+});
+
+// ─── computePedalBlurRisk ─────────────────────────────────────────────────────
+
+test("computePedalBlurRisk: no layout data returns ~0.7", () => {
+    const score = computePedalBlurRisk([makePromSection()]);
+    assert.ok(score >= 0 && score <= 1, `out of range: ${score}`);
+    assert.ok(score >= 0.6, `expected ~0.7 with no risk data, got ${score}`);
+});
+
+test("computePedalBlurRisk: high pedal + low bass returns low score (high blur risk)", () => {
+    const section = makePromSection({
+        pianoVoiceLayout: {
+            leftHandPitchMin: 28, leftHandPitchMax: 52,
+            pedalEventCount: 30,
+            avgChordVoiceCount: 5,
+            playableSpanFit: 0.8,
+        },
+    });
+    const score = computePedalBlurRisk([section]);
+    assert.ok(score < 0.5, `expected < 0.5 for high blur risk, got ${score}`);
+});
+
+test("computePedalBlurRisk: no pedal + high LH returns high score (low risk)", () => {
+    const section = makePromSection({
+        pianoVoiceLayout: {
+            leftHandPitchMin: 55, leftHandPitchMax: 72,
+            pedalEventCount: 0,
+            avgChordVoiceCount: 2,
+            playableSpanFit: 0.95,
+        },
+    });
+    const score = computePedalBlurRisk([section]);
+    assert.ok(score > 0.7, `expected > 0.7 for low blur risk, got ${score}`);
+});
+
+// ─── computeBassRootSupportScore ─────────────────────────────────────────────
+
+test("computeBassRootSupportScore: no data returns 0.5", () => {
+    const score = computeBassRootSupportScore([makePromSection()]);
+    assert.ok(score >= 0 && score <= 1, `out of range: ${score}`);
+    assert.ok(score >= 0.3 && score <= 0.7, `expected ~0.5, got ${score}`);
+});
+
+test("computeBassRootSupportScore: LH in C2–E3 range returns high score", () => {
+    const section = makePromSection({
+        pianoVoiceLayout: {
+            leftHandPitchMin: 36, leftHandPitchMax: 52,  // C2–E3 = ideal
+            handCollisionCount: 0, playableSpanFit: 0.95,
+        },
+    });
+    const score = computeBassRootSupportScore([section]);
+    assert.ok(score > 0.7, `expected > 0.7 for ideal bass register, got ${score}`);
+});
+
+test("computeBassRootSupportScore: LH too high returns low score", () => {
+    const section = makePromSection({
+        pianoVoiceLayout: {
+            leftHandPitchMin: 65, leftHandPitchMax: 80,  // LH in treble zone
+            handCollisionCount: 0, playableSpanFit: 0.9,
+        },
+    });
+    const score = computeBassRootSupportScore([section]);
+    assert.ok(score < 0.4, `expected < 0.4 for LH in treble zone, got ${score}`);
+});
+
+test("computeBassRootSupportScore: collisions penalise score", () => {
+    const sectionNoCollision = makePromSection({
+        pianoVoiceLayout: { leftHandPitchMin: 36, leftHandPitchMax: 52, handCollisionCount: 0, playableSpanFit: 0.95 },
+    });
+    const sectionWithCollision = makePromSection({
+        pianoVoiceLayout: { leftHandPitchMin: 36, leftHandPitchMax: 52, handCollisionCount: 8, playableSpanFit: 0.95 },
+    });
+    const base = computeBassRootSupportScore([sectionNoCollision]);
+    const penalised = computeBassRootSupportScore([sectionWithCollision]);
+    assert.ok(penalised < base, `collisions should reduce score: base=${base}, penalised=${penalised}`);
+});

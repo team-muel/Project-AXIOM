@@ -869,3 +869,61 @@ test("integration: computeCraftScoreSummary includes voiceLeadingScore and tonic
         `finalCraftScore should not include new supplementary fields, expected ${expectedFinal} got ${summary.finalCraftScore}`,
     );
 });
+
+// [31] planAwareHarmonyGrammarScore and planAwareMotifDevelopmentScore are present
+test("integration: computeCraftScoreSummary includes planAwareHarmonyGrammarScore and planAwareMotifDevelopmentScore", () => {
+    const artifacts = [
+        makeSection("intro",   "intro",   { measures: 8 }),
+        makeSection("theme_a", "theme_a", { measures: 8, capturedMotif: [2, 2, 1, -1] }),
+        makeSection("dev",     "development", { measures: 16 }),
+        makeSection("recap",   "recap",   { measures: 8 }),
+    ];
+
+    const harmonyGrammarPlan = {
+        functionalSequence: ["tonic", "predominant", "dominant", "tonic"],
+        cadenceApproach: "basic",
+    };
+    const motifDevPlan = { entries: [{ transform: "sequence", transformedIntervals: [4, 4, 3] }] };
+
+    const plan = {
+        sections: [
+            { id: "intro",   role: "intro",   label: "intro",   measures: 8 },
+            { id: "theme_a", role: "theme_a", label: "theme_a", measures: 8, harmonyGrammar: harmonyGrammarPlan },
+            { id: "dev",     role: "development", label: "dev", measures: 16, harmonyGrammar: harmonyGrammarPlan, motifDevelopment: motifDevPlan },
+            { id: "recap",   role: "recap",   label: "recap",   measures: 8, motifDevelopment: { entries: [{ transform: "repeat", transformedIntervals: [2, 2, 1, -1] }] } },
+        ],
+        homeKey: "C",
+        homeMode: "major",
+        form: "sonata",
+    };
+
+    const evaluation = { passed: true, issues: [], strengths: [] };
+    const summary = computeCraftScoreSummary(artifacts, plan, evaluation);
+
+    assert.ok(typeof summary.planAwareHarmonyGrammarScore === "number",
+        "planAwareHarmonyGrammarScore should be present");
+    assert.ok(summary.planAwareHarmonyGrammarScore >= 0 && summary.planAwareHarmonyGrammarScore <= 1,
+        `planAwareHarmonyGrammarScore out of range: ${summary.planAwareHarmonyGrammarScore}`);
+
+    assert.ok(typeof summary.planAwareMotifDevelopmentScore === "number",
+        "planAwareMotifDevelopmentScore should be present");
+    assert.ok(summary.planAwareMotifDevelopmentScore >= 0 && summary.planAwareMotifDevelopmentScore <= 1,
+        `planAwareMotifDevelopmentScore out of range: ${summary.planAwareMotifDevelopmentScore}`);
+
+    // finalCraftScore still uses only the 8 weighted dimensions
+    const expectedFinal = Number((
+        0.15 * summary.sectionContractFit
+        + 0.15 * summary.cadenceStrength
+        + 0.15 * summary.tonalReturn
+        + 0.15 * summary.motifSurvival
+        + 0.15 * summary.voiceIndependence
+        + 0.10 * summary.phraseShape
+        + 0.10 * summary.registerIdiomaticFit
+        + 0.05 * summary.syntaxValidity
+    ).toFixed(4));
+    assert.strictEqual(
+        summary.finalCraftScore,
+        expectedFinal,
+        `finalCraftScore must stay at 8-dim formula: expected ${expectedFinal}, got ${summary.finalCraftScore}`,
+    );
+});

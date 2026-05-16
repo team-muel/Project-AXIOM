@@ -1,12 +1,16 @@
 import type {
     CompositionPlan,
     CraftScoreSummary,
+    HarmonyGrammarPlan,
+    MotifDevelopmentPlan,
     PhraseGrammarPlan,
     SectionArtifactSummary,
     SectionRole,
     StructureEvaluationReport,
 } from "../pipeline/types.js";
 import { computePhraseGrammarScoreSummary } from "./phraseGrammarScoring.js";
+import { computeHarmonyGrammarScoreSummary } from "./harmonyGrammarScoring.js";
+import { computeMotifDevelopmentScoreSummary } from "./motifDevelopmentScoring.js";
 
 // craftScoring.ts — role boundary
 // ──────────────────────────────────────────────────────────────────────────────
@@ -986,6 +990,143 @@ export function computePlanAwarePhraseGrammarScore(
 }
 
 // ---------------------------------------------------------------------------
+// 17. planAwareHarmonyGrammarScore (supplementary)
+// ---------------------------------------------------------------------------
+
+/**
+ * Uses the per-section HarmonyGrammarPlan from the planning phase to evaluate
+ * harmony grammar quality via the dedicated harmonyGrammarScoring module.
+ *
+ * Sections without a harmonyGrammar plan are skipped.
+ * Falls back to 0.4 if no sections have harmony plans.
+ */
+export function computePlanAwareHarmonyGrammarScore(
+    sectionArtifacts: SectionArtifactSummary[],
+    plan: CompositionPlan | undefined,
+): { score: number; notes: string; sectionScores: Record<string, number> } {
+    const planSections = plan?.sections ?? [];
+    const artifactById = new Map(sectionArtifacts.map((a) => [a.sectionId, a]));
+
+    const sectionScores: Record<string, number> = {};
+    const notesParts: string[] = [];
+
+    for (const ps of planSections) {
+        const harmonyGrammar = ps.harmonyGrammar as HarmonyGrammarPlan | undefined;
+        if (!harmonyGrammar) continue;
+
+        const artifact = artifactById.get(ps.id);
+        if (!artifact) continue;
+
+        const summary = computeHarmonyGrammarScoreSummary(harmonyGrammar, artifact);
+        sectionScores[ps.id] = summary.overall;
+        notesParts.push(
+            `${ps.id}(${ps.role}): harmonyGrammar=${summary.overall.toFixed(2)} ` +
+            `[pdt=${summary.pdtScore.toFixed(2)},innerVoice=${summary.innerVoiceMotionScore.toFixed(2)}]`,
+        );
+    }
+
+    const ids = Object.keys(sectionScores);
+    if (ids.length === 0) {
+        return {
+            score: 0.4,
+            notes: "no sections with harmonyGrammar plan",
+            sectionScores: {},
+        };
+    }
+
+    const avg = ids.reduce((s, id) => s + (sectionScores[id] ?? 0), 0) / ids.length;
+    return {
+        score: clamp01(avg),
+        notes: notesParts.join("; "),
+        sectionScores,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// 18. planAwareMotifDevelopmentScore (supplementary)
+// ---------------------------------------------------------------------------
+
+/**
+ * Uses the per-section MotifDevelopmentPlan to evaluate motif transformation
+ * quality via the motifDevelopmentScoring module.
+ *
+ * For each section with a motifDevelopment plan:
+ * - The section identified as the motif source (role "theme_a" or first
+ *   section with capturedMotif) is used as the source artifact.
+ * - All subsequent sections with motifDevelopment plans use it as target.
+ *
+ * The diversity score rewards reaching multiple transformation types
+ * (sequence, fragmentation, inversion, augmentation, diminution).
+ *
+ * Falls back to 0.4 if no applicable sections found.
+ */
+export function computePlanAwareMotifDevelopmentScore(
+    sectionArtifacts: SectionArtifactSummary[],
+    plan: CompositionPlan | undefined,
+): { score: number; notes: string; sectionScores: Record<string, number>; diversityScore: number } {
+    const planSections = plan?.sections ?? [];
+    const artifactById = new Map(sectionArtifacts.map((a) => [a.sectionId, a]));
+
+    // Find source artifact (theme_a role only — "exposition" is not a valid SectionRole)
+    const themeSection = planSections.find((ps) => ps.role === "theme_a");
+    const sourceArtifact =
+        (themeSection ? artifactById.get(themeSection.id) : undefined)
+        ?? sectionArtifacts.find((a) => (a.capturedMotif?.length ?? 0) > 0);
+
+    if (!sourceArtifact) {
+        return { score: 0.4, notes: "no motif source artifact found", sectionScores: {}, diversityScore: 0.4 };
+    }
+
+    const sectionScores: Record<string, number> = {};
+    const notesParts: string[] = [];
+    const seenTransformTypes = new Set<string>();
+
+    for (const ps of planSections) {
+        const motifDevelopment = ps.motifDevelopment as MotifDevelopmentPlan | undefined;
+        if (!motifDevelopment) continue;
+
+        const artifact = artifactById.get(ps.id);
+        if (!artifact) continue;
+
+        // Skip if this IS the source section
+        if (artifact.sectionId === sourceArtifact.sectionId) continue;
+
+        const summary = computeMotifDevelopmentScoreSummary(motifDevelopment, sourceArtifact, artifact);
+        sectionScores[ps.id] = summary.overall;
+
+        // Track which transformation types scored well (> 0.5) using transformKind
+        // (MotifDevelopmentScoreSummary only exposes transformKind + primaryScore + overall)
+        if (summary.primaryScore > 0.5 && summary.transformKind !== "unknown") {
+            seenTransformTypes.add(summary.transformKind);
+        }
+
+        notesParts.push(
+            `${ps.id}(${ps.role}): motifDev=${summary.overall.toFixed(2)} ` +
+            `[kind=${summary.transformKind},primary=${summary.primaryScore.toFixed(2)}]`,
+        );
+    }
+
+    const ids = Object.keys(sectionScores);
+    if (ids.length === 0) {
+        return { score: 0.4, notes: "no development sections found", sectionScores: {}, diversityScore: 0.4 };
+    }
+
+    const avgSectionScore = ids.reduce((s, id) => s + (sectionScores[id] ?? 0), 0) / ids.length;
+    // Diversity score: how many distinct transformation types were expressed
+    const diversityScore = clamp01(seenTransformTypes.size / 4);
+
+    // Combined: 70% mean section score + 30% diversity
+    const score = clamp01(0.70 * avgSectionScore + 0.30 * diversityScore);
+
+    return {
+        score,
+        notes: notesParts.join("; ") + ` | diversityTypes=${seenTransformTypes.size}`,
+        sectionScores,
+        diversityScore,
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Master computation
 // ---------------------------------------------------------------------------
 
@@ -1046,6 +1187,8 @@ export function computeCraftScoreSummary(
     const voiceLeadingResult       = computeVoiceLeadingScore(sectionArtifacts);
     const tonicizationResult       = computeTonicizationDepthScore(sectionArtifacts, plan);
     const planPhraseGrammarResult  = computePlanAwarePhraseGrammarScore(sectionArtifacts, plan);
+    const planHarmonyGrammarResult = computePlanAwareHarmonyGrammarScore(sectionArtifacts, plan);
+    const planMotifDevResult       = computePlanAwareMotifDevelopmentScore(sectionArtifacts, plan);
 
     if (motifTransformResult.notes)  dimensionNotes["motifTransformVariety"]      = motifTransformResult.notes;
     if (harmonicRhythmResult.notes)  dimensionNotes["harmonicRhythmVariance"]     = harmonicRhythmResult.notes;
@@ -1054,7 +1197,9 @@ export function computeCraftScoreSummary(
     if (phraseGrammarResult.notes)   dimensionNotes["phraseGrammarScore"]          = phraseGrammarResult.notes;
     if (voiceLeadingResult.notes)    dimensionNotes["voiceLeadingScore"]           = voiceLeadingResult.notes;
     if (tonicizationResult.notes)    dimensionNotes["tonicizationDepthScore"]      = tonicizationResult.notes;
-    if (planPhraseGrammarResult.notes) dimensionNotes["planAwarePhraseGrammarScore"] = planPhraseGrammarResult.notes;
+    if (planPhraseGrammarResult.notes)  dimensionNotes["planAwarePhraseGrammarScore"]  = planPhraseGrammarResult.notes;
+    if (planHarmonyGrammarResult.notes) dimensionNotes["planAwareHarmonyGrammarScore"] = planHarmonyGrammarResult.notes;
+    if (planMotifDevResult.notes)       dimensionNotes["planAwareMotifDevelopmentScore"] = planMotifDevResult.notes;
 
     return {
         syntaxValidity: Number(syntaxValidity.toFixed(4)),
@@ -1067,13 +1212,15 @@ export function computeCraftScoreSummary(
         registerIdiomaticFit: Number(registerIdiomaticFit.toFixed(4)),
         finalCraftScore,
         dimensionNotes,
-        motifTransformVariety:        Number(motifTransformResult.score.toFixed(4)),
-        harmonicRhythmVariance:       Number(harmonicRhythmResult.score.toFixed(4)),
-        textureProfileScore:          Number(textureProfileResult.score.toFixed(4)),
-        cadenceArchitecturalWeight:   Number(cadenceWeightResult.score.toFixed(4)),
-        phraseGrammarScore:           Number(phraseGrammarResult.score.toFixed(4)),
-        voiceLeadingScore:            Number(voiceLeadingResult.score.toFixed(4)),
-        tonicizationDepthScore:       Number(tonicizationResult.score.toFixed(4)),
-        planAwarePhraseGrammarScore:  Number(planPhraseGrammarResult.score.toFixed(4)),
+        motifTransformVariety:            Number(motifTransformResult.score.toFixed(4)),
+        harmonicRhythmVariance:           Number(harmonicRhythmResult.score.toFixed(4)),
+        textureProfileScore:              Number(textureProfileResult.score.toFixed(4)),
+        cadenceArchitecturalWeight:       Number(cadenceWeightResult.score.toFixed(4)),
+        phraseGrammarScore:               Number(phraseGrammarResult.score.toFixed(4)),
+        voiceLeadingScore:                Number(voiceLeadingResult.score.toFixed(4)),
+        tonicizationDepthScore:           Number(tonicizationResult.score.toFixed(4)),
+        planAwarePhraseGrammarScore:      Number(planPhraseGrammarResult.score.toFixed(4)),
+        planAwareHarmonyGrammarScore:     Number(planHarmonyGrammarResult.score.toFixed(4)),
+        planAwareMotifDevelopmentScore:   Number(planMotifDevResult.score.toFixed(4)),
     };
 }

@@ -171,6 +171,24 @@ export interface PianoCraftScoreSummary {
     finalPianoScore: number;
     /** Optional per-dimension human-readable notes keyed by dimension name. */
     dimensionNotes?: Record<string, string>;
+
+    // ── Supplementary listenability metrics ──────────────────────────────────
+
+    /**
+     * Melody prominence: right-hand pitch register and velocity sit clearly
+     * above accompaniment. Higher = melody is audible and stands out (0–1).
+     */
+    melodyProminenceScore?: number;
+    /**
+     * Pedal blur risk (inverted): 1 = very low blur risk, 0 = high risk.
+     * Estimated from pedal event density + LH chord density in low register.
+     */
+    pedalBlurRisk?: number;
+    /**
+     * Bass root support: LH pitch concentrates in bass register (C2–E3 /
+     * MIDI 36–52), providing harmonic grounding. Higher = better (0–1).
+     */
+    bassRootSupportScore?: number;
 }
 
 // ─── Piano Intermediate Representation (Piano IR) ────────────────────────────
