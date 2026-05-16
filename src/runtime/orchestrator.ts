@@ -10,11 +10,6 @@ import type {
     CompositionPlan,
     JobManifest,
     RevisionDirective,
-    SectionArtifactSummary,
-    SectionHarmonicRealizationSummary,
-    SectionPhraseBreathSummary,
-    SectionOrnamentSummary,
-    SectionTempoMotionSummary,
     StructureEvaluationReport,
 } from "../core/pipeline/types.js";
 import { buildAudioEvaluation, buildStructureEvaluation } from "../core/evaluate/evaluation.js";
@@ -39,7 +34,6 @@ import {
 } from "../core/generate/structureSelection.js";
 import {
     buildHybridSymbolicCandidateRequests,
-    buildHybridSymbolicSelectionReason,
     resolveHybridSymbolicPreferredSelectedModels,
 } from "../core/generate/hybridSymbolicCandidatePool.js";
 import { resolveStructureRerankerPromotion } from "../core/generate/structureRerankerPromotion.js";
@@ -63,10 +57,23 @@ import { loadManifest, saveManifest } from "./manifest/manifest.js";
 import { logger } from "../logging/logger.js";
 import { config } from "../config.js";
 import {
-    PREFERENCE_SHORTLIST_SIZE,
-    craftScorePassesHardFilter,
-    selectPreferredCandidate,
-} from "../core/generate/preferenceModel.js";
+    mergeSectionPhraseBreathSummaries,
+    mergeSectionHarmonicRealizationSummaries,
+    mergeSectionTempoMotionSummaries,
+    mergeSectionOrnamentSummaries,
+} from "./sidecars/sectionArtifactMerge.js";
+import {
+    type SymbolicAttemptCandidate,
+    selectAttemptWinner,
+} from "./attempts/candidateSelection.js";
+import {
+    type LocalizedRewriteBranchParent,
+    buildLearnedRerankerPromotionStopReason,
+    buildLocalizedRewriteBranchVariantKey,
+    collectSameAttemptLocalizedRewriteParents,
+    buildLocalizedRewriteBranchStopReason,
+    buildHybridAttemptStopReason,
+} from "./attempts/localizedRewriteAttempt.js";
 
 export {
     candidateGateTier,
@@ -76,22 +83,6 @@ export {
 
 export interface RunPipelineOptions {
     onManifestUpdate?: (manifest: JobManifest) => void;
-}
-
-interface SymbolicAttemptCandidate {
-    candidateId: string;
-    attempt: number;
-    request: ComposeRequest;
-    composeResult: ComposeResult;
-    executionPlan: ComposeExecutionPlan;
-    compositionPlan?: CompositionPlan;
-    midiData: Buffer;
-    structureEvaluation: StructureEvaluationReport;
-}
-
-interface LocalizedRewriteBranchParent {
-    candidate: SymbolicAttemptCandidate;
-    revisionDirectives: RevisionDirective[];
 }
 
 interface SymbolicRecoveryCheckpoint {
@@ -104,175 +95,6 @@ interface SymbolicRecoveryCheckpoint {
 function persistManifest(manifest: JobManifest, onManifestUpdate?: (manifest: JobManifest) => void): void {
     saveManifest(manifest);
     onManifestUpdate?.(manifest);
-}
-
-function mergeSectionPhraseBreathSummaries(
-    sectionArtifacts: SectionArtifactSummary[] | undefined,
-    summaries: SectionPhraseBreathSummary[] | undefined,
-): SectionArtifactSummary[] | undefined {
-    if (!sectionArtifacts?.length || !summaries?.length) {
-        return sectionArtifacts;
-    }
-
-    const summaryBySectionId = new Map(summaries.map((summary) => [summary.sectionId, summary]));
-    return sectionArtifacts.map((artifact) => {
-        const summary = summaryBySectionId.get(artifact.sectionId);
-        if (!summary) {
-            return artifact;
-        }
-
-        return {
-            ...artifact,
-            phraseBreathSummary: {
-                requestedCues: [...summary.requestedCues],
-                targetedMeasureCount: summary.targetedMeasureCount,
-                realizedMeasureCount: summary.realizedMeasureCount,
-                realizedNoteCount: summary.realizedNoteCount,
-                ...(summary.averageDurationScale !== undefined ? { averageDurationScale: summary.averageDurationScale } : {}),
-                ...(summary.averageTimingJitterScale !== undefined ? { averageTimingJitterScale: summary.averageTimingJitterScale } : {}),
-                ...(summary.averageEndingStretchScale !== undefined ? { averageEndingStretchScale: summary.averageEndingStretchScale } : {}),
-                ...(summary.peakDurationScaleDelta !== undefined ? { peakDurationScaleDelta: summary.peakDurationScaleDelta } : {}),
-                ...(summary.pickupMeasureCount !== undefined ? { pickupMeasureCount: summary.pickupMeasureCount } : {}),
-                ...(summary.pickupAverageDurationScale !== undefined ? { pickupAverageDurationScale: summary.pickupAverageDurationScale } : {}),
-                ...(summary.pickupAverageTimingJitterScale !== undefined ? { pickupAverageTimingJitterScale: summary.pickupAverageTimingJitterScale } : {}),
-                ...(summary.pickupAverageEndingStretchScale !== undefined ? { pickupAverageEndingStretchScale: summary.pickupAverageEndingStretchScale } : {}),
-                ...(summary.arrivalMeasureCount !== undefined ? { arrivalMeasureCount: summary.arrivalMeasureCount } : {}),
-                ...(summary.arrivalAverageDurationScale !== undefined ? { arrivalAverageDurationScale: summary.arrivalAverageDurationScale } : {}),
-                ...(summary.arrivalAverageTimingJitterScale !== undefined ? { arrivalAverageTimingJitterScale: summary.arrivalAverageTimingJitterScale } : {}),
-                ...(summary.arrivalAverageEndingStretchScale !== undefined ? { arrivalAverageEndingStretchScale: summary.arrivalAverageEndingStretchScale } : {}),
-                ...(summary.releaseMeasureCount !== undefined ? { releaseMeasureCount: summary.releaseMeasureCount } : {}),
-                ...(summary.releaseAverageDurationScale !== undefined ? { releaseAverageDurationScale: summary.releaseAverageDurationScale } : {}),
-                ...(summary.releaseAverageTimingJitterScale !== undefined ? { releaseAverageTimingJitterScale: summary.releaseAverageTimingJitterScale } : {}),
-                ...(summary.releaseAverageEndingStretchScale !== undefined ? { releaseAverageEndingStretchScale: summary.releaseAverageEndingStretchScale } : {}),
-                ...(summary.cadenceRecoveryMeasureCount !== undefined ? { cadenceRecoveryMeasureCount: summary.cadenceRecoveryMeasureCount } : {}),
-                ...(summary.cadenceRecoveryAverageDurationScale !== undefined ? { cadenceRecoveryAverageDurationScale: summary.cadenceRecoveryAverageDurationScale } : {}),
-                ...(summary.cadenceRecoveryAverageTimingJitterScale !== undefined ? { cadenceRecoveryAverageTimingJitterScale: summary.cadenceRecoveryAverageTimingJitterScale } : {}),
-                ...(summary.cadenceRecoveryAverageEndingStretchScale !== undefined ? { cadenceRecoveryAverageEndingStretchScale: summary.cadenceRecoveryAverageEndingStretchScale } : {}),
-                ...(summary.rubatoAnchorCount !== undefined ? { rubatoAnchorCount: summary.rubatoAnchorCount } : {}),
-                ...(summary.rubatoAnchorAverageDurationScale !== undefined ? { rubatoAnchorAverageDurationScale: summary.rubatoAnchorAverageDurationScale } : {}),
-                ...(summary.rubatoAnchorAverageTimingJitterScale !== undefined ? { rubatoAnchorAverageTimingJitterScale: summary.rubatoAnchorAverageTimingJitterScale } : {}),
-                ...(summary.rubatoAnchorAverageEndingStretchScale !== undefined ? { rubatoAnchorAverageEndingStretchScale: summary.rubatoAnchorAverageEndingStretchScale } : {}),
-            },
-        };
-    });
-}
-
-function mergeSectionHarmonicRealizationSummaries(
-    sectionArtifacts: SectionArtifactSummary[] | undefined,
-    summaries: SectionHarmonicRealizationSummary[] | undefined,
-): SectionArtifactSummary[] | undefined {
-    if (!sectionArtifacts?.length || !summaries?.length) {
-        return sectionArtifacts;
-    }
-
-    const summaryBySectionId = new Map(summaries.map((summary) => [summary.sectionId, summary]));
-    return sectionArtifacts.map((artifact) => {
-        const summary = summaryBySectionId.get(artifact.sectionId);
-        if (!summary) {
-            return artifact;
-        }
-
-        return {
-            ...artifact,
-            harmonicRealizationSummary: {
-                ...(summary.prolongationMode ? { prolongationMode: summary.prolongationMode } : {}),
-                ...(summary.requestedTonicizationTargets?.length ? { requestedTonicizationTargets: [...summary.requestedTonicizationTargets] } : {}),
-                ...(summary.requestedColorTags?.length ? { requestedColorTags: [...summary.requestedColorTags] } : {}),
-                targetedMeasureCount: summary.targetedMeasureCount,
-                realizedMeasureCount: summary.realizedMeasureCount,
-                realizedNoteCount: summary.realizedNoteCount,
-                ...(summary.averageDurationScale !== undefined ? { averageDurationScale: summary.averageDurationScale } : {}),
-                ...(summary.averageTimingJitterScale !== undefined ? { averageTimingJitterScale: summary.averageTimingJitterScale } : {}),
-                ...(summary.averageEndingStretchScale !== undefined ? { averageEndingStretchScale: summary.averageEndingStretchScale } : {}),
-                ...(summary.peakDurationScaleDelta !== undefined ? { peakDurationScaleDelta: summary.peakDurationScaleDelta } : {}),
-                ...(summary.prolongationMeasureCount !== undefined ? { prolongationMeasureCount: summary.prolongationMeasureCount } : {}),
-                ...(summary.prolongationAverageDurationScale !== undefined ? { prolongationAverageDurationScale: summary.prolongationAverageDurationScale } : {}),
-                ...(summary.prolongationAverageTimingJitterScale !== undefined ? { prolongationAverageTimingJitterScale: summary.prolongationAverageTimingJitterScale } : {}),
-                ...(summary.prolongationAverageEndingStretchScale !== undefined ? { prolongationAverageEndingStretchScale: summary.prolongationAverageEndingStretchScale } : {}),
-                ...(summary.tonicizationMeasureCount !== undefined ? { tonicizationMeasureCount: summary.tonicizationMeasureCount } : {}),
-                ...(summary.tonicizationAverageDurationScale !== undefined ? { tonicizationAverageDurationScale: summary.tonicizationAverageDurationScale } : {}),
-                ...(summary.tonicizationAverageTimingJitterScale !== undefined ? { tonicizationAverageTimingJitterScale: summary.tonicizationAverageTimingJitterScale } : {}),
-                ...(summary.tonicizationAverageEndingStretchScale !== undefined ? { tonicizationAverageEndingStretchScale: summary.tonicizationAverageEndingStretchScale } : {}),
-                ...(summary.harmonicColorMeasureCount !== undefined ? { harmonicColorMeasureCount: summary.harmonicColorMeasureCount } : {}),
-                ...(summary.harmonicColorAverageDurationScale !== undefined ? { harmonicColorAverageDurationScale: summary.harmonicColorAverageDurationScale } : {}),
-                ...(summary.harmonicColorAverageTimingJitterScale !== undefined ? { harmonicColorAverageTimingJitterScale: summary.harmonicColorAverageTimingJitterScale } : {}),
-                ...(summary.harmonicColorAverageEndingStretchScale !== undefined ? { harmonicColorAverageEndingStretchScale: summary.harmonicColorAverageEndingStretchScale } : {}),
-            },
-        };
-    });
-}
-
-function mergeSectionTempoMotionSummaries(
-    sectionArtifacts: SectionArtifactSummary[] | undefined,
-    summaries: SectionTempoMotionSummary[] | undefined,
-): SectionArtifactSummary[] | undefined {
-    if (!sectionArtifacts?.length || !summaries?.length) {
-        return sectionArtifacts;
-    }
-
-    const summaryBySectionId = new Map(summaries.map((summary) => [summary.sectionId, summary]));
-    return sectionArtifacts.map((artifact) => {
-        const summary = summaryBySectionId.get(artifact.sectionId);
-        if (!summary) {
-            return artifact;
-        }
-
-        return {
-            ...artifact,
-            tempoMotionSummary: {
-                requestedTags: [...summary.requestedTags],
-                targetedMeasureCount: summary.targetedMeasureCount,
-                realizedMeasureCount: summary.realizedMeasureCount,
-                realizedNoteCount: summary.realizedNoteCount,
-                ...(summary.averageDurationScale !== undefined ? { averageDurationScale: summary.averageDurationScale } : {}),
-                ...(summary.averageTimingJitterScale !== undefined ? { averageTimingJitterScale: summary.averageTimingJitterScale } : {}),
-                ...(summary.averageEndingStretchScale !== undefined ? { averageEndingStretchScale: summary.averageEndingStretchScale } : {}),
-                ...(summary.peakDurationScaleDelta !== undefined ? { peakDurationScaleDelta: summary.peakDurationScaleDelta } : {}),
-                ...(summary.motionDirection ? { motionDirection: summary.motionDirection } : {}),
-            },
-        };
-    });
-}
-
-function mergeSectionOrnamentSummaries(
-    sectionArtifacts: SectionArtifactSummary[] | undefined,
-    summaries: SectionOrnamentSummary[] | undefined,
-): SectionArtifactSummary[] | undefined {
-    if (!sectionArtifacts?.length || !summaries?.length) {
-        return sectionArtifacts;
-    }
-
-    const summaryBySectionId = new Map(summaries.map((summary) => [summary.sectionId, summary]));
-    return sectionArtifacts.map((artifact) => {
-        const summary = summaryBySectionId.get(artifact.sectionId);
-        if (!summary) {
-            return artifact;
-        }
-
-        return {
-            ...artifact,
-            ornamentSummary: {
-                requestedTags: [...summary.requestedTags],
-                explicitlyRealizedTags: [...summary.explicitlyRealizedTags],
-                ...(summary.unsupportedTags?.length ? { unsupportedTags: [...summary.unsupportedTags] } : {}),
-                targetedEventCount: summary.targetedEventCount,
-                realizedEventCount: summary.realizedEventCount,
-                realizedNoteCount: summary.realizedNoteCount,
-                ...(summary.averageDurationScale !== undefined ? { averageDurationScale: summary.averageDurationScale } : {}),
-                ...(summary.averageTimingJitterScale !== undefined ? { averageTimingJitterScale: summary.averageTimingJitterScale } : {}),
-                ...(summary.averageEndingStretchScale !== undefined ? { averageEndingStretchScale: summary.averageEndingStretchScale } : {}),
-                ...(summary.averageOnsetSpreadBeats !== undefined ? { averageOnsetSpreadBeats: summary.averageOnsetSpreadBeats } : {}),
-                ...(summary.peakOnsetSpreadBeats !== undefined ? { peakOnsetSpreadBeats: summary.peakOnsetSpreadBeats } : {}),
-                ...(summary.averageGraceLeadInBeats !== undefined ? { averageGraceLeadInBeats: summary.averageGraceLeadInBeats } : {}),
-                ...(summary.peakGraceLeadInBeats !== undefined ? { peakGraceLeadInBeats: summary.peakGraceLeadInBeats } : {}),
-                ...(summary.averageTrillOscillationCount !== undefined ? { averageTrillOscillationCount: summary.averageTrillOscillationCount } : {}),
-                ...(summary.peakTrillOscillationCount !== undefined ? { peakTrillOscillationCount: summary.peakTrillOscillationCount } : {}),
-                ...(summary.averageTrillSpanBeats !== undefined ? { averageTrillSpanBeats: summary.averageTrillSpanBeats } : {}),
-                ...(summary.peakTrillSpanBeats !== undefined ? { peakTrillSpanBeats: summary.peakTrillSpanBeats } : {}),
-                ...(summary.peakDurationScaleDelta !== undefined ? { peakDurationScaleDelta: summary.peakDurationScaleDelta } : {}),
-            },
-        };
-    });
 }
 
 function setRuntimeStage(manifest: JobManifest, stage: PipelineState, detail?: string): void {
@@ -518,34 +340,6 @@ function finalizeQualityControl(manifest: JobManifest, attempt: number | undefin
     };
 }
 
-function buildLearnedRerankerPromotionStopReason(
-    currentReason: string | undefined,
-    heuristicCandidate: SymbolicAttemptCandidate,
-    promotedCandidate: SymbolicAttemptCandidate,
-    lane: string,
-    snapshotId: string,
-    confidence: number,
-): string {
-    const fragments = currentReason ? [currentReason] : [];
-    fragments.push(
-        `learned reranker promoted attempt ${promotedCandidate.attempt} over heuristic attempt ${heuristicCandidate.attempt} in ${lane} lane (snapshot=${snapshotId}; confidence=${confidence.toFixed(3)})`,
-    );
-    return fragments.join("; ");
-}
-
-function chooseBetterSymbolicCandidate(
-    current: SymbolicAttemptCandidate | undefined,
-    next: SymbolicAttemptCandidate,
-): SymbolicAttemptCandidate {
-    if (!current) {
-        return next;
-    }
-
-    return compareStructureEvaluationsForCandidateSelection(next.structureEvaluation, current.structureEvaluation) > 0
-        ? next
-        : current;
-}
-
 /**
  * Selects the final winner from an attempt's candidate pool using the
  * preference model.
@@ -561,214 +355,6 @@ function chooseBetterSymbolicCandidate(
  *      craft hard filter and uses the listenerFeedback preference model.
  *   4. Fall back to the heuristic top candidate if preference selection fails.
  */
-function selectAttemptWinner(
-    attemptCandidates: SymbolicAttemptCandidate[],
-    songId: string,
-): SymbolicAttemptCandidate {
-    if (attemptCandidates.length === 0) {
-        throw new Error("selectAttemptWinner: empty candidate list");
-    }
-    if (attemptCandidates.length === 1) {
-        return attemptCandidates[0]!;
-    }
-
-    // Sort all candidates — gate-tier bonus is already embedded in the score,
-    // so higher-tier candidates naturally float above lower-tier ones within
-    // the same passed=true group.
-    const sorted = [...attemptCandidates]
-        .sort((a, b) => compareStructureEvaluationsForCandidateSelection(
-            b.structureEvaluation, a.structureEvaluation,
-        ));
-
-    // ── Gate-tier staircase shortlist ────────────────────────────────────────
-    // Gate 1 (validity): MIDI data must exist AND syntaxValidity >= 0.90
-    //   AND evaluation.passed === true.
-    // Gate 2 (contract): Gate 1 + sectionContractFit >= 0.75.
-    // Gate 3 (craft):    Gate 2 + cadenceStrength >= 0.55
-    //                             + registerIdiomaticFit >= 0.75
-    //                             + voiceIndependence >= 0.35.
-    //
-    // Prefer the highest non-empty tier as the shortlist base, cascading
-    // down to the full sorted list as an ultimate cold-start fallback so
-    // we always have a candidate to return.
-    // ──────────────────────────────────────────────────────────────────────────
-    const byTier = (minTier: 1 | 2 | 3) => sorted.filter((c) => {
-        if (c.midiData.length === 0) return false;  // Gate 1 prerequisite
-        const craft = c.structureEvaluation.craftScoreSummary;
-        return craft != null && candidateGateTier(c.structureEvaluation, craft) >= minTier;
-    });
-
-    const tier3 = byTier(3);
-    const tier2 = byTier(2);
-    const tier1 = byTier(1);
-
-    const shortlistBase = tier3.length > 0 ? tier3
-        : tier2.length > 0 ? tier2
-        : tier1.length > 0 ? tier1
-        : sorted;  // cold-start fallback: no gate passes yet
-
-    const reachedTier = tier3.length > 0 ? 3 : tier2.length > 0 ? 2 : tier1.length > 0 ? 1 : 0;
-
-    if (reachedTier === 0) {
-        logger.warn("selectAttemptWinner: no candidate passed any gate — using full sorted list", {
-            songId,
-            totalCandidates: attemptCandidates.length,
-        });
-    } else {
-        logger.debug("selectAttemptWinner: gate-tier shortlist", {
-            songId,
-            reachedTier,
-            tier3Count: tier3.length,
-            tier2Count: tier2.length,
-            tier1Count: tier1.length,
-            totalCandidates: attemptCandidates.length,
-        });
-    }
-
-    const shortlist = shortlistBase.slice(0, PREFERENCE_SHORTLIST_SIZE);
-
-    // Build PreferenceCandidate list — craft hard filter and preference scoring require craftScoreSummary
-    const preferenceCandidates = shortlist
-        .filter((c) => c.structureEvaluation.craftScoreSummary != null)
-        .map((c) => {
-            const evidence = c.composeResult.proposalEvidence;
-            const plan = c.compositionPlan;
-            return {
-                candidateId: c.candidateId,
-                craftSummary: c.structureEvaluation.craftScoreSummary!,
-                normalizationWarningsCount: Array.isArray(evidence?.normalizationWarnings)
-                    ? evidence.normalizationWarnings.length
-                    : 0,
-                sectionCount: Array.isArray(plan?.sections)
-                    ? plan.sections.length
-                    : undefined,
-                provider: evidence?.provider ?? c.executionPlan.selectedModels.find(
-                    (m) => m.role === "structure",
-                )?.provider,
-                generationMode: evidence?.generationMode,
-            };
-        });
-
-    if (preferenceCandidates.length === 0) {
-        // No craftScoreSummary available — fall back to heuristic top
-        return shortlist[0]!;
-    }
-
-    try {
-        const result = selectPreferredCandidate(preferenceCandidates, songId);
-        logger.debug("Preference model selected final attempt winner", {
-            songId,
-            selectedCandidateId: result.selectedCandidateId,
-            feedbackSamples: result.feedbackSamples,
-            globalFeedbackSamples: result.globalFeedbackSamples,
-            weightSource: result.weightSource,
-            filteredOutCount: result.filteredOutIds.length,
-        });
-        if (result.filteredOutIds.length > 0) {
-            logger.warn("Preference model: candidates rejected by craft hard filter", {
-                songId,
-                filteredOutIds: result.filteredOutIds,
-            });
-        }
-        const winner = shortlist.find((c) => c.candidateId === result.selectedCandidateId);
-        return winner ?? shortlist[0]!;
-    } catch (err) {
-        logger.warn("Preference model selection failed — falling back to heuristic top", {
-            songId,
-            error: String(err),
-        });
-        return shortlist[0]!;
-    }
-}
-
-function buildLocalizedRewriteBranchVariantKey(
-    candidate: SymbolicAttemptCandidate,
-    branchIndex: number,
-): string {
-    if (candidate.request.candidateVariantKey) {
-        return `${candidate.request.candidateVariantKey}-rewrite`;
-    }
-
-    return `${candidate.executionPlan.composeWorker}-rewrite-${branchIndex}`;
-}
-
-function collectSameAttemptLocalizedRewriteParents(
-    request: ComposeRequest,
-    attemptCandidates: SymbolicAttemptCandidate[],
-    targetStructureScore?: number,
-): LocalizedRewriteBranchParent[] {
-    const branchBudget = request.localizedRewriteBranches ?? 0;
-    if (branchBudget <= 0 || (request.revisionDirectives?.length ?? 0) > 0) {
-        return [];
-    }
-
-    // Allow when using Phase D explicit candidate counts OR when legacy candidateCount >= 3
-    const hasExplicitLearnedCount = (request.learnedCandidateCount ?? 0) >= 1;
-    const hasLegacyCandidateCount = (request.candidateCount ?? 0) >= 3;
-    if (!hasExplicitLearnedCount && !hasLegacyCandidateCount) {
-        return [];
-    }
-
-    return [...attemptCandidates]
-        .map((candidate) => {
-            const sectionedDirectives = buildStructureRevisionDirectives(
-                candidate.structureEvaluation,
-                targetStructureScore,
-                candidate.request,
-            ).filter((directive) => (directive.sectionIds?.length ?? 0) > 0);
-            return { candidate, revisionDirectives: sectionedDirectives };
-        })
-        .filter((entry) => entry.revisionDirectives.length > 0)
-        .sort((left, right) => compareStructureEvaluationsForCandidateSelection(
-            right.candidate.structureEvaluation,
-            left.candidate.structureEvaluation,
-        ))
-        .slice(0, branchBudget);
-}
-
-function buildLocalizedRewriteBranchStopReason(
-    currentReason: string | undefined,
-    selectedCandidate: SymbolicAttemptCandidate,
-    attemptCandidates: SymbolicAttemptCandidate[],
-): string | undefined {
-    if ((selectedCandidate.request.revisionDirectives?.length ?? 0) === 0) {
-        return currentReason;
-    }
-
-    const wholePieceCandidateCount = attemptCandidates.filter((candidate) => (candidate.request.revisionDirectives?.length ?? 0) === 0).length;
-    if (wholePieceCandidateCount === 0 || wholePieceCandidateCount === attemptCandidates.length) {
-        return currentReason;
-    }
-
-    const fragments = currentReason ? [currentReason] : [];
-    fragments.push(`selected same-attempt localized rewrite branch after reviewing ${wholePieceCandidateCount} whole-piece candidates`);
-    return fragments.join("; ");
-}
-
-function buildHybridAttemptStopReason(
-    currentReason: string | undefined,
-    selectedCandidate: SymbolicAttemptCandidate,
-    attemptCandidates: SymbolicAttemptCandidate[],
-): string {
-    return buildHybridSymbolicSelectionReason(
-        currentReason,
-        {
-            candidateId: selectedCandidate.candidateId,
-            attempt: selectedCandidate.attempt,
-            composeWorker: selectedCandidate.executionPlan.composeWorker,
-            structureScore: selectedCandidate.structureEvaluation.score,
-            lane: selectedCandidate.composeResult.proposalEvidence?.lane,
-        },
-        attemptCandidates.map((candidate) => ({
-            candidateId: candidate.candidateId,
-            attempt: candidate.attempt,
-            composeWorker: candidate.executionPlan.composeWorker,
-            structureScore: candidate.structureEvaluation.score,
-            lane: candidate.composeResult.proposalEvidence?.lane,
-        })),
-    );
-}
-
 function expectedAudioDurationSec(request: ComposeRequest, compositionPlan?: CompositionPlan): number | undefined {
     return resolveRequestedAudioDurationSec({
         ...request,
