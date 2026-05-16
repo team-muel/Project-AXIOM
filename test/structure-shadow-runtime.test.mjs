@@ -122,7 +122,11 @@ function seedReadyPromotionGate(outputDir) {
                     evaluatedAt: updatedAt,
                     manifestPath: learnedManifestPath,
                     proposalEvidence,
-                    ...(disagreement ? { shadowReranker: { disagreesWithHeuristic: true } } : {}),
+                    shadowReranker: {
+                        disagreesWithHeuristic: disagreement,
+                        learnedRank: 1,
+                        heuristicRank: disagreement ? 2 : 1,
+                    },
                 },
             ],
         });
@@ -507,8 +511,10 @@ test("structure reranker promotion holds until the narrow-lane gate is ready and
             import {
                 buildStructureCandidateId,
                 saveStructureCandidateSnapshot,
+                markSelectedStructureCandidate,
             } from "./dist/memory/candidates.js";
             import { resolveStructureRerankerPromotion } from "./dist/pipeline/structureRerankerPromotion.js";
+            import { runStructureRerankerShadowScoring } from "./dist/pipeline/structureShadowReranker.js";
             import { config } from "./dist/config.js";
 
             ${readyPromotionGateSeedScript}
@@ -633,6 +639,9 @@ test("structure reranker promotion holds until the narrow-lane gate is ready and
                 evaluatedAt: "2026-04-17T08:11:00.000Z",
             });
 
+            markSelectedStructureCandidate("song-promotion", heuristicCandidate, 2, "heuristic selected by structure score");
+            runStructureRerankerShadowScoring("song-promotion");
+
             const blockedDecision = resolveStructureRerankerPromotion({
                 songId: "song-promotion",
                 currentCandidateId: heuristicCandidate,
@@ -750,8 +759,10 @@ test("structure reranker promotion can promote the learned trio candidate from p
             import {
                 buildStructureCandidateId,
                 saveStructureCandidateSnapshot,
+                markSelectedStructureCandidate,
             } from "./dist/memory/candidates.js";
             import { resolveStructureRerankerPromotion } from "./dist/pipeline/structureRerankerPromotion.js";
+            import { runStructureRerankerShadowScoring } from "./dist/pipeline/structureShadowReranker.js";
             import { config } from "./dist/config.js";
 
             ${readyPromotionGateSeedScript}
@@ -879,6 +890,9 @@ test("structure reranker promotion can promote the learned trio candidate from p
                 sectionArtifacts: [],
                 evaluatedAt: "2026-04-17T08:15:00.000Z",
             });
+
+            markSelectedStructureCandidate("song-promotion-proposal", heuristicCandidate, 2, "heuristic selected by structure score");
+            runStructureRerankerShadowScoring("song-promotion-proposal");
 
             const decision = resolveStructureRerankerPromotion({
                 songId: "song-promotion-proposal",

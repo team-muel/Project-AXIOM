@@ -133,6 +133,7 @@ test("non-approved song is excluded from SFT export", () => {
             decision: "approved",
             proposalEvidence: {
                 worker: "learned_symbolic",
+                generationMode: "notagen_abc_inference_hf_causal_lm",
                 abcText: SAMPLE_ABC,
                 providerRequest: SAMPLE_PROVIDER_REQUEST,
             },

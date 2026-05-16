@@ -250,7 +250,7 @@ function main() {
         ok: true, snapshotId, totalPairs: deduped.length, rawRows: rows.length,
         noAbcText: counts.noAbcText, belowMinScore: counts.belowMinScore,
         mockExcluded: counts.mockExcluded, sftPath,
-    }, null, 2));
+    }));
 }
 
 main();

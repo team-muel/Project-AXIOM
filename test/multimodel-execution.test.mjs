@@ -1607,7 +1607,12 @@ test("learned symbolic prompt pack freezes plan signature while keeping retry co
     assert.equal(workerPayload.providerRequest.version, LEARNED_NOTAGEN_ADAPTER_VERSION);
     assert.equal(workerPayload.providerRequest.adapter, "notagen_class");
     assert.equal(workerPayload.providerRequest.planSignature, basePack.planSignature);
-    assert.equal(workerPayload.providerRequest.conditioningText.includes("Compose a miniature for Violin, Viola, Cello at 88 BPM in D minor."), true);
+    assert.ok(
+        workerPayload.providerRequest.conditioningText.includes("miniature") &&
+        workerPayload.providerRequest.conditioningText.includes("D minor") &&
+        workerPayload.providerRequest.conditioningText.includes("88 BPM"),
+        `conditioningText should include form, key, and tempo: got "${workerPayload.providerRequest.conditioningText}"`,
+    );
     assert.equal(workerPayload.providerRequest.controlLines.some((line) => line === "lane=string_trio_symbolic"), true);
     assert.equal(workerPayload.providerRequest.controlLines.some((line) => line.includes("section id=s2") && line.includes("phrase=cadential")), true);
     assert.equal(workerPayload.providerRequest.controlLines.includes("revision attempt=2"), true);

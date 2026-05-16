@@ -183,8 +183,8 @@ async function main() {
     process.env.OUTPUT_DIR = outputDir;
 
     const { setLogStream } = await import("../src/logging/logger.ts");
-    const { approveAutonomySong, rejectAutonomySong, isAutonomyConflictError } = await import("../src/autonomy/service.ts");
-    const { loadManifest, saveManifest } = await import("../src/memory/manifest.ts");
+    const { approveAutonomySong, rejectAutonomySong, isAutonomyConflictError } = await import("../src/ops/autonomy/service.ts");
+    const { loadManifest, saveManifest } = await import("../src/runtime/manifest/manifest.ts");
     setLogStream("stderr");
 
     const decisions = rawEntries

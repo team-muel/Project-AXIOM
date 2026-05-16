@@ -5,7 +5,7 @@ import {
     validateSonataCyclePlan,
     extractMovementPlanFromCompositionPlan,
     buildSonataCyclePlan,
-} from "../dist/pipeline/sonataCyclePlanner.js";
+} from "../dist/core/plan/sonataCyclePlanner.js";
 
 function makeMinimalPlan(overrides = {}) {
     return {
