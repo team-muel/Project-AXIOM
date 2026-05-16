@@ -1,4 +1,7 @@
 import type {
+    GlobalMotifGraph,
+    GlobalMotifTransformNode,
+    MotifDramaticFunction,
     MotifDevelopmentEntry,
     MotifDevelopmentPlan,
     MotifDraft,
@@ -140,12 +143,17 @@ function chooseTransformForRole(role: SectionRole): ThematicTransformKind {
  * Builds a MotifDevelopmentPlan for every section in the plan and returns a
  * Map<sectionId, MotifDevelopmentPlan> for merging into SectionPlan.motifDevelopment.
  *
+ * When a GlobalMotifGraph is supplied, its transform nodes take precedence over
+ * the role heuristic — including fragment slice selection and harmonic context.
+ * Falls back to the role heuristic when no node is present in the graph.
+ *
  * Sections that have a matching motifRef are linked to the source motif draft.
  * Recap sections also get a recapIdentityScore vs the theme_a draft.
  */
 export function buildMotifDevelopmentPlan(
     sections: SectionPlan[],
     motifDrafts: MotifDraft[],
+    globalMotifGraph?: GlobalMotifGraph,
 ): Map<string, MotifDevelopmentPlan> {
     const result = new Map<string, MotifDevelopmentPlan>();
 
@@ -160,7 +168,9 @@ export function buildMotifDevelopmentPlan(
     for (const section of sections) {
         if (!DEVELOPMENT_ROLES.includes(section.role)) continue;
 
-        const transform = chooseTransformForRole(section.role);
+        // GlobalMotifGraph node takes precedence over role heuristic
+        const globalNode = globalMotifGraph?.transformPath.find((n) => n.sectionId === section.id);
+        const transform: ThematicTransformKind = globalNode?.transform ?? chooseTransformForRole(section.role);
 
         // Find the source motif draft
         const sourceDraft =
@@ -176,19 +186,18 @@ export function buildMotifDevelopmentPlan(
             transform,
         };
 
-        // Compute transformed intervals
+        // Compute transformed intervals (fragment spec from global graph when available)
         if (transform === "sequence") {
             const copies = applySequence(sourceDraft.intervals, 2, 2);
             entry.transformedIntervals = copies[1] ?? [];
         } else if (transform === "fragment") {
-            entry.transformedIntervals = applyFragmentation(
-                sourceDraft.intervals,
-                0,
-                Math.max(1, Math.floor(sourceDraft.intervals.length / 2)),
-            );
+            const spec = globalNode?.fragmentSpec;
+            const start = spec?.start ?? 0;
+            const length = spec?.length ?? Math.max(1, Math.floor(sourceDraft.intervals.length / 2));
+            entry.transformedIntervals = applyFragmentation(sourceDraft.intervals, start, length);
         } else if (transform === "inversion") {
             entry.transformedIntervals = applyInversion(sourceDraft.intervals);
-        } else if (transform === "repeat" || transform === "augmentation") {
+        } else if (transform === "repeat" || transform === "augmentation" || transform === "diminution") {
             entry.transformedIntervals = [...sourceDraft.intervals];
         }
 
@@ -202,10 +211,16 @@ export function buildMotifDevelopmentPlan(
             entry.recapIdentityScore = recapIdentityScore;
         }
 
+        const noteLines: string[] = [
+            `transform: ${transform} applied to motif "${sourceDraft.id}"`,
+        ];
+        if (globalNode?.dramaticFunction) noteLines.push(`dramaticFunction: ${globalNode.dramaticFunction}`);
+        if (globalNode?.harmonicContext) noteLines.push(`harmonicContext: ${globalNode.harmonicContext}`);
+
         const plan: MotifDevelopmentPlan = {
             entries: [entry],
             ...(recapIdentityScore !== undefined ? { recapIdentityScore } : {}),
-            notes: [`transform: ${transform} applied to motif "${sourceDraft.id}"`],
+            notes: noteLines,
         };
 
         result.set(section.id, plan);
@@ -327,5 +342,193 @@ export function buildMotifGraph(
         occurrences,
         usedTransforms,
         diversityScore,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// 6. Global Motif Graph builder (plan-time dramatic blueprint)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves the dramatic function of a section within the composition's
+ * narrative arc, using the section's role and its position / energy level
+ * relative to all development sections.
+ */
+function resolveDramaticFunction(
+    section: SectionPlan,
+    allSections: SectionPlan[],
+    maxDevEnergy: number,
+): MotifDramaticFunction {
+    switch (section.role) {
+        case "intro":
+        case "theme_a":
+        case "theme_b":
+            return "exposition";
+        case "bridge":
+            return "fragmentation";
+        case "variation":
+            return "dissolution";
+        case "recap":
+            return "resolution";
+        case "outro":
+        case "cadence":
+            return "coda";
+        case "development": {
+            const devSections = allSections.filter((s) => s.role === "development");
+            if (devSections.length <= 1) return "intensification";
+            const idx = devSections.findIndex((s) => s.id === section.id);
+            // Climax: highest energy, in the second half of development
+            if (
+                section.energy >= maxDevEnergy &&
+                idx >= Math.floor(devSections.length / 2)
+            ) {
+                return "climax";
+            }
+            // Find climax index to determine if we are before or after it
+            const climaxIdx = devSections.reduce(
+                (best, s, i) => (s.energy > (devSections[best]?.energy ?? 0) ? i : best),
+                0,
+            );
+            if (idx === 0) return "destabilization";
+            if (idx > climaxIdx) return "dissolution";
+            return "intensification";
+        }
+        default:
+            return "exposition";
+    }
+}
+
+/** Maps a dramatic function to a transform node for the given section. */
+function buildTransformNode(
+    section: SectionPlan,
+    df: MotifDramaticFunction,
+    sourceIntervals: number[],
+): GlobalMotifTransformNode {
+    const halfLen = Math.max(1, Math.floor(sourceIntervals.length / 2));
+
+    switch (df) {
+        case "exposition":
+            return {
+                sectionId: section.id,
+                transform: "repeat",
+                dramaticFunction: df,
+                required: section.role === "theme_a",
+                harmonicContext: "home key",
+            };
+        case "destabilization":
+            return {
+                sectionId: section.id,
+                transform: "fragment",
+                dramaticFunction: df,
+                fragmentSpec: { start: 0, length: halfLen },
+                required: false,
+                harmonicContext: "dominant pedal",
+            };
+        case "fragmentation":
+            return {
+                sectionId: section.id,
+                transform: "fragment",
+                dramaticFunction: df,
+                fragmentSpec: { start: halfLen, length: sourceIntervals.length - halfLen || halfLen },
+                required: false,
+                harmonicContext: "dominant pedal",
+            };
+        case "intensification":
+            return {
+                sectionId: section.id,
+                transform: "sequence",
+                dramaticFunction: df,
+                required: false,
+                harmonicContext: "dominant pedal",
+            };
+        case "climax":
+            return {
+                sectionId: section.id,
+                transform: "diminution",
+                dramaticFunction: df,
+                required: false,
+                harmonicContext: "chromatic median",
+            };
+        case "dissolution":
+            return {
+                sectionId: section.id,
+                transform: "augmentation",
+                dramaticFunction: df,
+                required: false,
+                harmonicContext: "subdominant reharmonize",
+            };
+        case "resolution":
+            return {
+                sectionId: section.id,
+                transform: "repeat",
+                dramaticFunction: df,
+                required: true,
+                harmonicContext: "home key return",
+            };
+        case "coda":
+            return {
+                sectionId: section.id,
+                transform: "augmentation",
+                dramaticFunction: df,
+                required: section.role === "outro",
+                harmonicContext: "tonic prolongation",
+            };
+    }
+}
+
+/**
+ * Builds a plan-time GlobalMotifGraph from the composition's section list
+ * and motif drafts.  Must be called before section generation so that
+ * `buildMotifDevelopmentPlan` can read from the graph instead of relying
+ * on the simple role heuristic.
+ *
+ * The graph encodes:
+ *   - The dramatic function of every section (based on energy curve + role)
+ *   - The planned transform technique (richer than role heuristic)
+ *   - Fragment slice specs for "fragment" transforms
+ *   - Harmonic context hints for the generator
+ *   - Which sections must carry a recognizable form of the motif
+ *
+ * Returns `undefined` when no source motif draft can be found.
+ */
+export function buildGlobalMotifGraph(
+    sections: SectionPlan[],
+    motifDrafts: MotifDraft[],
+): GlobalMotifGraph | undefined {
+    const themeASection = sections.find((s) => s.role === "theme_a");
+    const themeADraft =
+        (themeASection
+            ? motifDrafts.find((d) => d.sectionId === themeASection.id || d.id === "theme_a")
+            : undefined)
+        ?? motifDrafts.find((d) => d.id === "theme_a")
+        ?? motifDrafts[0];
+
+    if (!themeADraft) return undefined;
+
+    const sourceId = themeASection?.id ?? themeADraft.sectionId ?? "theme_a";
+
+    const devSections = sections.filter((s) => s.role === "development");
+    const maxDevEnergy = devSections.reduce((max, s) => Math.max(max, s.energy), 0);
+
+    const requiredReturns: string[] = sections
+        .filter((s) => s.role === "recap" || s.role === "outro")
+        .map((s) => s.id);
+
+    const transformPath: GlobalMotifTransformNode[] = [];
+    const dramaticArc: MotifDramaticFunction[] = [];
+
+    for (const section of sections) {
+        const df = resolveDramaticFunction(section, sections, maxDevEnergy);
+        const node = buildTransformNode(section, df, themeADraft.intervals);
+        transformPath.push(node);
+        dramaticArc.push(df);
+    }
+
+    return {
+        motifId: themeADraft.id,
+        sourceSectionId: sourceId,
+        requiredReturns,
+        transformPath,
+        dramaticArc,
     };
 }

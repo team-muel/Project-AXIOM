@@ -4,7 +4,7 @@ import type { SectionHarmonicRealizationSummary } from "./harmony.js";
 import type { InstrumentAssignment, OrchestrationPlan } from "./orchestration.js";
 import type { ClassicalKnowledgePlan } from "./classical.js";
 import type { SectionArtifactSummary, SectionEvaluationFinding, SectionPlan, SectionTonalitySummary, SectionTransformSummary } from "./section.js";
-import type { CompositionSketch, MotifTransformPolicy } from "./motif.js";
+import type { CompositionSketch, GlobalMotifGraph, MotifTransformPolicy } from "./motif.js";
 import type { LongSpanFormPlan } from "./longspan.js";
 import type { LocalizedPianoRewriteSpec, PianoPlan } from "./piano.js";
 import type { AudioEvaluationReport, ComposeEvaluationPolicy, ComposeQualityPolicy, RevisionDirective, StructureEvaluationReport } from "./evaluation.js";
@@ -127,6 +127,12 @@ export interface CompositionPlan {
     ornamentDefaults?: OrnamentPlan[];
     motifPolicy: MotifTransformPolicy;
     sketch?: CompositionSketch;
+    /**
+     * Plan-time global motif graph: built during sketch materialization.
+     * Defines the full dramatic arc of motif development across sections.
+     * Generators should follow this graph rather than independent role heuristics.
+     */
+    globalMotifGraph?: GlobalMotifGraph;
     longSpanForm?: LongSpanFormPlan;
     orchestration?: OrchestrationPlan;
     classicalKnowledge?: ClassicalKnowledgePlan;

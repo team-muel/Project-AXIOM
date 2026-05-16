@@ -806,3 +806,62 @@ test("computeMotifDevelopmentScoreSummary: diversityScore from graph occurrences
     // 2 unique non-original transforms → diversityScore = 0.5
     assert.ok(Math.abs(result.diversityScore - 0.5) < 0.01, `expected 0.5, got ${result.diversityScore}`);
 });
+
+// ─── buildGlobalMotifGraph ────────────────────────────────────────────────────
+
+import { buildGlobalMotifGraph } from "../dist/core/plan/motifDevelopment.js";
+
+function makeGSec(role, id, energy = 0.5) {
+    return { id: id ?? role, role, label: role, measures: 8, energy, density: 0.4 };
+}
+
+test("buildGlobalMotifGraph: recap and outro sections appear in requiredReturns", () => {
+    const sections = [
+        makeGSec("theme_a"),
+        makeGSec("development", "dev1", 0.7),
+        makeGSec("recap"),
+        makeGSec("outro"),
+    ];
+    const drafts = [{ id: "theme_a", sectionId: "theme_a", intervals: [2, 2, 1], source: "planner" }];
+    const graph = buildGlobalMotifGraph(sections, drafts);
+    assert.ok(graph !== undefined, "should return a graph");
+    assert.ok(graph.requiredReturns.includes("recap"), "recap must be in requiredReturns");
+    assert.ok(graph.requiredReturns.includes("outro"), "outro must be in requiredReturns");
+});
+
+test("buildGlobalMotifGraph: highest-energy development section gets climax + diminution", () => {
+    const sections = [
+        makeGSec("theme_a", "theme_a", 0.5),
+        makeGSec("development", "dev1", 0.4),  // destabilization
+        makeGSec("development", "dev2", 0.9),  // climax (highest energy, second half)
+        makeGSec("recap", "recap", 0.4),
+    ];
+    const drafts = [{ id: "theme_a", sectionId: "theme_a", intervals: [2, 2, 1, 3], source: "planner" }];
+    const graph = buildGlobalMotifGraph(sections, drafts);
+    assert.ok(graph !== undefined);
+    const climaxNode = graph.transformPath.find((n) => n.sectionId === "dev2");
+    assert.ok(climaxNode !== undefined, "climax node should exist for dev2");
+    assert.strictEqual(climaxNode.dramaticFunction, "climax", `expected climax, got ${climaxNode.dramaticFunction}`);
+    assert.strictEqual(climaxNode.transform, "diminution", `expected diminution, got ${climaxNode.transform}`);
+});
+
+test("buildGlobalMotifGraph overrides heuristic in buildMotifDevelopmentPlan", () => {
+    // Without graph: development → sequence (role heuristic)
+    // With graph: dev1 is "destabilization" → fragment
+    const sections = [
+        makeGSec("theme_a", "theme_a", 0.5),
+        makeGSec("development", "dev1", 0.4),
+        makeGSec("development", "dev2", 0.9),
+    ];
+    const drafts = [{ id: "theme_a", sectionId: "theme_a", intervals: [2, 2, 1, 3], source: "planner" }];
+    const graph = buildGlobalMotifGraph(sections, drafts);
+
+    // Without graph: both development sections get "sequence"
+    const planWithout = buildMotifDevelopmentPlan(sections, drafts);
+    assert.strictEqual(planWithout.get("dev1")?.entries[0].transform, "sequence", "heuristic: dev1 should be sequence");
+
+    // With graph: dev1 gets the graph-assigned "fragment" (destabilization)
+    const planWith = buildMotifDevelopmentPlan(sections, drafts, graph);
+    const dev1Transform = planWith.get("dev1")?.entries[0].transform;
+    assert.strictEqual(dev1Transform, "fragment", `graph should override dev1 to fragment, got ${dev1Transform}`);
+});

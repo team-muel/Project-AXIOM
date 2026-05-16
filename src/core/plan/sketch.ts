@@ -20,7 +20,7 @@ import type {
 } from "../pipeline/types.js";
 import { applyPhraseGrammarToSections } from "./phraseGrammar.js";
 import { applyHarmonyGrammarToSections } from "./harmonyGrammar.js";
-import { buildMotifDevelopmentPlan } from "./motifDevelopment.js";
+import { buildGlobalMotifGraph, buildMotifDevelopmentPlan } from "./motifDevelopment.js";
 
 const MOTIF_ROLES = new Set(["intro", "theme_a", "theme_b", "bridge", "development", "variation", "recap"]);
 const CADENCE_ROLES = new Set(["cadence", "outro", "recap"]);
@@ -734,8 +734,11 @@ export function materializeCompositionSketch(request: ComposeRequest): ComposeRe
     const phraseGrammarMap = applyPhraseGrammarToSections(plan.sections);
     // Annotate each section with its harmony grammar plan.
     const harmonyGrammarMap = applyHarmonyGrammarToSections(plan.sections);
-    // Build motif development plans for sections that require development.
-    const motifDevelopmentMap = buildMotifDevelopmentPlan(plan.sections, sketch.motifDrafts);
+    // Build the plan-time global motif graph first so buildMotifDevelopmentPlan
+    // can use dramatic-function-aware transforms instead of role heuristics.
+    const globalMotifGraph = buildGlobalMotifGraph(plan.sections, sketch.motifDrafts);
+    // Build motif development plans, preferring the global graph when available.
+    const motifDevelopmentMap = buildMotifDevelopmentPlan(plan.sections, sketch.motifDrafts, globalMotifGraph);
 
     const sections: SectionPlan[] = plan.sections.map((section) => {
         const grammar = phraseGrammarMap.get(section.id);
@@ -755,6 +758,7 @@ export function materializeCompositionSketch(request: ComposeRequest): ComposeRe
             ...plan,
             sections,
             sketch,
+            ...(globalMotifGraph ? { globalMotifGraph } : {}),
         },
     };
 }
