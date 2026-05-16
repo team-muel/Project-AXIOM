@@ -235,6 +235,10 @@ def compute_piano_voice_layout_summary(
     layout["avgChordVoiceCount"] = round(avg_voice_count, 4)
     layout["playableSpanFit"] = round(playable_span_fit, 4)
 
+    # Composite playability score: penalise hand crossing/collision events.
+    collision_penalty = 0.15 if (crossing_count > 0 or collision_count > 0) else 0.0
+    layout["pianoPlayabilityScore"] = max(0.0, round(playable_span_fit - collision_penalty, 4))
+
     return layout, list(dict.fromkeys(warnings))   # deduplicated
 
 

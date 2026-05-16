@@ -48,6 +48,7 @@ import "./sonata-cycle-planner.test.mjs";
 import "./cycle-evaluation.test.mjs";
 import "./learned-backend-routing.test.mjs";
 import "./python-compose-piano-lane.test.mjs";
+import "./python-compose-piano-e2e.test.mjs";
 import "./piano-strict-gates.test.mjs";
 import "./piano-benchmark.test.mjs";
 

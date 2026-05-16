@@ -21,13 +21,59 @@ from ..abc_conditioning import build_abc_header
 from ..prompt_packing import ProviderPromptPackingContext
 
 
+def _is_piano_lane(control_lines: list[str]) -> bool:
+    """Return True when the controlLines specify solo_piano_symbolic lane."""
+    for line in control_lines:
+        stripped = line.strip().lower()
+        if stripped.startswith("lane=") and "piano" in stripped:
+            return True
+    return False
+
+
+def _build_piano_mock_abc(
+    key_val: str, tempo_val: str, section_count: int, candidate_seed: int
+) -> str:
+    """Return a single-voice piano mock ABC in 4/4 with mixed RH/LH pitch ranges.
+
+    Uses M:4/4, L:1/4 so every bar contains exactly four quarter notes and
+    passes bar-duration validation.  Alternates notes above and below middle
+    C (MIDI 60) so the piano projection stage produces non-empty RH and LH
+    event lists.
+    """
+    abc_notes = ["C", "D", "E", "G", "A"]
+    root_idx = candidate_seed % len(abc_notes)
+    # Uppercase = C4 range (≥ MIDI 60) → right hand after projection
+    rh_note = abc_notes[root_idx]
+    # Note with comma = one octave lower (C3 range, MIDI 36-57) → left hand
+    lh_note = abc_notes[(root_idx + 2) % len(abc_notes)] + ","
+
+    # 4 quarter notes per bar (M:4/4, L:1/4): 2 RH + 2 LH
+    one_bar = f"{rh_note}1 {rh_note}1 {lh_note}1 {lh_note}1"
+    four_bars = " | ".join([one_bar] * 4) + " |"
+
+    body_sections = "\n".join([
+        f"%% axiom_section id=s{i + 1}\n[V:V1]{four_bars}"
+        for i in range(section_count)
+    ])
+
+    return (
+        f"X:1\nT:AXIOM Piano Mock Candidate {candidate_seed}\n"
+        f"M:4/4\nL:1/4\nQ:{tempo_val}\nK:{key_val}\n"
+        f"V:V1 name=Piano\n"
+        f"{body_sections}\n"
+    )
+
+
 def build_mock_abc(context: ProviderPromptPackingContext, candidate_seed: int) -> str:
     """Return a deterministic minimal ABC score for testing.
 
-    The content is just enough to pass Phase C validation: valid headers with
-    three voices and a minimal melody per section.  The actual pitches are
-    derived from *candidate_seed* so different candidates produce different
-    output.
+    For the solo_piano_symbolic lane a single-voice piano ABC is produced
+    (M:4/4, L:1/4) so that bar-duration validation passes and the piano
+    projection stage can split events into right/left hand bins.
+
+    For all other lanes the content is three-voice (Violin/Viola/Cello), just
+    enough to pass Phase C validation.  The actual pitches are derived from
+    *candidate_seed* so different candidates produce different output.
 
     Parameters
     ----------
@@ -59,6 +105,11 @@ def build_mock_abc(context: ProviderPromptPackingContext, candidate_seed: int) -
         1 for line in abc_header.splitlines() if line.startswith("%% axiom_section")
     ))
 
+    # Piano lane: single-voice, M:4/4
+    if _is_piano_lane(control_lines):
+        return _build_piano_mock_abc(key_val, tempo_val, section_count, candidate_seed)
+
+    # String trio / default: three voices
     pitch_pool = ["C", "D", "E", "F", "G", "A", "B"]
     root_idx = candidate_seed % len(pitch_pool)
     lead_pitch = pitch_pool[root_idx]

@@ -131,5 +131,9 @@ class PianoVoiceLayoutDict(TypedDict, total=False):
     handCollisionCount: int
     avgChordVoiceCount: float
     pedalEventCount: int
+    # Fraction of chord events whose simultaneous span fits within one hand.
     playableSpanFit: float
+    # Composite playability score [0, 1]: playableSpanFit minus collision penalty.
+    # Mirrors pianoPlayabilityScore used by the TypeScript evaluation gate.
+    pianoPlayabilityScore: float
     notes: list[str]
