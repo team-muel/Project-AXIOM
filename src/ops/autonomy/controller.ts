@@ -1,6 +1,6 @@
 import { config } from "../../config.js";
 import { logger } from "../../logging/logger.js";
-import { listStoredManifests } from "../../core/memory/manifest.js";
+import { listStoredManifests } from "../../runtime/manifest/manifest.js";
 import { checkOllamaReachable } from "../overseer/index.js";
 import {
     outputArtifactLink,
@@ -33,7 +33,7 @@ import type {
     AutonomyRecoverySummary,
     RecoverableAutonomyJob,
 } from "./types.js";
-import { enqueue, findActiveJobByPromptHash, listJobs, restoreQueueState, type QueueRecoverySummary } from "../../queue/jobQueue.js";
+import { enqueue, findActiveJobByPromptHash, listJobs, restoreQueueState, type QueueRecoverySummary } from "../../runtime/queue/jobQueue.js";
 
 export class AutonomyUnavailableError extends Error {
     readonly statusCode = 503;

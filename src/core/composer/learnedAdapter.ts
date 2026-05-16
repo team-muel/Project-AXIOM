@@ -21,8 +21,8 @@ import {
     SOLO_PIANO_SYMBOLIC_LANE,
     STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION,
     STRING_TRIO_SYMBOLIC_LANE,
-} from "../pipeline/learnedSymbolicContract.js";
-import { materializeCompositionSketch } from "../pipeline/sketch.js";
+} from "../generate/learnedSymbolicContract.js";
+import { materializeCompositionSketch } from "../plan/sketch.js";
 import {
     buildLearnedNotagenProviderRequest,
     type LearnedNotagenProviderRequest,

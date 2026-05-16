@@ -15,9 +15,9 @@ import {
     rejectAutonomySong,
     resumeAutonomy,
 } from "../autonomy/service.js";
-import { normalizeComposeRequestInput } from "../../core/pipeline/requestNormalization.js";
-import { enqueue, getJob, listJobs } from "../../queue/jobQueue.js";
-import { serializeQueuedJob } from "../../queue/presentation.js";
+import { normalizeComposeRequestInput } from "../../core/plan/requestNormalization.js";
+import { enqueue, getJob, listJobs } from "../../runtime/queue/jobQueue.js";
+import { serializeQueuedJob } from "../../runtime/queue/presentation.js";
 import { checkOllamaReachable, runOverseer } from "../overseer/index.js";
 import { getOverseerSchedulerStatus } from "../overseer/scheduler.js";
 import {
@@ -28,8 +28,8 @@ import {
     loadOverseerHistory,
     summarizeOverseerHistory,
 } from "../overseer/storage.ts";
-import { loadManifest, listStoredManifests } from "../../core/memory/manifest.js";
-import { buildManifestOperationalSummary, summarizeManifestTracking } from "../../core/memory/manifestAnalytics.js";
+import { loadManifest, listStoredManifests } from "../../runtime/manifest/manifest.js";
+import { buildManifestOperationalSummary, summarizeManifestTracking } from "../../runtime/manifest/manifestAnalytics.js";
 import { buildOperatorSummary } from "../operator/summary.js";
 import type { McpToolCallRequest, McpToolCallResult, McpToolInputSchema, McpToolSpec } from "./types.js";
 

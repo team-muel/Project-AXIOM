@@ -7,7 +7,7 @@ import type {
     AudioRetryWindowSummary,
     ManifestTrackingSummary,
     ManifestOperationalSummary,
-} from "../../core/memory/manifestAnalytics.js";
+} from "../../runtime/manifest/manifestAnalytics.js";
 
 interface DashboardPayload {
     refreshedAt: string;

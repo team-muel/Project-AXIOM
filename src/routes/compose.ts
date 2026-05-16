@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { normalizeComposeRequestInput } from "../core/pipeline/requestNormalization.js";
-import { enqueue, getJob, listJobs } from "../queue/jobQueue.js";
-import { serializeQueuedJob } from "../queue/presentation.js";
+import { normalizeComposeRequestInput } from "../core/plan/requestNormalization.js";
+import { enqueue, getJob, listJobs } from "../runtime/queue/jobQueue.js";
+import { serializeQueuedJob } from "../runtime/queue/presentation.js";
 import { logger } from "../logging/logger.js";
 
 const router = Router();

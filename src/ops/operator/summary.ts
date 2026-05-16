@@ -8,12 +8,12 @@ import { getAutonomyStatus } from "../autonomy/service.js";
 import { WORKER_SCRIPT as COMPOSER_WORKER_SCRIPT, MUSICGEN_WORKER_SCRIPT } from "../../core/composer/index.js";
 import { config } from "../../config.js";
 import { WORKER_SCRIPT as HUMANIZER_WORKER_SCRIPT } from "../../core/humanizer/index.js";
-import { listStoredManifests } from "../../core/memory/manifest.js";
-import { buildManifestOperationalSummary } from "../../core/memory/manifestAnalytics.js";
+import { listStoredManifests } from "../../runtime/manifest/manifest.js";
+import { buildManifestOperationalSummary } from "../../runtime/manifest/manifestAnalytics.js";
 import { summarizeOverseerHistory } from "../overseer/storage.ts";
 import { checkOllamaReachable } from "../overseer/index.js";
-import { listJobs } from "../../queue/jobQueue.js";
-import { serializeQueuedJob, type SerializedQueuedJob } from "../../queue/presentation.js";
+import { listJobs } from "../../runtime/queue/jobQueue.js";
+import { serializeQueuedJob, type SerializedQueuedJob } from "../../runtime/queue/presentation.js";
 import { WORKER_SCRIPT as RENDER_WORKER_SCRIPT, STYLE_WORKER_SCRIPT } from "../../core/render/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

@@ -15,34 +15,51 @@
 
 ```
 src/
-├── core/                  ← 작곡 엔진 (core)
-│   ├── pipeline/          ← 파이프라인 조율 + 모든 계획 타입
-│   │   ├── orchestrator.ts        메인 파이프라인 실행 루프
-│   │   ├── types.ts               모든 도메인 타입 정의
+├── core/                  ← 작곡 도메인 (composition core)
+│   ├── pipeline/          ← 도메인 타입 barrel (types.ts, states.ts, types/)
+│   ├── plan/              ← 작곡 계획 생성
 │   │   ├── sketch.ts              CompositionSketch 생성
-│   │   ├── orchestrationPlan.ts   OrchestrationPlan 도출
 │   │   ├── formTemplates.ts       형식 검증
 │   │   ├── sonataCyclePlanner.ts  다악장 계획
 │   │   ├── longSpan.ts            장기 형식 계획
+│   │   └── requestNormalization.ts  요청 정규화
+│   ├── music/             ← 음악 도메인 IR
+│   │   ├── orchestrationPlan.ts   OrchestrationPlan 도출
+│   │   ├── pianoIR.ts             피아노 중간 표현
+│   │   ├── classicalKnowledge.ts  조성/화성/형식 지식
+│   │   └── modelBindings.ts       모델 인터페이스 바인딩
+│   ├── generate/          ← 심볼릭 후보 생성
+│   │   ├── hybridSymbolicCandidatePool.ts  복수 candidate 생성
+│   │   ├── learnedSymbolicContract.ts      learned symbolic 계약
+│   │   ├── structureRerankerPromotion.ts   구조 reranker 승격
+│   │   ├── structureShadowHistory.ts       shadow 이력
+│   │   └── preferenceModel.ts             선호도 모델
+│   ├── evaluate/          ← 평가 / 점수 계산
 │   │   ├── evaluation.ts          StructureEvaluationReport 생성
 │   │   ├── craftScoring.ts        craft score 계산
+│   │   ├── pianoCraftScoring.ts   피아노 craft score
+│   │   ├── cycleEvaluation.ts     다악장 평가
 │   │   ├── quality.ts             재시도 정책
-│   │   ├── expressionPlan.ts      expression sidecar
-│   │   ├── pianoIR.ts             피아노 중간 표현
+│   │   └── pianoEvaluation.ts     피아노 playability 평가
+│   ├── repair/            ← 연주성 수리
 │   │   ├── pianoProjection.ts     연주성 지표 (21개)
-│   │   ├── pianoRepairSolver.ts   repair 지시
-│   │   └── hybridSymbolicCandidatePool.ts  복수 candidate 생성
+│   │   └── pianoRepairSolver.ts   repair 지시
+│   ├── expression/        ← 표현 계획
+│   │   └── expressionPlan.ts      expression sidecar
 │   ├── composer/          ← Python compose worker 연결
 │   ├── critic/            ← Python critique worker 연결
 │   ├── humanizer/         ← Python humanize worker 연결
-│   ├── render/            ← Python render worker 연결
-│   └── memory/            ← manifest, candidate sidecar, analytics 영속성
+│   └── render/            ← Python render worker 연결
+├── runtime/               ← 런타임 실행 제어
+│   ├── orchestrator.ts            메인 파이프라인 실행 루프
+│   ├── sonataCycleOrchestrator.ts 다악장 실행 루프
+│   ├── queue/                     작업 큐 (jobQueue.ts, presentation.ts)
+│   └── manifest/                  manifest, candidate, analytics 영속성
 ├── ops/                   ← 운영 계층 (ops)
 │   ├── autonomy/          ← 자율 스케줄링
 │   ├── overseer/          ← 품질 감시
 │   ├── mcp/               ← MCP surfaces (stdio + HTTP)
 │   └── operator/          ← 운영 요약
-├── queue/             ← 작업 큐 (jobQueue.ts) — core↔ops 경계
 ├── routes/            ← HTTP route handlers
 ├── logging/           ← 로거
 └── config.ts          ← 중앙 설정
@@ -163,10 +180,10 @@ interface JobManifest {
 
 ---
 
-## core↔ops 커플링 경계
+## core↔runtime↔ops 커플링 경계
 
-현재 `index.core.ts`에서도 queue가 autonomy 상태를 기록한다 (`markAutonomyRun*`). 상태는 디스크에 기록되지만 autonomy scheduler가 없으면 이를 소비하는 주체가 없다.
+`index.core.ts`에서도 `runtime/queue/jobQueue.ts`가 autonomy 상태를 기록한다 (`markAutonomyRun*`). 상태는 디스크에 기록되지만 autonomy scheduler가 없으면 이를 소비하는 주체가 없다.
 
 경계 지점:
-- `src/queue/jobQueue.ts` — `markAutonomyRun*` 호출
-- `src/pipeline/orchestrator.ts` — `evaluateCompletedManifest`, `updateAutonomyPreferencesFromManifest` 호출
+- `src/runtime/queue/jobQueue.ts` — `markAutonomyRun*` 호출
+- `src/runtime/orchestrator.ts` — `evaluateCompletedManifest`, `updateAutonomyPreferencesFromManifest` 호출

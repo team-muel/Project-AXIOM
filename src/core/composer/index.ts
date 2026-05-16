@@ -16,9 +16,9 @@ import type {
     SectionTransformSummary,
     SongMeta,
 } from "../pipeline/types.js";
-import { coerceComposeWorkflowForForm, isAudioFirstForm } from "../pipeline/formTemplates.js";
-import { summarizeClassicalKnowledgePlan } from "../pipeline/classicalKnowledge.js";
-import { defaultModelBindings } from "../pipeline/modelBindings.js";
+import { coerceComposeWorkflowForForm, isAudioFirstForm } from "../plan/formTemplates.js";
+import { summarizeClassicalKnowledgePlan } from "../music/classicalKnowledge.js";
+import { defaultModelBindings } from "../music/modelBindings.js";
 import { config } from "../../config.js";
 import { logger } from "../../logging/logger.js";
 import { composeWithLearnedSymbolic } from "./learnedClient.js";

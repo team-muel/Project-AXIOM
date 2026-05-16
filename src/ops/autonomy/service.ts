@@ -12,8 +12,8 @@ import {
     saveAutonomyRunLedger,
     saveAutonomyPreferences,
     saveManifest,
-} from "../../core/memory/manifest.js";
-import { saveListenerFeedbackToSelectedCandidate } from "../../core/memory/candidates.js";
+} from "../../runtime/manifest/manifest.js";
+import { saveListenerFeedbackToSelectedCandidate } from "../../runtime/manifest/candidates.js";
 import { collectRecentAxiomContext, generateOllamaText } from "../overseer/index.js";
 import type {
     ArticulationTag,
@@ -69,13 +69,13 @@ import type {
     TextureRole,
     VoicingProfile,
 } from "../../core/pipeline/types.js";
-import { buildFallbackSectionsForForm, buildFormGuidance, coerceComposeWorkflowForForm, validateFormSectionFit } from "../../core/pipeline/formTemplates.js";
-import { APPROVAL_REVIEW_RUBRIC_VERSION } from "../../core/pipeline/learnedSymbolicContract.js";
-import { summarizeLongSpanDivergence } from "../../core/pipeline/longSpan.js";
-import { defaultModelBindings } from "../../core/pipeline/modelBindings.js";
-import { ensureClassicalKnowledgePlan, normalizeClassicalKnowledgePlan } from "../../core/pipeline/classicalKnowledge.js";
-import { ensureCompositionPlanOrchestration, summarizeOrchestrationPlan } from "../../core/pipeline/orchestrationPlan.js";
-import { buildRecommendedQualityPolicy, classifyQualityProfile } from "../../core/pipeline/quality.js";
+import { buildFallbackSectionsForForm, buildFormGuidance, coerceComposeWorkflowForForm, validateFormSectionFit } from "../../core/plan/formTemplates.js";
+import { APPROVAL_REVIEW_RUBRIC_VERSION } from "../../core/generate/learnedSymbolicContract.js";
+import { summarizeLongSpanDivergence } from "../../core/plan/longSpan.js";
+import { defaultModelBindings } from "../../core/music/modelBindings.js";
+import { ensureClassicalKnowledgePlan, normalizeClassicalKnowledgePlan } from "../../core/music/classicalKnowledge.js";
+import { ensureCompositionPlanOrchestration, summarizeOrchestrationPlan } from "../../core/music/orchestrationPlan.js";
+import { buildRecommendedQualityPolicy, classifyQualityProfile } from "../../core/evaluate/quality.js";
 import { checkOllamaReachable } from "../overseer/index.js";
 import { computePromptHash, ensureComposeRequestMetadata } from "./request.js";
 import {

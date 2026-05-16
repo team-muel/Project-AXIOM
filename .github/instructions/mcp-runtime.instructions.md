@@ -1,6 +1,6 @@
 ---
 description: "AXIOM runtime routing and guardrails for MCP, autonomy, queue, and operator surfaces."
-applyTo: "{src/ops/mcp/**,src/ops/autonomy/**,src/ops/overseer/**,src/ops/operator/**,src/queue/**,src/routes/**,src/config.ts,src/index.ts,test/**}"
+applyTo: "{src/ops/mcp/**,src/ops/autonomy/**,src/ops/overseer/**,src/ops/operator/**,src/runtime/**,src/routes/**,src/config.ts,src/index.ts,test/**}"
 ---
 
 # AXIOM Runtime Routing
@@ -18,8 +18,14 @@ applyTo: "{src/ops/mcp/**,src/ops/autonomy/**,src/ops/overseer/**,src/ops/operat
 ### Autonomy and recovery
 - Runtime control: `src/ops/autonomy/controller.ts`, `src/ops/autonomy/service.ts`
 - Scheduling: `src/ops/autonomy/scheduler.ts`, `src/ops/autonomy/calendar.ts`
-- Queue state and retry behavior: `src/queue/jobQueue.ts`
-- Shared operator presentation: `src/queue/presentation.ts`
+- Queue state and retry behavior: `src/runtime/queue/jobQueue.ts`
+- Shared operator presentation: `src/runtime/queue/presentation.ts`
+
+### Manifest persistence
+- Song manifests: `src/runtime/manifest/manifest.ts`
+- Candidate sidecar: `src/runtime/manifest/candidates.ts`
+- Analytics: `src/runtime/manifest/manifestAnalytics.ts`
+- Piano dataset: `src/runtime/manifest/pianoDataset.ts`
 
 ### Operator surfaces
 - Health and readiness: `src/routes/health.ts`

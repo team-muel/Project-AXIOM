@@ -13,8 +13,8 @@ import {
     loadOverseerHistory,
     summarizeOverseerHistory,
 } from "../ops/overseer/storage.ts";
-import { buildManifestOperationalSummary } from "../core/memory/manifestAnalytics.js";
-import { listStoredManifests } from "../core/memory/manifest.js";
+import { buildManifestOperationalSummary } from "../runtime/manifest/manifestAnalytics.js";
+import { listStoredManifests } from "../runtime/manifest/manifest.js";
 import { logger } from "../logging/logger.js";
 
 const router = Router();

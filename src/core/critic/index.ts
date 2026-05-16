@@ -6,7 +6,7 @@ import type {
     SectionPlan,
 } from "../pipeline/types.js";
 import { logger } from "../../logging/logger.js";
-import { resolveFormSectionExpectations } from "../pipeline/formTemplates.js";
+import { resolveFormSectionExpectations } from "../plan/formTemplates.js";
 
 /** MIDI 음고 범위: 피아노 A0(21) ~ C8(108) */
 const MIN_PITCH = 21;

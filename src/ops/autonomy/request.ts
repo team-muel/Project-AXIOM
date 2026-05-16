@@ -11,7 +11,7 @@ import type {
     TextureGuidance,
     TonicizationWindow,
 } from "../../core/pipeline/types.js";
-import { summarizeOrchestrationPlan } from "../../core/pipeline/orchestrationPlan.js";
+import { summarizeOrchestrationPlan } from "../../core/music/orchestrationPlan.js";
 
 function compact(value: unknown): string {
     return String(value ?? "").trim().replace(/\s+/g, " ");

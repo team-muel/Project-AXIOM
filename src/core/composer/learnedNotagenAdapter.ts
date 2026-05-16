@@ -1,5 +1,5 @@
 import type { LocalizedRewriteSpec, LearnedSamplingParams, ModelBinding, PianoPlan, PianoSectionPlan, LocalizedPianoRewriteSpec, PianoRevisionDirective } from "../pipeline/types.js";
-import { SOLO_PIANO_SYMBOLIC_LANE, STRING_TRIO_SYMBOLIC_LANE } from "../pipeline/learnedSymbolicContract.js";
+import { SOLO_PIANO_SYMBOLIC_LANE, STRING_TRIO_SYMBOLIC_LANE } from "../generate/learnedSymbolicContract.js";
 import type {
     LearnedSymbolicPromptPack,
     LearnedSymbolicPromptPackSection,
