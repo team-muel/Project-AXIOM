@@ -7,6 +7,7 @@ import autonomyRouter from "./routes/autonomy.js";
 import mcpHttpRouter from "./routes/mcpHttp.js";
 import overseerRouter from "./routes/overseer.js";
 import { recoverAutonomyRuntimeOnStartup } from "./ops/autonomy/controller.js";
+import { initAutonomyHooks } from "./ops/autonomy/initHooks.js";
 import { startAutonomyScheduler, stopAutonomyScheduler } from "./ops/autonomy/scheduler.js";
 import { startOverseerScheduler, stopOverseerScheduler } from "./ops/overseer/scheduler.js";
 
@@ -22,6 +23,7 @@ app.use(overseerRouter);
 
 const server = app.listen(config.port, () => {
     logger.info(`AXIOM server listening on port ${config.port}`);
+    initAutonomyHooks();
     recoverAutonomyRuntimeOnStartup();
     startOverseerScheduler();
     startAutonomyScheduler();

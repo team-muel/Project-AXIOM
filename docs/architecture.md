@@ -53,6 +53,8 @@ src/
 ├── runtime/               ← 런타임 실행 제어
 │   ├── orchestrator.ts            메인 파이프라인 실행 루프
 │   ├── sonataCycleOrchestrator.ts 다악장 실행 루프
+│   ├── hooks.ts                   ops 연동 hook registry (RuntimeHooks)
+│   ├── request.ts                 ComposeRequest 유틸리티 (hash, metadata)
 │   ├── queue/                     작업 큐 (jobQueue.ts, presentation.ts)
 │   └── manifest/                  manifest, candidate, analytics 영속성
 ├── ops/                   ← 운영 계층 (ops)
@@ -182,8 +184,17 @@ interface JobManifest {
 
 ## core↔runtime↔ops 커플링 경계
 
-`index.core.ts`에서도 `runtime/queue/jobQueue.ts`가 autonomy 상태를 기록한다 (`markAutonomyRun*`). 상태는 디스크에 기록되지만 autonomy scheduler가 없으면 이를 소비하는 주체가 없다.
+`src/runtime/` 레이어는 hook registry(`src/runtime/hooks.ts`)를 통해 ops와 통신한다.
+`index.ts`는 시작 시 `initAutonomyHooks()`를 호출해 ops 핸들러를 등록한다.
+`index.core.ts`는 이를 호출하지 않으므로 모든 hook은 no-op이다.
 
-경계 지점:
-- `src/runtime/queue/jobQueue.ts` — `markAutonomyRun*` 호출
-- `src/runtime/orchestrator.ts` — `evaluateCompletedManifest`, `updateAutonomyPreferencesFromManifest` 호출
+hook 등록 위치: `src/ops/autonomy/initHooks.ts`
+
+hook 인터페이스 (`src/runtime/hooks.ts`):
+| Hook | 호출 시점 | ops 구현 |
+|---|---|---|
+| `onJobRunning` | 큐 job 시작 | `markAutonomyRunRunning` |
+| `onJobCompleted` | job 성공 완료 | `markAutonomyRunPendingApproval` |
+| `onJobFailed` | job 영구 실패 | `markAutonomyRunFailed` |
+| `onJobRetryScheduled` | job 재시도 예약 | `markAutonomyRunRetryScheduled` |
+| `onPipelineComplete` | 파이프라인 DONE | `evaluateCompletedManifest` + `updateAutonomyPreferencesFromManifest` |

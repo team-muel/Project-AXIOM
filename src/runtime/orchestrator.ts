@@ -46,10 +46,8 @@ import { resolveStructureRerankerPromotion } from "../core/generate/structureRer
 import { runStructureRerankerShadowScoring } from "../core/generate/structureShadowReranker.js";
 import { buildExpressionPlanSidecar, mergeExpressionPlanIntoRequest } from "../core/expression/expressionPlan.js";
 import { cloneClassicalKnowledgePlan, summarizeClassicalKnowledgePlan } from "../core/music/classicalKnowledge.js";
-// ops hook: autonomy feedback is injected here; this is the core↔ops coupling boundary.
-// In core-only mode (index.core.ts) these calls still run but have no active scheduler to observe.
-import { evaluateCompletedManifest, updateAutonomyPreferencesFromManifest } from "../ops/autonomy/service.js";
-import { computePromptHash, ensureComposeRequestMetadata } from "../ops/autonomy/request.js";
+import { getRuntimeHooks } from "./hooks.js";
+import { computePromptHash, ensureComposeRequestMetadata } from "./request.js";
 import { buildExecutionPlan, compose, readComposeProgress } from "../core/composer/index.js";
 import { critique } from "../core/critic/index.js";
 import { humanize } from "../core/humanizer/index.js";
@@ -1944,23 +1942,10 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
         transition(manifest, PipelineState.DONE);
         persistManifest(manifest, options?.onManifestUpdate);
 
-        let preferencesUpdated = false;
-        try {
-            const assessment = await evaluateCompletedManifest(manifest);
-            if (assessment) {
-                manifest.selfAssessment = assessment;
-                manifest.evaluationSummary = assessment.summary;
-                updateAutonomyPreferencesFromManifest(manifest, request);
-                preferencesUpdated = true;
-                persistManifest(manifest, options?.onManifestUpdate);
-            }
-        } catch (assessmentError) {
-            const message = assessmentError instanceof Error ? assessmentError.message : String(assessmentError);
-            logger.warn("Self-assessment failed", { songId: manifest.songId, error: message });
-        }
-
-        if (request.source === "autonomy" && !preferencesUpdated) {
-            updateAutonomyPreferencesFromManifest(manifest, request);
+        const hooks = getRuntimeHooks();
+        const mutated = await hooks.onPipelineComplete?.(manifest, request);
+        if (mutated) {
+            persistManifest(manifest, options?.onManifestUpdate);
         }
 
         logger.info("Pipeline completed", { songId: manifest.songId });

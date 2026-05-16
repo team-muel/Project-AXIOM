@@ -1,14 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
-// ops hook: autonomy run state tracking; this is the core↔ops coupling boundary in the queue.
-// In core-only mode (index.core.ts) the marks are written to disk but no scheduler consumes them.
-import {
-    markAutonomyRunFailed,
-    markAutonomyRunPendingApproval,
-    markAutonomyRunRetryScheduled,
-    markAutonomyRunRunning,
-} from "../../ops/autonomy/service.js";
-import { getAutonomyDayKey } from "../../ops/autonomy/calendar.js";
-import { ensureComposeRequestMetadata } from "../../ops/autonomy/request.js";
+import { getRuntimeHooks } from "../hooks.js";
+import { ensureComposeRequestMetadata } from "../request.js";
 import { loadManifest } from "../manifest/manifest.js";
 import { mergeExpressionPlanIntoRequest } from "../../core/expression/expressionPlan.js";
 import type { ComposeRequest, JobManifest } from "../../core/pipeline/types.js";
@@ -52,9 +44,6 @@ let processing = false;
 let queuedPersistTimer: NodeJS.Timeout | null = null;
 let lastPersistedSnapshot = "";
 
-function dayKeyFromIso(iso: string): string {
-    return getAutonomyDayKey(iso);
-}
 
 function isActiveStatus(status: QueuedJob["status"]): boolean {
     return status === "queued" || status === "running" || status === "retry_scheduled";
@@ -381,13 +370,7 @@ function scheduleRetry(job: QueuedJob, error: string): void {
     clearRetryTimer(job.jobId);
 
     if (job.request.source === "autonomy" && job.request.autonomyRunId) {
-        markAutonomyRunRetryScheduled(
-            job.request.autonomyRunId,
-            dayKeyFromIso(job.createdAt),
-            job.jobId,
-            nextAttemptAt,
-            error,
-        );
+        getRuntimeHooks().onJobRetryScheduled?.(job.request.autonomyRunId, job.createdAt, job.jobId, nextAttemptAt, error);
     }
 
     logger.warn("Job will retry with backoff", {
@@ -441,7 +424,7 @@ async function processNext(): Promise<void> {
     logger.info("Job started", { jobId: job.jobId, attempt: job.attempts });
 
     if (job.request.source === "autonomy" && job.request.autonomyRunId) {
-        markAutonomyRunRunning(job.request.autonomyRunId, dayKeyFromIso(job.createdAt), job.jobId);
+        getRuntimeHooks().onJobRunning?.(job.request.autonomyRunId, job.createdAt, job.jobId);
     }
 
     let manifest: JobManifest | null = null;
@@ -471,7 +454,7 @@ async function processNext(): Promise<void> {
         job.status = "done";
         job.updatedAt = new Date().toISOString();
         if (job.request.source === "autonomy") {
-            markAutonomyRunPendingApproval(manifest, job.jobId);
+            getRuntimeHooks().onJobCompleted?.(manifest, job.jobId);
         }
         persistQueueState("immediate");
         logger.info("Job completed", { jobId: job.jobId });
@@ -486,7 +469,7 @@ async function processNext(): Promise<void> {
             job.status = "failed";
             job.nextAttemptAt = undefined;
             if (job.request.source === "autonomy" && job.request.autonomyRunId) {
-                markAutonomyRunFailed(job.request.autonomyRunId, dayKeyFromIso(job.createdAt), job.jobId, message);
+                getRuntimeHooks().onJobFailed?.(job.request.autonomyRunId, job.createdAt, job.jobId, message);
             }
             saveDeadletter(job);
             persistQueueState("immediate");
