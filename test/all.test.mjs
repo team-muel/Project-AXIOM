@@ -45,6 +45,7 @@ import "./piano-projection.test.mjs";
 import "./piano-repair-solver.test.mjs";
 import "./piano-voice-layout.test.mjs";
 import "./sonata-cycle-planner.test.mjs";
+import "./cycle-evaluation.test.mjs";
 import "./learned-backend-routing.test.mjs";
 import "./python-compose-piano-lane.test.mjs";
 import "./piano-strict-gates.test.mjs";
