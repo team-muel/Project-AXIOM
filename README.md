@@ -204,77 +204,14 @@ npm test
 - **[docs/composition-engine.md](docs/composition-engine.md)** — 작곡 엔진 6단계 상세 (6개 음악적 질문 + 코드 매핑 + 현재 갭)
 - **[docs/datasets.md](docs/datasets.md)** — 학습 데이터셋, candidate sidecar, feedback loop, export scripts
 - **[docs/local-development.md](docs/local-development.md)** — 설치, 환경 변수, 실행, 테스트
+- **[docs/ops.md](docs/ops.md)** — 운영/ML 스크립트 (autonomy, overseer, MCP, shadow, dataset export)
 
 ---
 
 ## Ops 계층 (선택 사항)
 
-아래 기능은 장기 운영용입니다. R&D 단계에서는 `start:core`로 충분합니다.
-
-### Readiness
-
-```bash
-curl http://localhost:3100/health
-curl http://localhost:3100/ready
-```
-
-`ready` / `ready_degraded` / `not_ready` 상태를 반환합니다. `not_ready`는 symbolic path 자체가 불가능한 경우입니다.
-
-### Autonomy
-
-자율 스케줄링 표면 (`npm run start` 또는 `npm run dev`에서만 활성화):
-
-- `GET /autonomy/status` — 현재 autonomy 상태
-- `POST /autonomy/trigger` — 수동 실행 트리거
-- `POST /autonomy/pause` / `POST /autonomy/resume`
-- `POST /autonomy/approve/:songId` / `POST /autonomy/reject/:songId`
-- `GET /autonomy/pending` — 승인 대기 목록
-
-자세한 내용: [docs/autonomy-operations.md](docs/autonomy-operations.md)
-
-### Overseer
-
-품질 감시 리포트:
-
-- `GET /overseer/status`
-- `GET /overseer/last-report`
-- `GET /overseer/dashboard`
-
-### MCP Surfaces
-
-local stdio MCP (IDE agent용):
-
-```bash
-npm run start:mcp
-```
-
-HTTP MCP (원격 consumer, bridge용):
-
-```bash
-npm run start:mcp:http   # 기본 포트 3210
-```
-
-HTTP MCP 엔드포인트: `GET /mcp`, `POST /mcp/rpc`, `GET /mcp/health`, `POST /tools/list`
-
-### Operator scripts
-
-```bash
-npm run ops:summary    # 운영 요약
-npm run ops:project    # 예측 projection
-npm run ops:sweep      # 무인 스윕
-npm run ops:pickup     # pickup bundle
-```
-
-### ML / learned track 도구
-
-```bash
-npm run ml:export:structure-rank
-npm run ml:export:backbone-piece
-npm run ml:summarize:learned-backbone
-npm run ml:shadow:structure-rank
-```
-
-자세한 스크립트 목록: `package.json`의 `ml:*` 항목 참조.
+장기 운영 기능(autonomy, overseer, MCP, operator scripts, ML/dataset 도구)은 **[docs/ops.md](docs/ops.md)** 를 참조하세요.  
+R&D 단계에서는 `npm run start:core`로 충분합니다.
 
 ---
 

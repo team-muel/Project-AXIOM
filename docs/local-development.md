@@ -153,6 +153,8 @@ outputs/
 |------|-----------|------|
 | 핵심 | `start:core`, `dev:core` | compose + health only |
 | 전체 | `start`, `dev` | autonomy + overseer + MCP |
-| ops | `ops:summary`, `ops:sweep`, ... | 운영 요약 스크립트 |
-| ml | `ml:export:*`, `ml:summarize:*`, `ml:shadow:*` | dataset export / 학습 도구 |
-| benchmark | `benchmark:soundfont:*` | 렌더 품질 비교 |
+| 빌드 | `build`, `typecheck`, `clean` | TypeScript 컴파일, 타입 검사 |
+| 테스트 | `test` | node --test 실행 |
+| 벤치마크 | `benchmark:soundfont:*` | 렌더 품질 비교 |
+
+ops/ml 스크립트 (autonomy, overseer, operator sweep, dataset export, shadow reranker): [`docs/ops.md`](ops.md)
