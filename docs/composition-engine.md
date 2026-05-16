@@ -92,13 +92,35 @@ autonomy memory bias: `sketch.ts`가 과거 실행의 `motifReturns`, `tensionAr
 `CompositionPlan.instrumentation` → `OrchestrationPlan` 도출.
 
 ```typescript
+// src/core/pipeline/types/orchestration.ts (실제 타입)
+type OrchestrationFamily = "string_trio" | "solo_piano";
+
 interface OrchestrationPlan {
-  family: "strings" | "winds" | "piano" | "keyboard" | "mixed";
-  instruments: InstrumentAssignment[];
-  sectionOrchestrations: OrchestrationSectionPlan[];
+  family: OrchestrationFamily;
+  instrumentNames: string[];
+  sections: OrchestrationSectionPlan[];
   // 섹션별: conversationMode, balanceProfile, registerLayout
 }
 ```
+
+#### 공식 지원 편성
+
+| 편성 | 기반 | 도출 경로 |
+|------|------|----------|
+| `solo_piano` | `PianoPlan` | 피아노 전용 파이프라인 (projection / repair / evaluation 포함) |
+| `string_trio` | `OrchestrationPlan` | `deriveOrchestrationPlan()` — 정확히 3성부 strings 조건일 때만 도출 |
+
+#### 미지원 편성 (현재)
+
+| 편성 | 상태 |
+|------|------|
+| 일반 chamber ensemble (quartet, quintet 등) | ❌ — `deriveOrchestrationPlan()`이 `undefined` 반환 |
+| 관현악 / 오케스트라 | ❌ — `"largo"`, `"symphony"` 등은 fast-path 힌트로만 처리 |
+| 협주곡 (concerto) | ❌ |
+| 혼합 편성 (mixed) | ❌ |
+
+> `OrchestrationFamily` 타입이 `"string_trio" | "solo_piano"` 두 값뿐임을 유의.  
+> 조건이 맞지 않으면 `deriveOrchestrationPlan()`은 `undefined`를 반환하고 파이프라인은 편성 계획 없이 진행된다.
 
 **현재 한계:** 독립적 planning step이 아니라 CompositionPlan 파생. 악기별 역할 협상(주제 vs 반주 vs 대위선)의 명시적 계획이 없다.
 
@@ -238,5 +260,5 @@ shouldRetryAudioAttempt(evaluation, policy, attempt)       // 오디오 재시�
 | Texture | lead + accompaniment 중심. 모방 대위와 풍부한 대위법적 생성은 미구현 |
 | Expression | phrase / texture 위에서 동작해야 하지만 이를 보상하는 방향으로 쓰이는 경향 |
 | Long-span form | 단일 섹션 의도 유지는 되나 exposition-development-recap 필연성, multi-section 주제 변형은 미약 |
-| Orchestration | 음색 개선됨, 하지만 레지스터 전달, 더블링 전략, 악기 관용구 설계는 미구현 |
+| Orchestration | `string_trio` / `solo_piano` 두 편성만 공식 지원. chamber ensemble / orchestra / concerto는 미구현. 지원 편성 내에서도 레지스터 전달, 더블링 전략, 악기 관용구 설계는 미구현 |
 | Authorial identity | craft 패턴 재사용은 되나 인식 가능한 레퍼토리 고유 수사는 아직 없음 |
