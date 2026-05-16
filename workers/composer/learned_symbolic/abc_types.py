@@ -6,7 +6,7 @@ between pipeline stages without circular dependencies.
 
 from __future__ import annotations
 
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, TypedDict
 
 # ─── Normalization warning codes ─────────────────────────────────────────────
 # These codes are appended to proposalMetadata.normalizationWarnings.
@@ -21,6 +21,20 @@ WARN_INSTRUMENTATION_ROLE_PROJECTION_APPROXIMATE = (
 )
 WARN_BAR_DURATION_MISMATCH = "bar_duration_mismatch"
 WARN_VOICE_SYNC_MISMATCH = "voice_sync_mismatch"
+
+# ─── Piano-specific warning codes ────────────────────────────────────────────
+
+# Emitted when a chord's simultaneous pitch span within one hand exceeds
+# PIANO_MAX_HAND_SPAN semitones and no explicit arpeggiation marker is present.
+WARN_PIANO_SPAN_EXCEEDED = "piano_span_exceeded"
+
+# Emitted when the left-hand top note is higher than the right-hand bottom
+# note on the same beat (hand crossing).
+WARN_PIANO_HAND_COLLISION = "piano_hand_collision"
+
+# Emitted when more than PIANO_MAX_CHORD_VOICES simultaneous voices appear
+# within a single hand — typically unplayable without reduction.
+WARN_PIANO_CHORD_TOO_DENSE = "piano_chord_too_dense"
 
 
 class AbcVoiceStats(NamedTuple):
@@ -60,3 +74,54 @@ class AbcProjectionResult(NamedTuple):
     midi_path: str | None                    # written path, or None if no output_path
     normalization_warnings: list[str]
     error: str | None                        # non-None when ok=False
+
+
+# ─── Piano voice layout constants ────────────────────────────────────────────
+
+# Idiomatic MIDI pitch ranges for each hand.
+# Right hand: C4 (60) – C8 (108); the practical ceiling is ~96 (C7).
+PIANO_RIGHT_HAND_PITCH_MIN: int = 60   # C4
+PIANO_RIGHT_HAND_PITCH_MAX: int = 108  # C8 (absolute ceiling)
+
+# Left hand: C1 (24) – C5 (72); the practical floor is ~28 (E1).
+PIANO_LEFT_HAND_PITCH_MIN: int = 24    # C1
+PIANO_LEFT_HAND_PITCH_MAX: int = 72    # C5
+
+# Simultaneous pitch span within one hand beyond which chords are generally
+# unplayable without arpeggiation (minor 13th = 19 semitones).
+PIANO_MAX_HAND_SPAN: int = 19
+
+# Maximum simultaneous voice count within a single hand before the chord is
+# flagged as too dense to perform comfortably.
+PIANO_MAX_CHORD_VOICES: int = 6
+
+
+class PianoHandSplit(NamedTuple):
+    """Per-event hand assignment produced by the piano projection stage."""
+
+    event_index: int        # zero-based index within the section's event list
+    pitch: int              # MIDI note number
+    hand: str               # "right" | "left" | "ambiguous"
+    span_warning: bool      # True when the chord span in this hand exceeds PIANO_MAX_HAND_SPAN
+    collision_warning: bool # True when this event participates in a hand crossing
+
+
+class PianoVoiceLayoutDict(TypedDict, total=False):
+    """Python mirror of the TypeScript PianoVoiceLayoutSummary interface.
+
+    Populated by piano_projection.compute_piano_voice_layout_summary() and
+    embedded in the section artifact dict under the key 'pianoVoiceLayout'.
+    """
+
+    rightHandPitchMin: int
+    rightHandPitchMax: int
+    leftHandPitchMin: int
+    leftHandPitchMax: int
+    maxRightHandSpan: int
+    maxLeftHandSpan: int
+    handCrossingCount: int
+    handCollisionCount: int
+    avgChordVoiceCount: float
+    pedalEventCount: int
+    playableSpanFit: float
+    notes: list[str]
