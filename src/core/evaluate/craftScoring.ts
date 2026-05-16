@@ -1233,6 +1233,15 @@ export function computeCraftScoreSummary(
         planAwarePhraseGrammarScore:      Number(planPhraseGrammarResult.score.toFixed(4)),
         planAwareHarmonyGrammarScore:     Number(planHarmonyGrammarResult.score.toFixed(4)),
         planAwareMotifDevelopmentScore:   Number(planMotifDevResult.score.toFixed(4)),
+        advancedCraftScore: Number((
+            0.20 * planPhraseGrammarResult.score
+            + 0.20 * planHarmonyGrammarResult.score
+            + 0.20 * planMotifDevResult.score
+            + 0.10 * cadenceWeightResult.score
+            + 0.10 * voiceLeadingResult.score
+            + 0.10 * textureProfileResult.score
+            + 0.10 * tonicizationResult.score
+        ).toFixed(4)),
         phraseEvidenceCoverage:           Number(coverageReport.phraseEvidenceCoverage.toFixed(4)),
         harmonyEvidenceCoverage:          Number(coverageReport.harmonyEvidenceCoverage.toFixed(4)),
         motifEvidenceCoverage:            Number(coverageReport.motifEvidenceCoverage.toFixed(4)),

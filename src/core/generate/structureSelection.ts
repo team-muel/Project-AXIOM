@@ -278,11 +278,12 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
     const gateTierBonus = tier === 3 ? 900 : tier === 2 ? 500 : tier === 1 ? 200 : 0;
 
     // Piano lane: use finalPianoScore as the dimension bonus signal.
-    // Generic lane: use finalCraftScore as before.
+    // Generic lane: use finalCraftScore (hard gate proxy) + advancedCraftScore (plan-aware quality)
+    // for shortlist ranking, so that plan-compliant candidates with richer grammar rank higher.
     const craftDimensionBonus = piano
         ? piano.finalPianoScore * (tier === 3 ? 200 : tier > 0 ? 100 : 40)
         : craft
-            ? craft.finalCraftScore * (tier === 3 ? 150 : tier > 0 ? 75 : 30)
+            ? (craft.finalCraftScore + (craft.advancedCraftScore ?? 0)) * (tier === 3 ? 150 : tier > 0 ? 75 : 30)
             : 0;
 
     // Piano playability penalty: when a piano candidate is at Tier 2 (failed

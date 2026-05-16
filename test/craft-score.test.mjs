@@ -917,3 +917,51 @@ test("scoreStructureEvaluationForCandidateSelection applies evidenceCoveragePena
         `Good coverage (${scoreGood}) should beat poor coverage (${scorePoor})`,
     );
 });
+
+test("computeCraftScoreSummary returns advancedCraftScore between 0 and 1", () => {
+    const plan = makePlan();
+    const summary = computeCraftScoreSummary(
+        [
+            makeArtifact({ sectionId: "s1", role: "theme_a", measureCount: 4, capturedMotif: [0, 2, -1] }),
+            makeArtifact({ sectionId: "s2", role: "development", measureCount: 4 }),
+            makeArtifact({ sectionId: "s3", role: "recap", measureCount: 4 }),
+        ],
+        plan,
+        makeEvaluation(),
+    );
+    assert.ok(
+        typeof summary.advancedCraftScore === "number" &&
+            summary.advancedCraftScore >= 0 &&
+            summary.advancedCraftScore <= 1,
+        `advancedCraftScore should be 0–1, got ${summary.advancedCraftScore}`,
+    );
+});
+
+test("scoreStructureEvaluationForCandidateSelection ranks higher advancedCraftScore candidate above lower one", () => {
+    const baseCraft = {
+        syntaxValidity: 1,
+        sectionContractFit: 0.8,
+        cadenceStrength: 0.8,
+        tonalReturn: 0.8,
+        motifSurvival: 0.8,
+        voiceIndependence: 0.8,
+        phraseShape: 0.8,
+        registerIdiomaticFit: 0.8,
+        finalCraftScore: 0.8,
+        evidenceCoverageScore: 0.8,
+    };
+    const highAdvanced = makeEvaluation({
+        passed: true,
+        craftScoreSummary: { ...baseCraft, advancedCraftScore: 0.9 },
+    });
+    const lowAdvanced = makeEvaluation({
+        passed: true,
+        craftScoreSummary: { ...baseCraft, advancedCraftScore: 0.2 },
+    });
+    const scoreHigh = scoreStructureEvaluationForCandidateSelection(highAdvanced);
+    const scoreLow = scoreStructureEvaluationForCandidateSelection(lowAdvanced);
+    assert.ok(
+        scoreHigh > scoreLow,
+        `High advancedCraftScore (${scoreHigh}) should rank above low (${scoreLow})`,
+    );
+});

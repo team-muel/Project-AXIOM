@@ -104,6 +104,23 @@ export interface CraftScoreSummary {
     /** Per-section MotifDevelopmentPlan-aware transformation quality; rewards sequence/fragmentation/inversion diversity (0–1) */
     planAwareMotifDevelopmentScore?: number;
 
+    /**
+     * Advanced composite score combining plan-aware grammar and structural quality metrics (0–1).
+     * Used for shortlist ranking alongside finalCraftScore.
+     * Formula:
+     *   0.20 * planAwarePhraseGrammarScore
+     * + 0.20 * planAwareHarmonyGrammarScore
+     * + 0.20 * planAwareMotifDevelopmentScore
+     * + 0.10 * cadenceArchitecturalWeight
+     * + 0.10 * voiceLeadingScore
+     * + 0.10 * textureProfileScore
+     * + 0.10 * tonicizationDepthScore
+     *
+     * finalCraftScore remains the hard gate signal.
+     * advancedCraftScore provides the secondary ranking signal for shortlisting.
+     */
+    advancedCraftScore?: number;
+
     // ── Evidence coverage metrics ─────────────────────────────────────────────
     // Measure whether the artifact produced enough observable evidence for each
     // grammar domain to be scored meaningfully (rather than silently returning
