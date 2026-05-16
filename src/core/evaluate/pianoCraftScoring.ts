@@ -656,6 +656,7 @@ export function computePianoCraftScoreSummary(
         pedalBlurRisk:                 Number(pedalBlurRisk.toFixed(4)),
         bassRootSupportScore:          Number(bassRootSupportScore.toFixed(4)),
         textureFormCoherenceScore:     Number(listenability.textureFormCoherence.toFixed(4)),
+        phraseLevelVoicingScore:       Number(listenability.phraseLevelVoicing.toFixed(4)),
         pianoListenabilityScore:       Number(listenability.overall.toFixed(4)),
     };
 }
@@ -842,8 +843,78 @@ export function computeBassRootSupportScore(
 }
 
 // ---------------------------------------------------------------------------
-// Texture-form coherence  (listenability dimension 6)
+// Phrase-level voicing  (listenability dimension 7 — NEW)
 // ---------------------------------------------------------------------------
+
+/**
+ * Phrase-level voicing score.
+ *
+ * Asks whether chords are structured to support the phrase arc:
+ *   - `phrasePeaks` present: the melody was explicitly shaped with climax measures
+ *   - Cadence type at phrase end (`cadenceApproach`): dominant/plagal = full harmonic
+ *     closure; missing = phrase left "open" without grounding
+ *   - Melody-above-bass register: melody pitch min > bass pitch max means the
+ *     top voice is always audible above the accompaniment texture
+ *   - Chord voice count in range 3–4 (from layout): thin 2-voice or dense 6-voice
+ *     chords both harm phrase clarity
+ *
+ * Returns 0.5 when no relevant data is available.
+ */
+export function computePhraseLevelVoicing(
+    sectionArtifacts: SectionArtifactSummary[],
+    layout: PianoVoiceLayoutSummary | undefined,
+): { score: number; notes: string } {
+    if (sectionArtifacts.length === 0) {
+        return { score: 0.5, notes: "no artifacts" };
+    }
+
+    const sectionScores: number[] = [];
+    const notesList: string[] = [];
+
+    for (const sa of sectionArtifacts) {
+        // Phrase peak presence: explicit peaks mean melody arc was planned
+        const peakScore = (sa.phrasePeaks && sa.phrasePeaks.length > 0) ? 1.0 : 0.35;
+
+        // Harmonic closure at phrase end
+        const cadenceScore =
+            sa.cadenceApproach === "dominant" ? 1.0
+            : sa.cadenceApproach === "plagal"  ? 0.85
+            : sa.cadenceApproach === "tonic"   ? 0.60
+            : 0.35; // no approach or "other"
+
+        // Melody above bass register (melody min > bass max = no invasion)
+        let registerScore = 0.5;
+        if (sa.melodyPitchMin !== undefined && sa.bassPitchMax !== undefined) {
+            const gap = sa.melodyPitchMin - sa.bassPitchMax;
+            registerScore = gap >= 0
+                ? clamp01(0.6 + Math.min(gap, 12) / 12 * 0.4)
+                : clamp01(0.6 + gap / 12 * 0.6); // invades → penalty
+        }
+
+        sectionScores.push(clamp01(0.40 * peakScore + 0.35 * cadenceScore + 0.25 * registerScore));
+        if (!sa.phrasePeaks || sa.phrasePeaks.length === 0) {
+            notesList.push(`${sa.sectionId}: no phrase peaks`);
+        }
+    }
+
+    // Voice count fit from layout (3–4 voices ideal for phrase-peak clarity)
+    let voiceCountScore = 0.6;
+    if (layout?.avgChordVoiceCount !== undefined) {
+        const v = layout.avgChordVoiceCount;
+        voiceCountScore = v >= 3 && v <= 4 ? 1.0
+            : v < 3 ? clamp01(v / 3 * 0.8)
+            : clamp01(1 - (v - 4) / 6 * 0.6);
+    }
+
+    const avgSection = sectionScores.length > 0 ? avg(sectionScores) : 0.5;
+    const score = clamp01(0.65 * avgSection + 0.35 * voiceCountScore);
+    return {
+        score,
+        notes: notesList.join("; ") || `phrase voicing: ${score.toFixed(2)}`,
+    };
+}
+
+
 
 /**
  * Measures whether the accompaniment texture complexity aligns with the
@@ -920,6 +991,7 @@ export interface PianoListenabilityScoreBreakdown {
     bassRootSupport: number;
     accompanimentConsistency: number;
     registerSpacing: number;
+    phraseLevelVoicing: number;
     pedalBlurRisk: number;
     textureFormCoherence: number;
     /** Weighted composite (0–1). */
@@ -930,14 +1002,15 @@ export interface PianoListenabilityScoreBreakdown {
  * Piano listenability composite score.
  *
  * Goes beyond gate-level playability to ask: "Will this piece sound good
- * to a human listener?"  Combines six listener-facing dimensions:
+ * to a human listener?"  Combines seven listener-facing dimensions:
  *
- *   melodyProminence        0.22 — RH sits clearly above LH in pitch + velocity
- *   bassRootSupport         0.20 — LH grounds harmony in correct register
- *   accompanimentConsistency 0.18 — rhythmic pattern regularity
- *   registerSpacing         0.17 — natural gap between hands
- *   pedalBlurRisk           0.13 — low pedal blur risk (inverted risk)
- *   textureFormCoherence    0.10 — texture complexity tracks formal structure
+ *   melodyProminence        0.20 — RH sits clearly above LH in pitch + velocity
+ *   bassRootSupport         0.18 — LH grounds harmony in correct register
+ *   accompanimentConsistency 0.16 — rhythmic pattern regularity
+ *   registerSpacing         0.15 — natural gap between hands
+ *   phraseLevelVoicing      0.10 — phrase peaks + cadence closure + register arc
+ *   pedalBlurRisk           0.12 — low pedal blur risk (inverted risk)
+ *   textureFormCoherence    0.09 — texture complexity tracks formal structure
  *   ─────────────────────────────
  *   total                   1.00
  *
@@ -955,16 +1028,18 @@ export function computePianoListenabilityScore(
     const bassRootSupport         = computeBassRootSupportScore(sectionArtifacts);
     const accompanimentConsistency = computeAccompanimentPatternCoherence(sectionArtifacts).score;
     const registerSpacing         = computeRegisterSpacing(sectionArtifacts, resolvedLayout).score;
+    const phraseLevelVoicing      = computePhraseLevelVoicing(sectionArtifacts, resolvedLayout).score;
     const pedalBlurRisk           = computePedalBlurRisk(sectionArtifacts);
     const textureFormCoherence    = computeTextureFormCoherence(sectionArtifacts);
 
     const overall = clamp01(
-        0.22 * melodyProminence
-        + 0.20 * bassRootSupport
-        + 0.18 * accompanimentConsistency
-        + 0.17 * registerSpacing
-        + 0.13 * pedalBlurRisk
-        + 0.10 * textureFormCoherence,
+        0.20 * melodyProminence
+        + 0.18 * bassRootSupport
+        + 0.16 * accompanimentConsistency
+        + 0.15 * registerSpacing
+        + 0.10 * phraseLevelVoicing
+        + 0.12 * pedalBlurRisk
+        + 0.09 * textureFormCoherence,
     );
 
     return {
@@ -972,6 +1047,7 @@ export function computePianoListenabilityScore(
         bassRootSupport:          Number(bassRootSupport.toFixed(4)),
         accompanimentConsistency: Number(accompanimentConsistency.toFixed(4)),
         registerSpacing:          Number(registerSpacing.toFixed(4)),
+        phraseLevelVoicing:       Number(phraseLevelVoicing.toFixed(4)),
         pedalBlurRisk:            Number(pedalBlurRisk.toFixed(4)),
         textureFormCoherence:     Number(textureFormCoherence.toFixed(4)),
         overall:                  Number(overall.toFixed(4)),

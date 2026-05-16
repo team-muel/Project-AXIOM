@@ -195,10 +195,17 @@ export interface PianoCraftScoreSummary {
      */
     textureFormCoherenceScore?: number;
     /**
-     * Piano listenability composite score: six listener-facing dimensions
+     * Phrase-level voicing quality: sections contain explicit phrase peaks,
+     * cadence-grounded chord endings, and melody-above-bass register.
+     * Higher = phrases are well-shaped and harmonically grounded. (0–1).
+     */
+    phraseLevelVoicingScore?: number;
+    /**
+     * Piano listenability composite score: seven listener-facing dimensions
      * (melody prominence, bass root support, accompaniment consistency,
-     * register spacing, pedal blur risk, texture-form coherence) weighted
-     * to reflect what human listeners notice most. (0–1).
+     * register spacing, phrase-level voicing, pedal blur risk,
+     * texture-form coherence) weighted to reflect what human listeners
+     * notice most. (0–1).
      */
     pianoListenabilityScore?: number;
 }

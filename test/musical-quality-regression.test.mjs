@@ -1010,3 +1010,166 @@ test("piano: melody well above LH register → high melodyProminenceScore", () =
     );
     assert.ok(clearScore > 0.7, `clear register should be > 0.7, got ${clearScore}`);
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW: BASS ROOT SUPPORT / PEDAL BLUR / TEXTURE COHERENCE / PHRASE VOICING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const {
+    computeBassRootSupportScore,
+    computePedalBlurRisk,
+    computeTextureFormCoherence,
+    computePhraseLevelVoicing,
+    computePianoListenabilityScore,
+} = await import("../dist/core/evaluate/pianoCraftScoring.js");
+
+// [35] LH in C2–C3 register → high bassRootSupportScore
+test("piano: LH bass in C2–C3 zone → high bassRootSupportScore", () => {
+    const goodBassSection = makeSection("s1", "theme_a", {
+        measureCount: 8,
+        pianoVoiceLayout: {
+            leftHandPitchMin: 36, leftHandPitchMax: 52, // C2–E3
+            handCollisionCount: 0,
+        },
+    });
+    const highBassSection = makeSection("s2", "theme_a", {
+        measureCount: 8,
+        pianoVoiceLayout: {
+            leftHandPitchMin: 60, leftHandPitchMax: 80, // C4–Ab5 — too high
+            handCollisionCount: 0,
+        },
+    });
+    const goodScore = computeBassRootSupportScore([goodBassSection]);
+    const highScore = computeBassRootSupportScore([highBassSection]);
+    assert.ok(goodScore > highScore, `C2–C3 bass (${goodScore}) should beat high LH (${highScore})`);
+    assert.ok(goodScore >= 0.7, `bass in ideal register should be ≥ 0.7, got ${goodScore}`);
+});
+
+// [36] No pedal events → low blur risk → high pedalBlurRisk score (inverted)
+test("piano: no pedal events → high pedalBlurRisk score (= low actual risk)", () => {
+    const noPedalSection = makeSection("s1", "theme_a", {
+        measureCount: 8,
+        pianoVoiceLayout: { pedalEventCount: 0, avgChordVoiceCount: 3, leftHandPitchMin: 48 },
+    });
+    const overPedalSection = makeSection("s2", "theme_a", {
+        measureCount: 8,
+        pianoVoiceLayout: {
+            pedalEventCount: 30, // over-pedalled
+            avgChordVoiceCount: 5,
+            leftHandPitchMin: 28, // very low bass
+        },
+    });
+    const noPedalScore   = computePedalBlurRisk([noPedalSection]);
+    const overPedalScore = computePedalBlurRisk([overPedalSection]);
+    assert.ok(noPedalScore > overPedalScore,
+        `no pedal (${noPedalScore}) should score higher than over-pedalled (${overPedalScore})`);
+});
+
+// [37] Development denser than theme_a → high textureFormCoherence
+test("piano: development denser than theme_a → high textureFormCoherence", () => {
+    const themeA = makeSection("s1", "theme_a", {
+        measureCount: 8,
+        accompanimentEvents: Array.from({ length: 8 }, (_, i) => ({ type: "note", pitch: 48 + i, quarterLength: 1.0 })),
+    });
+    const development = makeSection("s2", "development", {
+        measureCount: 8,
+        // 3× denser than theme_a
+        accompanimentEvents: Array.from({ length: 24 }, (_, i) => ({ type: "note", pitch: 48 + (i % 5), quarterLength: 0.33 })),
+    });
+    const themeALight = makeSection("s1", "theme_a", {
+        measureCount: 8,
+        accompanimentEvents: Array.from({ length: 8 }, (_, i) => ({ type: "note", pitch: 48 + i, quarterLength: 1.0 })),
+    });
+    const developmentLight = makeSection("s2", "development", {
+        measureCount: 8,
+        // same density as theme_a — no contrast
+        accompanimentEvents: Array.from({ length: 8 }, (_, i) => ({ type: "note", pitch: 48 + i, quarterLength: 1.0 })),
+    });
+    const contrastScore = computeTextureFormCoherence([themeA, development]);
+    const flatScore     = computeTextureFormCoherence([themeALight, developmentLight]);
+    assert.ok(contrastScore > flatScore,
+        `density contrast (${contrastScore}) should beat uniform texture (${flatScore})`);
+    assert.ok(contrastScore >= 0.6, `development denser than theme_a should be ≥ 0.6, got ${contrastScore}`);
+});
+
+// [38] Sections with phrase peaks + dominant cadence → high phraseLevelVoicing
+test("piano: phrase peaks + dominant cadences → high phraseLevelVoicing", () => {
+    const layout = cleanLayout({ avgChordVoiceCount: 4 });
+    const wellVoiced = [
+        makeSection("s1", "theme_a", {
+            phrasePeaks: [4, 8],
+            cadenceApproach: "dominant",
+            melodyPitchMin: 64, melodyPitchMax: 84, // E4–C6
+            bassPitchMax: 60, // C4 — melody above bass
+        }),
+        makeSection("s3", "recap", {
+            phrasePeaks: [6],
+            cadenceApproach: "dominant",
+            melodyPitchMin: 67, melodyPitchMax: 88, // G4–E6
+            bassPitchMax: 55, // G3 — good gap
+        }),
+    ];
+    const poorlyVoiced = [
+        makeSection("s1", "theme_a", {
+            // no peaks, no cadence, melody invades bass
+            melodyPitchMin: 45, melodyPitchMax: 60,
+            bassPitchMax: 65,
+        }),
+    ];
+    const { score: goodScore } = computePhraseLevelVoicing(wellVoiced, layout);
+    const { score: badScore }  = computePhraseLevelVoicing(poorlyVoiced, undefined);
+    assert.ok(goodScore > badScore,
+        `well-voiced phrases (${goodScore}) should beat poorly-voiced (${badScore})`);
+    assert.ok(goodScore >= 0.6, `phrase peaks + dominant cadences should be ≥ 0.6, got ${goodScore}`);
+});
+
+// [39] pianoListenabilityScore composite: well-constructed piano → score ≥ 0.55
+test("piano: well-constructed piano section → pianoListenabilityScore >= 0.55", () => {
+    const layout = cleanLayout({
+        rightHandPitchMin: 64, rightHandPitchMax: 88,
+        leftHandPitchMin: 36,  leftHandPitchMax: 55,
+        avgChordVoiceCount: 4,
+        pedalEventCount: 6,
+    });
+    const regularAccomp = Array.from({ length: 16 }, (_, i) => ({ type: "note", pitch: 48 + (i % 4), quarterLength: 0.5 }));
+    const sections = [
+        makeSection("s1", "theme_a", {
+            measureCount: 8,
+            melodyPitchMin: 68, melodyPitchMax: 84,
+            bassPitchMin: 36, bassPitchMax: 52,
+            pianoLeftHandPitchMin: 36, pianoLeftHandPitchMax: 52,
+            bassMotionProfile: "stepwise",
+            cadenceApproach: "dominant",
+            phrasePeaks: [6, 8],
+            accompanimentEvents: regularAccomp,
+            pianoVoiceLayout: layout,
+        }),
+        makeSection("s2", "development", {
+            measureCount: 8,
+            melodyPitchMin: 67, melodyPitchMax: 88,
+            bassPitchMin: 36, bassPitchMax: 48,
+            pianoLeftHandPitchMin: 36, pianoLeftHandPitchMax: 48,
+            bassMotionProfile: "mixed",
+            accompanimentEvents: Array.from({ length: 24 }, (_, i) => ({ type: "note", pitch: 48 + (i % 5), quarterLength: 0.33 })),
+            pianoVoiceLayout: layout,
+        }),
+        makeSection("s3", "recap", {
+            measureCount: 8,
+            melodyPitchMin: 64, melodyPitchMax: 84,
+            bassPitchMin: 36, bassPitchMax: 52,
+            pianoLeftHandPitchMin: 36, pianoLeftHandPitchMax: 52,
+            bassMotionProfile: "stepwise",
+            cadenceApproach: "dominant",
+            phrasePeaks: [7],
+            accompanimentEvents: regularAccomp,
+            pianoVoiceLayout: layout,
+        }),
+    ];
+    const result = computePianoListenabilityScore(sections, layout);
+    assert.ok(typeof result.phraseLevelVoicing === "number",
+        "phraseLevelVoicing dimension should be present");
+    assert.ok(result.overall >= 0.55,
+        `well-constructed piano listenability should be ≥ 0.55, got ${result.overall}`);
+    assert.ok(result.overall >= 0 && result.overall <= 1,
+        `pianoListenabilityScore should be in [0,1], got ${result.overall}`);
+});
