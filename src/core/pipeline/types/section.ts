@@ -1,7 +1,8 @@
 import type { ArticulationTag, CadentialBuildup, CharacterTag, ContinuationPressure, DynamicsProfile, ExpressionGuidance, OrnamentPlan, PhraseBreathPlan, PhraseFunction, PhraseSpanShape, SectionOrnamentSummary, SectionPhraseBreathSummary, SectionTempoMotionSummary, TempoMotionPlan, TextureGuidance, TextureRole } from "./expression.js";
-import type { CadenceStyle, HarmonicColorCue, HarmonicDensity, HarmonicPlan, ProlongationMode, SectionHarmonicRealizationSummary, TonicizationWindow, VoicingProfile } from "./harmony.js";
+import type { CadenceStyle, HarmonicColorCue, HarmonicDensity, HarmonicPlan, HarmonyGrammarPlan, ProlongationMode, SectionHarmonicRealizationSummary, TonicizationWindow, VoicingProfile } from "./harmony.js";
 import type { InstrumentAssignment } from "./orchestration.js";
 import type { ClassicalNotationMark } from "./classical.js";
+import type { MotifDevelopmentPlan } from "./motif.js";
 import type { PianoVoiceLayoutSummary } from "./piano.js";
 
 export type SectionRole =
@@ -49,6 +50,10 @@ export interface SectionPlan {
     ornaments?: OrnamentPlan[];
     /** Phrase grammar plan annotated by phraseGrammar.ts during sketch materialization */
     phraseGrammar?: PhraseGrammarPlan;
+    /** Harmony grammar plan annotated by harmonyGrammar.ts during sketch materialization */
+    harmonyGrammar?: HarmonyGrammarPlan;
+    /** Motif development plan annotated by motifDevelopment.ts during sketch materialization */
+    motifDevelopment?: MotifDevelopmentPlan;
     notes?: string[];
 }
 

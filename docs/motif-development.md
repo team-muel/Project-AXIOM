@@ -222,14 +222,23 @@ AXIOM이 동기를 계획하고 실행할 때의 권장 흐름:
 
 ## 6. AXIOM 현재 구현 상태
 
-| 개념 | 현재 지원 | 목표 |
-|------|---------|------|
-| 동기 등록 | ✅ `MotifDraft[]` | pitch contour 자동 추출 |
-| 반복 | ✅ `transformPolicy: "repeat"` | 횟수 제한 추가 |
-| 시퀀스 | ✅ `transformPolicy: "sequence"` | 방향/거리 지정 |
-| 단편화 | ✅ `transformPolicy: "fragment"` | 사용 부분 명시 |
-| 전위 | ✅ `transformPolicy: "inversion"` | strict/tonal 구분 |
-| 확대/축소 | ❌ | `augmentation`, `diminution` 추가 |
-| 재화성화 | ❌ | `reharmonize` 옵션 |
-| Recap 식별성 검증 | ❌ | pitch contour 비교 + `motifReturnScore` |
-| False recap 감지 | ❌ | 조성 확인 후 분류 |
+| 개념 | 현재 지원 | 구현 위치 |
+|------|---------|----------|
+| 동기 등록 | ✅ `MotifDraft[]` | `motif.ts`, `sketch.ts` |
+| 반복 | ✅ `ThematicTransformKind="repeat"` | `motifDevelopment.ts` |
+| 시퀀스 | ✅ `applySequence(intervals, stride, count)` | `motifDevelopment.ts` |
+| 단편화 | ✅ `applyFragmentation(intervals, start, length)` | `motifDevelopment.ts` |
+| 전위 (inversion) | ✅ `applyInversion(intervals)` | `motifDevelopment.ts` |
+| 소급 (retrograde) | ✅ `applyRetrograde(intervals)` | `motifDevelopment.ts` |
+| 확대 (augmentation) | ✅ `applyAugmentation(durations, factor)` | `motifDevelopment.ts` |
+| 축소 (diminution) | ✅ `applyDiminution(durations, factor)` | `motifDevelopment.ts` |
+| 재화성화 | ✅ `ThematicTransformKind="reharmonize"` | `motif.ts` (종류 정의) |
+| Recap 식별성 검증 | ✅ `computeRecapIdentityScore(themeIntervals, recapIntervals)` | `motifDevelopment.ts` |
+| False recap 감지 | ❌ | 조성 확인 후 분류 필요 |
+
+`buildMotifDevelopmentPlan(sections, motifDrafts)` → `Map<sectionId, MotifDevelopmentPlan>` 형식으로
+`materializeCompositionSketch()`에서 매 섹션에 자동 주석 처리됨.
+
+Recap 섹션에는 `recapIdentityScore` (0–1)가 자동 계산됨:
+- 1.0 = 원형과 완전한 윤곽 일치
+- 0.0 = 완전히 반대 윤곽 (inversion과 동일)

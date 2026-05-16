@@ -230,12 +230,17 @@ AXIOM `HarmonicPlan.cadence` + `LongSpanFormPlan` 조합으로 이 위계 설계
 
 ## 8. AXIOM 현재 구현 상태
 
-| 개념 | 현재 지원 | 목표 |
-|------|---------|------|
-| 기능 화성 진행 | ✅ `ClassicalHarmonyKnowledge.cadencePolicy` | 금지 진행 검증 추가 |
-| Prolongation | ❌ | `HarmonicColorCue` 확장 |
-| 전조 전략 | ✅ `modulationStrategy` | pivot chord 명시 |
-| Applied dominant | ✅ `HarmonicColorCue.tag` | 자동 제안 |
-| Mixture / Neapolitan / Aug6 | ✅ colorPalette 태그 | 해결 검증 |
-| Cadential 6/4 | ❌ | `cadenceApproach: "cad64"` 옵션 |
-| 화성 리듬 제어 | ❌ | `harmonicRhythmProfile` per section |
+| 개념 | 현재 지원 | 구현 위치 |
+|------|---------|----------|
+| 기능 화성 진행 | ✅ `buildFunctionalProgression()` | `src/core/plan/harmonyGrammar.ts` |
+| Prolongation | ✅ `HarmonyGrammarPlan.prolongationMode` + `HarmonicPlan.prolongationMode` | `harmonyGrammar.ts`, `harmony.ts` |
+| 전조 전략 | ✅ `modulationStrategy` + `TonicizationWindow` | `HarmonicPlan` |
+| Applied dominant | ✅ `buildAppliedDominantCue()` + `HarmonicColorCue.tag="applied_dominant"` | `harmonyGrammar.ts` |
+| Cadential 6/4 | ✅ `CadenceApproachTemplate="cad64"` at recap/cadence positions | `harmonyGrammar.ts` |
+| 화성 리듬 제어 | ✅ `HarmonicRhythmShape` per section | `harmonyGrammar.ts` |
+| Local tonicization | ✅ `suggestTonicizationWindow()` for development/bridge/theme_b | `harmonyGrammar.ts` |
+| Mixture / Neapolitan / Aug6 | ✅ colorPalette 태그 | `HarmonicColorCue` |
+| 금지 진행 검증 | ✅ `ClassicalHarmonyKnowledge.cadencePolicy` | `classicalKnowledge.ts` |
+
+`applyHarmonyGrammarToSections(sections)` → `Map<sectionId, HarmonyGrammarPlan>` 형식으로
+`materializeCompositionSketch()`에서 매 섹션에 자동 주석 처리됨.

@@ -19,6 +19,8 @@ import type {
     StructureVisibility,
 } from "../pipeline/types.js";
 import { applyPhraseGrammarToSections } from "./phraseGrammar.js";
+import { applyHarmonyGrammarToSections } from "./harmonyGrammar.js";
+import { buildMotifDevelopmentPlan } from "./motifDevelopment.js";
 
 const MOTIF_ROLES = new Set(["intro", "theme_a", "theme_b", "bridge", "development", "variation", "recap"]);
 const CADENCE_ROLES = new Set(["cadence", "outro", "recap"]);
@@ -730,9 +732,21 @@ export function materializeCompositionSketch(request: ComposeRequest): ComposeRe
 
     // Annotate each section with its phrase grammar plan.
     const phraseGrammarMap = applyPhraseGrammarToSections(plan.sections);
+    // Annotate each section with its harmony grammar plan.
+    const harmonyGrammarMap = applyHarmonyGrammarToSections(plan.sections);
+    // Build motif development plans for sections that require development.
+    const motifDevelopmentMap = buildMotifDevelopmentPlan(plan.sections, sketch.motifDrafts);
+
     const sections: SectionPlan[] = plan.sections.map((section) => {
         const grammar = phraseGrammarMap.get(section.id);
-        return grammar ? { ...section, phraseGrammar: grammar } : section;
+        const harmonyGrammar = harmonyGrammarMap.get(section.id);
+        const motifDevelopment = motifDevelopmentMap.get(section.id);
+        return {
+            ...section,
+            ...(grammar ? { phraseGrammar: grammar } : {}),
+            ...(harmonyGrammar ? { harmonyGrammar } : {}),
+            ...(motifDevelopment ? { motifDevelopment } : {}),
+        };
     });
 
     return {

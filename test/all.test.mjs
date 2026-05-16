@@ -52,3 +52,7 @@ import "./python-compose-piano-e2e.test.mjs";
 import "./piano-strict-gates.test.mjs";
 import "./piano-benchmark.test.mjs";
 import "./musical-quality-regression.test.mjs";
+import "./phrase-grammar.test.mjs";
+import "./harmony-grammar.test.mjs";
+import "./motif-development.test.mjs";
+import "./piano-listenability.test.mjs";

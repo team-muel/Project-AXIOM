@@ -649,3 +649,25 @@ export function computePianoCraftScoreSummary(
     };
 }
 
+// ---------------------------------------------------------------------------
+// Listenability — overallAppeal proxy
+// ---------------------------------------------------------------------------
+
+/**
+ * A listener-facing composite score that proxies "overall appeal".
+ * Weights prioritise what human reviewers actually notice first:
+ *   handPlayability  0.35 — unplayable passages kill the experience
+ *   melodicClarity   0.35 — memorable melody is the first thing listeners hear
+ *   bassCoherence    0.30 — solid bass foundation
+ *
+ * Returns a value in [0,1]. This is NOT a gate score — it is a ranked
+ * summary intended for A/B review and benchmark reporting.
+ */
+export function computeOverallAppeal(
+    handPlayability: number,
+    melodicClarity: number,
+    bassCoherence: number,
+): number {
+    return clamp01(0.35 * handPlayability + 0.35 * melodicClarity + 0.30 * bassCoherence);
+}
+

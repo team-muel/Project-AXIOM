@@ -6,7 +6,12 @@ export type ThematicTransformKind =
     | "fragment"
     | "revoice"
     | "destabilize"
-    | "delay_return";
+    | "delay_return"
+    | "inversion"
+    | "augmentation"
+    | "diminution"
+    | "retrograde"
+    | "reharmonize";
 
 export interface MotifTransformPolicy {
     reuseRequired: boolean;
@@ -46,5 +51,27 @@ export interface ThematicTransformationCheckpoint {
     transform: ThematicTransformKind;
     expectedProminence?: number;
     preserveIdentity?: boolean;
+    notes?: string[];
+}
+
+/** A single transform applied to a motif for a target section. */
+export interface MotifDevelopmentEntry {
+    sourceSectionId: string;
+    targetSectionId: string;
+    transform: ThematicTransformKind;
+    /** Resulting interval series after applying the transform (may be undefined for non-interval transforms). */
+    transformedIntervals?: number[];
+    /** Resulting note-duration series after applying augmentation/diminution. */
+    transformedDurations?: number[];
+    /** Contour similarity score of recap vs theme_a (0–1). Only present for "recap_identity" analysis. */
+    recapIdentityScore?: number;
+    notes?: string[];
+}
+
+/** Full motif development plan for a section — populated by motifDevelopment.ts during sketch materialization. */
+export interface MotifDevelopmentPlan {
+    entries: MotifDevelopmentEntry[];
+    /** Overall recap identity score across all recap sections, if computed. */
+    recapIdentityScore?: number;
     notes?: string[];
 }
