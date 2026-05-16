@@ -53,6 +53,9 @@ const {
 const {
     computeMelodicClarity,
     computeRegisterSpacing,
+    computeBassCoherence,
+    computeAccompanimentPatternCoherence,
+    computeMelodyProminenceScore,
 } = await import("../dist/core/evaluate/pianoCraftScoring.js");
 
 const {
@@ -926,4 +929,80 @@ test("integration: computeCraftScoreSummary includes planAwareHarmonyGrammarScor
         expectedFinal,
         `finalCraftScore must stay at 8-dim formula: expected ${expectedFinal}, got ${summary.finalCraftScore}`,
     );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW: PIANO BASS COHERENCE + ACCOMPANIMENT CONSISTENCY + PHRASE-LEVEL VOICING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// [32] Stepwise LH bass scores significantly higher than leaping bass
+test("piano: stepwise LH bass → bassCoherence >> leaping bass", () => {
+    const stepwiseSection = makeSection("s1", "theme_a", {
+        bassMotionProfile: "stepwise",
+        bassPitchMin: 36, bassPitchMax: 55,
+        measureCount: 8,
+    });
+    const leapingSection = makeSection("s1", "theme_a", {
+        bassMotionProfile: "leaping",
+        bassPitchMin: 36, bassPitchMax: 55,
+        measureCount: 8,
+    });
+    const { score: stepwiseScore } = computeBassCoherence([stepwiseSection]);
+    const { score: leapingScore }  = computeBassCoherence([leapingSection]);
+    assert.ok(
+        stepwiseScore > leapingScore,
+        `stepwise bass (${stepwiseScore}) should score higher than leaping bass (${leapingScore})`,
+    );
+    // Stepwise should be near 1.0; leaping should be near 0.3
+    assert.ok(stepwiseScore >= 0.9, `stepwise bass should be ≥ 0.9, got ${stepwiseScore}`);
+    assert.ok(leapingScore <= 0.35, `leaping bass should be ≤ 0.35, got ${leapingScore}`);
+});
+
+// [33] Regular accompaniment pattern scores higher than erratic
+test("piano: regular accompaniment pattern → higher accompanimentPatternCoherence", () => {
+    // Regular: all events have same duration (CV = 0, score → 1.0)
+    const regularAccomp = Array.from({ length: 16 }, () => ({ type: "note", pitch: 48, quarterLength: 0.5 }));
+    const regularSection = makeSection("s1", "theme_a", {
+        measureCount: 8,
+        accompanimentEvents: regularAccomp,
+    });
+
+    // Erratic: wildly varying durations (CV >> 1)
+    const erraticAccomp = [0.25, 2.0, 0.125, 3.0, 0.5, 0.0625, 1.5, 4.0].map((ql) => ({
+        type: "note", pitch: 48, quarterLength: ql,
+    }));
+    const erraticSection = makeSection("s1", "theme_a", {
+        measureCount: 8,
+        accompanimentEvents: erraticAccomp,
+    });
+
+    const { score: regularScore } = computeAccompanimentPatternCoherence([regularSection]);
+    const { score: erraticScore } = computeAccompanimentPatternCoherence([erraticSection]);
+    assert.ok(
+        regularScore > erraticScore,
+        `regular accompaniment (${regularScore}) should beat erratic (${erraticScore})`,
+    );
+    assert.ok(regularScore >= 0.9, `regular pattern should score ≥ 0.9, got ${regularScore}`);
+});
+
+// [34] Melody clearly above LH register → high melody prominence
+test("piano: melody well above LH register → high melodyProminenceScore", () => {
+    const clearSection = makeSection("s1", "theme_a", {
+        measureCount: 8,
+        melodyPitchMin: 72, melodyPitchMax: 84,     // RH: C5–C6
+        pianoLeftHandPitchMin: 36, pianoLeftHandPitchMax: 52, // LH: C2–E3
+    });
+    const crowdedSection = makeSection("s1", "theme_a", {
+        measureCount: 8,
+        melodyPitchMin: 55, melodyPitchMax: 65,     // RH: G3–F4
+        pianoLeftHandPitchMin: 52, pianoLeftHandPitchMax: 68, // LH: E3–Ab4 → invades
+    });
+
+    const clearScore   = computeMelodyProminenceScore([clearSection]);
+    const crowdedScore = computeMelodyProminenceScore([crowdedSection]);
+    assert.ok(
+        clearScore > crowdedScore,
+        `clear register separation (${clearScore}) should beat crowded register (${crowdedScore})`,
+    );
+    assert.ok(clearScore > 0.7, `clear register should be > 0.7, got ${clearScore}`);
 });

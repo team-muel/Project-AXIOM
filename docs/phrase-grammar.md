@@ -194,7 +194,19 @@ Hypermeasure 2: [마디5-8]  (hyperdownbeat: 마디5)
 | cadence 위치 강제 | ✅ 부분적 (`cadenceOptions` + phraseGrammar) | `PhraseUnit.cadenceType` (HC/PAC 지정) |
 | hypermeter | ✅ `HypermetricGroup` (2/4/8 bar) | `phraseGrammar.hypermetricGroups` |
 | phrase peak | ✅ `SectionArtifactSummary.phrasePeaks` | 평가 시 `computePhraseGrammarScore` 확인 |
-| 악절 확장/압축 | ❌ | `phraseLengthModifier` 개념 도입 예정 |
-| elision | ❌ | 섹션 전환 옵션으로 추가 예정 |
+| 악절 확장/압축 | ✅ `PhraseExpansion` (`PhraseGrammarPlan.phrasePlan.phraseExpansion`) | `PhraseExpansionType`: internal / cadential_extension / prefix / suffix |
+| elision | ✅ `PhraseElision` (`PhraseGrammarPlan.phrasePlan.elision`) | `elisionMeasure` — 이전 종지와 다음 악절 시작이 겹치는 마디 |
+| phrase_group | ✅ `PhraseGroupStructure` (`buildPhraseGroupStructure`) | 두 개의 독립 악절, 각 PAC 종지 |
+| PhrasePlan | ✅ `PhraseGrammarPlan.phrasePlan` | `phraseType`, `phraseFunction`, `hypermeterUnit`, `cadencePlacement`, `phraseExpansion`, `elision` |
 | phrase breath | ✅ (`PhraseBreathPlan`) | 기능 강화 예정 |
 | rubato anchors | ✅ | 자동 제안 로직 개선 예정 |
+
+### phraseGrammarScore 검증 항목 (2025–05 기준)
+
+| 검증 항목 | 함수 | 설명 |
+|----------|------|------|
+| sentence 2+2+4 구조 | `computeSentenceRatioScore` | basicIdea/repetition ≈ 25% 각, continuation+cadential ≈ 50% |
+| period 4+4 구조 | `computePeriodBalanceScore` | antecedent/consequent 각 50% 균형 |
+| antecedent HC / consequent PAC | `computeAntecedentConsequentCadenceScore` | half → authentic 쌍 검증 |
+| cadence 위치 검증 | `computeCadenceStructuralPositionScore` | 강박 위치(4의 배수) 우선, 약박 감점 |
+| hypermeter 안정성 | `computeHypermetricStabilityScore` | 그룹 스팬 균일성 + phrasePlan.hypermeterUnit 정합 |

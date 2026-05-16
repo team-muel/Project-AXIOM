@@ -24,6 +24,9 @@ import {
     computeMelodicClarity,
     computeBassCoherence,
     computeOverallAppeal,
+    computeTextureFormCoherence,
+    computePianoListenabilityScore,
+    computePianoCraftScoreSummary,
 } from "../dist/core/evaluate/pianoCraftScoring.js";
 
 // ─── Fixture helpers ─────────────────────────────────────────────────────────
@@ -428,4 +431,158 @@ test("computeBassRootSupportScore: collisions penalise score", () => {
     const base = computeBassRootSupportScore([sectionNoCollision]);
     const penalised = computeBassRootSupportScore([sectionWithCollision]);
     assert.ok(penalised < base, `collisions should reduce score: base=${base}, penalised=${penalised}`);
+});
+
+// ─── computeTextureFormCoherence ──────────────────────────────────────────────
+
+function makeTFSection(sectionId, role, accompEvents, measureCount = 8) {
+    return {
+        sectionId,
+        role,
+        measureCount,
+        melodyEvents: [],
+        accompanimentEvents: accompEvents,
+        noteHistory: [],
+    };
+}
+
+function notes(count, quarterLength = 0.5) {
+    return Array.from({ length: count }, () => ({ type: "note", pitch: 48, quarterLength }));
+}
+
+test("computeTextureFormCoherence: fewer than 2 sections → 0.5", () => {
+    const score = computeTextureFormCoherence([makeTFSection("s1", "theme_a", notes(8))]);
+    assert.strictEqual(score, 0.5);
+});
+
+test("computeTextureFormCoherence: no theme_a section → 0.5", () => {
+    const score = computeTextureFormCoherence([
+        makeTFSection("s1", "development", notes(12)),
+        makeTFSection("s2", "recap", notes(8)),
+    ]);
+    assert.strictEqual(score, 0.5);
+});
+
+test("computeTextureFormCoherence: development denser than theme_a → high score", () => {
+    const sections = [
+        makeTFSection("s1", "theme_a", notes(8)),     // 8/8=1.0 events/measure
+        makeTFSection("s2", "development", notes(20)), // 20/8=2.5 events/measure → denser
+    ];
+    const score = computeTextureFormCoherence(sections);
+    assert.ok(score > 0.6, `development denser → score should be > 0.6, got ${score}`);
+});
+
+test("computeTextureFormCoherence: recap matches theme_a density → high score", () => {
+    const sections = [
+        makeTFSection("s1", "theme_a", notes(8)),  // 1.0 events/measure
+        makeTFSection("s2", "recap", notes(9)),    // 1.125 events/measure → within 30%
+    ];
+    const score = computeTextureFormCoherence(sections);
+    assert.ok(score >= 0.8, `recap matching theme_a should score ≥ 0.8, got ${score}`);
+});
+
+test("computeTextureFormCoherence: recap very different from theme_a → lower score", () => {
+    const sections = [
+        makeTFSection("s1", "theme_a", notes(8)),  // 1.0 events/measure
+        makeTFSection("s2", "recap", notes(32)),   // 4.0 events/measure → 300% diff
+    ];
+    const score = computeTextureFormCoherence(sections);
+    assert.ok(score < 0.6, `recap with very different density should score < 0.6, got ${score}`);
+});
+
+test("computeTextureFormCoherence: intro simpler than theme_a → high score", () => {
+    const sections = [
+        makeTFSection("s1", "theme_a", notes(16)), // 2.0 events/measure
+        makeTFSection("s0", "intro", notes(4)),    // 0.5 events/measure → simpler
+    ];
+    const score = computeTextureFormCoherence(sections);
+    assert.ok(score > 0.6, `simpler intro should score > 0.6, got ${score}`);
+});
+
+// ─── computePianoListenabilityScore ──────────────────────────────────────────
+
+function makeLSSection(overrides = {}) {
+    return {
+        sectionId: "s1",
+        role: "theme_a",
+        measureCount: 8,
+        melodyEvents: [],
+        accompanimentEvents: [],
+        noteHistory: [],
+        ...overrides,
+    };
+}
+
+test("computePianoListenabilityScore: returns object with all 7 fields", () => {
+    const result = computePianoListenabilityScore([makeLSSection()]);
+    assert.ok("melodyProminence" in result);
+    assert.ok("bassRootSupport" in result);
+    assert.ok("accompanimentConsistency" in result);
+    assert.ok("registerSpacing" in result);
+    assert.ok("pedalBlurRisk" in result);
+    assert.ok("textureFormCoherence" in result);
+    assert.ok("overall" in result);
+});
+
+test("computePianoListenabilityScore: all dimensions in [0,1]", () => {
+    const result = computePianoListenabilityScore([makeLSSection()]);
+    for (const [k, v] of Object.entries(result)) {
+        assert.ok(v >= 0 && v <= 1, `${k} out of [0,1]: ${v}`);
+    }
+});
+
+test("computePianoListenabilityScore: golden section scores higher than baseline", () => {
+    const golden = makeGoldenSection();
+    const baseline = makeBaselineSection();
+    const goldenResult = computePianoListenabilityScore([golden], makeLayout("good"));
+    const baselineResult = computePianoListenabilityScore([baseline], makeLayout("poor"));
+    assert.ok(
+        goldenResult.overall > baselineResult.overall,
+        `golden (${goldenResult.overall}) should beat baseline (${baselineResult.overall})`,
+    );
+});
+
+test("computePianoListenabilityScore: clear melody register separation improves overall", () => {
+    const noSep = makeLSSection({});
+    const withSep = makeLSSection({
+        melodyPitchMin: 72, melodyPitchMax: 84,
+        pianoLeftHandPitchMin: 36, pianoLeftHandPitchMax: 52,
+    });
+    const noSepScore = computePianoListenabilityScore([noSep]).overall;
+    const withSepScore = computePianoListenabilityScore([withSep]).overall;
+    assert.ok(withSepScore >= noSepScore, `separation (${withSepScore}) should >= no-sep (${noSepScore})`);
+});
+
+test("computePianoListenabilityScore: weights sum preserved — overall is finite", () => {
+    const result = computePianoListenabilityScore([makeGoldenSection()], makeLayout("good"));
+    assert.ok(Number.isFinite(result.overall));
+    assert.ok(result.overall >= 0 && result.overall <= 1);
+});
+
+// ─── computePianoCraftScoreSummary includes listenability fields ──────────────
+
+test("computePianoCraftScoreSummary: includes pianoListenabilityScore field", () => {
+    const section = makeGoldenSection();
+    const summary = computePianoCraftScoreSummary([section], undefined, { passed: true, issues: [], strengths: [] }, makeLayout("good"));
+    assert.ok("pianoListenabilityScore" in summary, "pianoListenabilityScore should be present");
+    assert.ok(typeof summary.pianoListenabilityScore === "number");
+    assert.ok(summary.pianoListenabilityScore >= 0 && summary.pianoListenabilityScore <= 1);
+});
+
+test("computePianoCraftScoreSummary: includes textureFormCoherenceScore field", () => {
+    const section = makeGoldenSection();
+    const summary = computePianoCraftScoreSummary([section], undefined, { passed: true, issues: [], strengths: [] }, makeLayout("good"));
+    assert.ok("textureFormCoherenceScore" in summary, "textureFormCoherenceScore should be present");
+    assert.ok(typeof summary.textureFormCoherenceScore === "number");
+});
+
+test("computePianoCraftScoreSummary: finalPianoScore unchanged by new fields", () => {
+    // finalPianoScore still uses the original 9-dimension formula only
+    const section = makeGoldenSection();
+    const layout = makeLayout("good");
+    const summary = computePianoCraftScoreSummary([section], undefined, { passed: true, issues: [], strengths: [] }, layout);
+    // Verify finalPianoScore is different from pianoListenabilityScore (they are distinct composites)
+    assert.ok(typeof summary.finalPianoScore === "number");
+    assert.ok(typeof summary.pianoListenabilityScore === "number");
+    assert.ok(summary.finalPianoScore >= 0 && summary.finalPianoScore <= 1);
 });

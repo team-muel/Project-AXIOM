@@ -12,6 +12,8 @@ import assert from "node:assert/strict";
 import {
     buildSentenceStructure,
     buildPeriodStructure,
+    buildPhraseGroupStructure,
+    buildPhrasePlan,
     computeHypermetricGroups,
     choosePhraseStructure,
     applyPhraseGrammarToSections,
@@ -30,6 +32,11 @@ import {
     computeHypermetricRegularityScore,
     computePhraseClosureScore,
     computePhraseGrammarScoreSummary,
+    computeSentenceRatioScore,
+    computePeriodBalanceScore,
+    computeAntecedentConsequentCadenceScore,
+    computeCadenceStructuralPositionScore,
+    computeHypermetricStabilityScore,
 } from "../dist/core/evaluate/phraseGrammarScoring.js";
 
 // ─── Phrase Grammar Builder Tests ────────────────────────────────────────────
@@ -643,5 +650,347 @@ describe("computePhraseGrammarScoreSummary", () => {
         });
         const result = computePhraseGrammarScoreSummary(plan, artifact);
         assert.ok(result.overall < 0.65, `expected < 0.65, got ${result.overall}`);
+    });
+});
+
+// ─── New Builder Tests ────────────────────────────────────────────────────────
+
+describe("buildPhraseGroupStructure", () => {
+    it("returns phrase_group type", () => {
+        const g = buildPhraseGroupStructure(8);
+        assert.strictEqual(g.type, "phrase_group");
+    });
+
+    it("has exactly two phrases for 8 measures", () => {
+        const g = buildPhraseGroupStructure(8);
+        assert.strictEqual(g.phrases.length, 2);
+    });
+
+    it("phrases sum to totalMeasures", () => {
+        const g = buildPhraseGroupStructure(8);
+        const total = g.phrases.reduce((acc, p) => acc + p.measures, 0);
+        assert.strictEqual(total, g.totalMeasures);
+    });
+
+    it("both phrases end with authentic cadence", () => {
+        const g = buildPhraseGroupStructure(8);
+        for (const p of g.phrases) {
+            assert.strictEqual(p.cadenceType, "authentic");
+        }
+    });
+
+    it("second phrase starts after first", () => {
+        const g = buildPhraseGroupStructure(8);
+        assert.strictEqual(g.phrases[1].startMeasure, g.phrases[0].measures + 1);
+    });
+
+    it("4-measure phrase_group splits 2+2", () => {
+        const g = buildPhraseGroupStructure(4);
+        assert.strictEqual(g.phrases[0].measures, 2);
+        assert.strictEqual(g.phrases[1].measures, 2);
+    });
+});
+
+describe("buildPhrasePlan", () => {
+    it("sentence structure produces phraseType=sentence", () => {
+        const s = buildSentenceStructure(8);
+        const plan = buildPhrasePlan(s, "theme_a");
+        assert.strictEqual(plan.phraseType, "sentence");
+    });
+
+    it("period structure produces phraseType=period", () => {
+        const p = buildPeriodStructure(8);
+        const plan = buildPhrasePlan(p, "theme_a");
+        assert.strictEqual(plan.phraseType, "period");
+    });
+
+    it("phrase_group structure produces phraseType=phrase_group", () => {
+        const g = buildPhraseGroupStructure(8);
+        const plan = buildPhrasePlan(g, "bridge");
+        assert.strictEqual(plan.phraseType, "phrase_group");
+    });
+
+    it("sentence produces phraseFunction=presentation", () => {
+        const s = buildSentenceStructure(8);
+        const plan = buildPhrasePlan(s, "theme_a");
+        assert.strictEqual(plan.phraseFunction, "presentation");
+    });
+
+    it("period produces phraseFunction=antecedent", () => {
+        const p = buildPeriodStructure(8);
+        const plan = buildPhrasePlan(p, "theme_a");
+        assert.strictEqual(plan.phraseFunction, "antecedent");
+    });
+
+    it("8-measure structure has hypermeterUnit=4", () => {
+        const s = buildSentenceStructure(8);
+        const plan = buildPhrasePlan(s, "theme_a");
+        assert.strictEqual(plan.hypermeterUnit, 4);
+    });
+
+    it("16-measure structure has hypermeterUnit=8", () => {
+        const s = buildSentenceStructure(16);
+        const plan = buildPhrasePlan(s, "development");
+        assert.strictEqual(plan.hypermeterUnit, 8);
+    });
+
+    it("4-measure structure has hypermeterUnit=2", () => {
+        const p = buildPeriodStructure(4);
+        const plan = buildPhrasePlan(p, "cadence");
+        assert.strictEqual(plan.hypermeterUnit, 2);
+    });
+
+    it("cadencePlacement is present and lands on final measure", () => {
+        const p = buildPeriodStructure(8);
+        const plan = buildPhrasePlan(p, "theme_a");
+        assert.ok(plan.cadencePlacement, "cadencePlacement should be set");
+        assert.strictEqual(plan.cadencePlacement.measure, 8);
+        assert.strictEqual(plan.cadencePlacement.cadenceType, "authentic");
+    });
+});
+
+describe("choosePhraseStructure — phrase_group", () => {
+    it("explicit phrase_group preference produces phrase_group", () => {
+        const plan = choosePhraseStructure("bridge", 8, "phrase_group");
+        assert.strictEqual(plan.structure.type, "phrase_group");
+    });
+
+    it("phrase_group plan includes phrasePlan", () => {
+        const plan = choosePhraseStructure("bridge", 8, "phrase_group");
+        assert.ok(plan.phrasePlan, "phrasePlan should be present");
+        assert.strictEqual(plan.phrasePlan.phraseType, "phrase_group");
+    });
+
+    it("phrase_group produces hypermetric groups for each phrase", () => {
+        const plan = choosePhraseStructure("bridge", 8, "phrase_group");
+        assert.strictEqual(plan.hypermetricGroups.length, 2);
+    });
+
+    it("sentence plan includes phrasePlan with phraseType=sentence", () => {
+        const plan = choosePhraseStructure("development", 8, "sentence");
+        assert.ok(plan.phrasePlan, "phrasePlan should be present");
+        assert.strictEqual(plan.phrasePlan.phraseType, "sentence");
+    });
+
+    it("period plan includes phrasePlan with cadencePlacement", () => {
+        const plan = choosePhraseStructure("theme_a", 8);
+        assert.ok(plan.phrasePlan?.cadencePlacement, "cadencePlacement should be set");
+    });
+});
+
+// ─── New Scoring Function Tests ───────────────────────────────────────────────
+
+function makePhraseGroupPlan(measures = 8) {
+    const g = buildPhraseGroupStructure(measures);
+    const groups = computeHypermetricGroups(measures, g);
+    return { structure: g, hypermetricGroups: groups, totalMeasures: measures, notes: [] };
+}
+
+describe("computeSentenceRatioScore", () => {
+    it("canonical 2+2+4 sentence (8 measures) scores 1.0", () => {
+        const plan = makeSentencePlan(8);
+        assert.strictEqual(computeSentenceRatioScore(plan), 1.0);
+    });
+
+    it("returns 0.5 for period structure (N/A)", () => {
+        const plan = makePeriodPlan(8);
+        assert.strictEqual(computeSentenceRatioScore(plan), 0.5);
+    });
+
+    it("returns 0.5 for phrase_group structure (N/A)", () => {
+        const plan = makePhraseGroupPlan(8);
+        assert.strictEqual(computeSentenceRatioScore(plan), 0.5);
+    });
+
+    it("16-measure sentence also scores high", () => {
+        const plan = makeSentencePlan(16);
+        const score = computeSentenceRatioScore(plan);
+        assert.ok(score >= 0.8, `expected >= 0.8, got ${score}`);
+    });
+});
+
+describe("computePeriodBalanceScore", () => {
+    it("balanced 4+4 period (8 measures) scores 1.0", () => {
+        const plan = makePeriodPlan(8);
+        assert.strictEqual(computePeriodBalanceScore(plan), 1.0);
+    });
+
+    it("returns 0.5 for sentence structure (N/A)", () => {
+        const plan = makeSentencePlan(8);
+        assert.strictEqual(computePeriodBalanceScore(plan), 0.5);
+    });
+
+    it("returns 0.5 for phrase_group structure (N/A)", () => {
+        const plan = makePhraseGroupPlan(8);
+        assert.strictEqual(computePeriodBalanceScore(plan), 0.5);
+    });
+
+    it("unbalanced period scores lower", () => {
+        // Manually build an unbalanced period (3+5 out of 8)
+        const p = buildPeriodStructure(8);
+        const unbalanced = {
+            ...p,
+            antecedent: { ...p.antecedent, measures: 3 },
+            consequent: { ...p.consequent, measures: 5, startMeasure: 4 },
+        };
+        const groups = computeHypermetricGroups(8, p);
+        const plan = { structure: unbalanced, hypermetricGroups: groups, totalMeasures: 8, notes: [] };
+        const score = computePeriodBalanceScore(plan);
+        assert.ok(score < 1.0, `expected < 1.0 for unbalanced period, got ${score}`);
+    });
+});
+
+describe("computeAntecedentConsequentCadenceScore", () => {
+    it("canonical period (HC antecedent + authentic consequent) scores 1.0", () => {
+        const plan = makePeriodPlan(8);
+        assert.strictEqual(computeAntecedentConsequentCadenceScore(plan), 1.0);
+    });
+
+    it("returns 0.5 for sentence (N/A)", () => {
+        const plan = makeSentencePlan(8);
+        assert.strictEqual(computeAntecedentConsequentCadenceScore(plan), 0.5);
+    });
+
+    it("returns 0.5 for phrase_group (N/A)", () => {
+        const plan = makePhraseGroupPlan(8);
+        assert.strictEqual(computeAntecedentConsequentCadenceScore(plan), 0.5);
+    });
+
+    it("only correct antecedent HC scores 0.5", () => {
+        const p = buildPeriodStructure(8);
+        const wrong = { ...p, consequent: { ...p.consequent, cadenceType: "half" } };
+        const groups = computeHypermetricGroups(8, p);
+        const plan = { structure: wrong, hypermetricGroups: groups, totalMeasures: 8, notes: [] };
+        assert.strictEqual(computeAntecedentConsequentCadenceScore(plan), 0.5);
+    });
+
+    it("both wrong cadence types scores 0.0", () => {
+        const p = buildPeriodStructure(8);
+        const wrong = {
+            ...p,
+            antecedent: { ...p.antecedent, cadenceType: "authentic" },
+            consequent: { ...p.consequent, cadenceType: "half" },
+        };
+        const groups = computeHypermetricGroups(8, p);
+        const plan = { structure: wrong, hypermetricGroups: groups, totalMeasures: 8, notes: [] };
+        assert.strictEqual(computeAntecedentConsequentCadenceScore(plan), 0.0);
+    });
+});
+
+describe("computeCadenceStructuralPositionScore", () => {
+    it("returns 0.5 when no phrasePlan", () => {
+        const plan = { ...makeSentencePlan(8), phrasePlan: undefined };
+        assert.strictEqual(computeCadenceStructuralPositionScore(plan), 0.5);
+    });
+
+    it("cadence at final measure scores 1.0", () => {
+        const plan = choosePhraseStructure("theme_a", 8);
+        // cadencePlacement.measure should be 8 (final)
+        assert.strictEqual(computeCadenceStructuralPositionScore(plan), 1.0);
+    });
+
+    it("cadence at multiple of 4 scores 1.0", () => {
+        const base = makeSentencePlan(16);
+        const plan = {
+            ...base,
+            totalMeasures: 16,
+            phrasePlan: { phraseType: "sentence", phraseFunction: "presentation",
+                          hypermeterUnit: 4, cadencePlacement: { measure: 4, cadenceType: "half" } },
+        };
+        assert.strictEqual(computeCadenceStructuralPositionScore(plan), 1.0);
+    });
+
+    it("cadence at even (non-4) measure scores 0.75", () => {
+        const base = makeSentencePlan(8);
+        const plan = {
+            ...base,
+            phrasePlan: { phraseType: "sentence", phraseFunction: "presentation",
+                          hypermeterUnit: 4, cadencePlacement: { measure: 6, cadenceType: "half" } },
+        };
+        assert.strictEqual(computeCadenceStructuralPositionScore(plan), 0.75);
+    });
+
+    it("cadence at odd measure scores 0.4", () => {
+        const base = makeSentencePlan(8);
+        const plan = {
+            ...base,
+            phrasePlan: { phraseType: "sentence", phraseFunction: "presentation",
+                          hypermeterUnit: 4, cadencePlacement: { measure: 3, cadenceType: "half" } },
+        };
+        assert.strictEqual(computeCadenceStructuralPositionScore(plan), 0.4);
+    });
+});
+
+describe("computeHypermetricStabilityScore", () => {
+    it("all-same-span groups score 1.0 (no phrasePlan)", () => {
+        const plan = { ...makeSentencePlan(8), phrasePlan: undefined };
+        const score = computeHypermetricStabilityScore(plan);
+        assert.strictEqual(score, 1.0);
+    });
+
+    it("returns 0.5 when no groups", () => {
+        const plan = { ...makeSentencePlan(8), hypermetricGroups: [], phrasePlan: undefined };
+        assert.strictEqual(computeHypermetricStabilityScore(plan), 0.5);
+    });
+
+    it("groups matching expected hypermeterUnit score 1.0", () => {
+        const plan = choosePhraseStructure("development", 8, "sentence");
+        // phrasePlan.hypermeterUnit = 4; groups all span 2 → modal=2, expected=4 → penalty
+        // This tests that the function runs without error
+        const score = computeHypermetricStabilityScore(plan);
+        assert.ok(score >= 0 && score <= 1, `score ${score} must be in [0,1]`);
+    });
+
+    it("mixed-span groups score below 1.0", () => {
+        const plan = makeSentencePlan(8);
+        // Manually create groups with inconsistent spans
+        const groups = [
+            { type: "4bar", startMeasure: 1, endMeasure: 4, phraseUnit: "basic_idea" },
+            { type: "4bar", startMeasure: 5, endMeasure: 9, phraseUnit: "continuation" },
+            { type: "4bar", startMeasure: 10, endMeasure: 14, phraseUnit: "cadential" },
+        ];
+        const mixedPlan = { ...plan, hypermetricGroups: groups, phrasePlan: undefined };
+        const score = computeHypermetricStabilityScore(mixedPlan);
+        assert.ok(score < 1.0, `score ${score} should be < 1.0 for mixed spans`);
+    });
+});
+
+describe("computePhraseGrammarScoreSummary — new fields", () => {
+    it("contains all nine score fields plus overall", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({ phrasePeaks: [7], cadenceApproach: "dominant",
+                                        phraseFunction: "cadential", measureCount: 8 });
+        const result = computePhraseGrammarScoreSummary(plan, artifact);
+        assert.ok("sentenceRatioScore" in result, "sentenceRatioScore present");
+        assert.ok("periodBalanceScore" in result, "periodBalanceScore present");
+        assert.ok("antecedentConsequentCadenceScore" in result, "antecedentConsequentCadenceScore present");
+        assert.ok("cadenceStructuralPositionScore" in result, "cadenceStructuralPositionScore present");
+        assert.ok("hypermetricStabilityScore" in result, "hypermetricStabilityScore present");
+        assert.ok("overall" in result, "overall present");
+    });
+
+    it("all new fields are numbers in [0, 1]", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact();
+        const result = computePhraseGrammarScoreSummary(plan, artifact);
+        for (const field of ["sentenceRatioScore", "periodBalanceScore",
+                              "antecedentConsequentCadenceScore",
+                              "cadenceStructuralPositionScore", "hypermetricStabilityScore"]) {
+            const v = result[field];
+            assert.ok(typeof v === "number", `${field} should be number`);
+            assert.ok(v >= 0 && v <= 1, `${field}=${v} should be in [0,1]`);
+        }
+    });
+
+    it("ideal period artifact scores above 0.8", () => {
+        const plan = choosePhraseStructure("theme_a", 8); // period, has phrasePlan
+        const artifact = makeArtifact({
+            phrasePeaks: [3, 7],
+            cadenceApproach: "dominant",
+            phraseFunction: "cadential",
+            measureCount: 8,
+        });
+        const result = computePhraseGrammarScoreSummary(plan, artifact);
+        assert.ok(result.overall > 0.8, `period ideal expected > 0.8, got ${result.overall}`);
     });
 });

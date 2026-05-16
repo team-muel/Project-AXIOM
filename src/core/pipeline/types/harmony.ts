@@ -10,7 +10,7 @@ export type HarmonicDensity = "sparse" | "medium" | "rich";
 
 export type VoicingProfile = "block" | "broken" | "arpeggiated";
 
-export type HarmonicColorTag = "mixture" | "applied_dominant" | "predominant_color" | "suspension" | "prolongation" | "cadential_64" | "harmonic_rhythm_shift";
+export type HarmonicColorTag = "mixture" | "applied_dominant" | "predominant_color" | "suspension" | "prolongation" | "cadential_64" | "harmonic_rhythm_shift" | "neapolitan" | "aug6";
 
 /** The three functions of tonal harmony: T → PD → D → T */
 export type FunctionalHarmonyRole = "tonic" | "predominant" | "dominant";

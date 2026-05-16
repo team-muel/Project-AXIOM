@@ -189,6 +189,18 @@ export interface PianoCraftScoreSummary {
      * MIDI 36–52), providing harmonic grounding. Higher = better (0–1).
      */
     bassRootSupportScore?: number;
+    /**
+     * Texture-form coherence: accompaniment complexity tracks formal role
+     * (development denser than theme_a, recap matches theme_a, etc.). (0–1).
+     */
+    textureFormCoherenceScore?: number;
+    /**
+     * Piano listenability composite score: six listener-facing dimensions
+     * (melody prominence, bass root support, accompaniment consistency,
+     * register spacing, pedal blur risk, texture-form coherence) weighted
+     * to reflect what human listeners notice most. (0–1).
+     */
+    pianoListenabilityScore?: number;
 }
 
 // ─── Piano Intermediate Representation (Piano IR) ────────────────────────────

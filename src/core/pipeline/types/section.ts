@@ -126,6 +126,8 @@ export interface SectionArtifactSummary {
     bassMotionProfile?: "pedal" | "stepwise" | "mixed" | "leaping";
     cadenceApproach?: "dominant" | "plagal" | "tonic" | "other";
     sectionStyle?: string;
+    /** Overall tonic key string for the section (e.g. "C major", "G minor"). */
+    tonicKey?: string;
     expressionDynamics?: DynamicsProfile;
     articulation?: ArticulationTag[];
     character?: CharacterTag[];
@@ -231,12 +233,15 @@ export type PhraseUnitRole =
     | "continuation"
     | "cadential"
     | "antecedent"
-    | "consequent";
+    | "consequent"
+    /** Independent phrase in a phrase_group (neither antecedent nor consequent). */
+    | "phrase";
 
 export interface PhraseUnit {
     role: PhraseUnitRole;
     measures: number;
     startMeasure: number;
+    endMeasure?: number;
     cadenceType?: CadenceStyle;
     peakMeasure?: number;
 }
@@ -257,6 +262,13 @@ export interface PeriodStructure {
     consequent: PhraseUnit;
 }
 
+/** Two independent phrases each ending with an authentic cadence (no HC/PAC pairing). */
+export interface PhraseGroupStructure {
+    type: "phrase_group";
+    totalMeasures: number;
+    phrases: PhraseUnit[];
+}
+
 export interface HypermetricGroup {
     type: "2bar" | "4bar" | "8bar";
     startMeasure: number;
@@ -265,9 +277,62 @@ export interface HypermetricGroup {
     cadenceAtEnd?: CadenceStyle;
 }
 
+// ─── Phrase Expansion / Elision ───────────────────────────────────────────────
+
+export type PhraseExpansionType = "internal" | "cadential_extension" | "prefix" | "suffix";
+
+/** Describes how a canonical phrase length is stretched or prefixed/suffixed. */
+export interface PhraseExpansion {
+    type: PhraseExpansionType;
+    /** Number of extra measures added beyond the canonical phrase length. */
+    extraMeasures: number;
+    /** For internal / cadential_extension: the measure after which the expansion inserts. */
+    insertAfterMeasure?: number;
+}
+
+/** Measure where the previous phrase's cadence doubles as this phrase's downbeat (overlap). */
+export interface PhraseElision {
+    /** The shared measure number (cadence of phrase N = downbeat of phrase N+1). */
+    elisionMeasure: number;
+}
+
+// ─── PhrasePlan — per-phrase operator metadata ────────────────────────────────
+
+/** The function a phrase unit serves in the larger musical discourse. */
+export type PhraseFunctionRole =
+    | "presentation"
+    | "continuation"
+    | "cadential"
+    | "antecedent"
+    | "consequent";
+
+/**
+ * Operator-visible metadata that annotates one phrase (or phrase-group).
+ * Attached to PhraseGrammarPlan.phrasePlan and consumed by the phrase grammar
+ * scoring and composition guidance layers.
+ */
+export interface PhrasePlan {
+    phraseType: "sentence" | "period" | "phrase_group";
+    phraseFunction: PhraseFunctionRole;
+    /** The hypermetric beat unit: how many measures one "hyperbeat" spans. */
+    hypermeterUnit: 2 | 4 | 8;
+    /** Structural cadence placement within this phrase. */
+    cadencePlacement?: {
+        /** 1-based measure number where the cadence resolves. */
+        measure: number;
+        cadenceType: CadenceStyle;
+    };
+    /** Optional phrase expansion applied to the canonical length. */
+    phraseExpansion?: PhraseExpansion;
+    /** Present when this phrase is elided with the preceding one. */
+    elision?: PhraseElision;
+}
+
 export interface PhraseGrammarPlan {
-    structure: SentenceStructure | PeriodStructure;
+    structure: SentenceStructure | PeriodStructure | PhraseGroupStructure;
     hypermetricGroups: HypermetricGroup[];
     totalMeasures: number;
+    /** Per-phrase operator metadata computed alongside the structural plan. */
+    phrasePlan?: PhrasePlan;
     notes: string[];
 }

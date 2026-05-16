@@ -633,3 +633,333 @@ test("computeInnerVoiceMotionScore: return value always in [0, 1]", () => {
         assert.ok(score >= 0 && score <= 1, `out of range: ${score}`);
     }
 });
+
+// ─── computeForbiddenProgressionPenaltyScore ──────────────────────────────────
+
+import {
+    computeForbiddenProgressionPenaltyScore,
+    computeCad64DetectionScore,
+    computeHarmonicRhythmAccelerationScore,
+    computeAppliedDominantResolutionScore,
+    computeMixtureResolutionScore,
+} from "../dist/core/evaluate/harmonyGrammarScoring.js";
+
+test("computeForbiddenProgressionPenaltyScore: no forbidden evidence returns 1.0", () => {
+    const plan = makeMinimalPlan({ functionalSequence: ["tonic", "predominant", "dominant", "tonic"] });
+    const artifact = makeMinimalArtifact({
+        cadenceApproach: "tonic",
+        harmonicColorCues: [{ tag: "predominant_color" }],
+    });
+    const score = computeForbiddenProgressionPenaltyScore(plan, artifact);
+    assert.ok(score >= 0.85, `expected >= 0.85, got ${score}`);
+});
+
+test("computeForbiddenProgressionPenaltyScore: plagal close when plan ends on dominant penalises", () => {
+    const plan = makeMinimalPlan({ functionalSequence: ["tonic", "predominant", "dominant"] });
+    const artifact = makeMinimalArtifact({ cadenceApproach: "plagal" });
+    const score = computeForbiddenProgressionPenaltyScore(plan, artifact);
+    assert.ok(score < 0.8, `expected < 0.8, got ${score}`);
+});
+
+test("computeForbiddenProgressionPenaltyScore: cad64 planned but no cue + tonic approach penalises", () => {
+    const plan = makeMinimalPlan({ cadenceApproach: "cad64" });
+    const artifact = makeMinimalArtifact({ cadenceApproach: "tonic", harmonicColorCues: [] });
+    const score = computeForbiddenProgressionPenaltyScore(plan, artifact);
+    assert.ok(score < 0.9, `expected < 0.9, got ${score}`);
+});
+
+test("computeForbiddenProgressionPenaltyScore: missing PD evidence penalises", () => {
+    const plan = makeMinimalPlan({ functionalSequence: ["tonic", "predominant", "dominant", "tonic"] });
+    const artifact = makeMinimalArtifact({ cadenceApproach: "tonic", harmonicColorCues: [] });
+    const score = computeForbiddenProgressionPenaltyScore(plan, artifact);
+    assert.ok(score < 1.0, `expected < 1.0, got ${score}`);
+});
+
+test("computeForbiddenProgressionPenaltyScore: returns value in [0, 1]", () => {
+    const cases = [
+        makeMinimalArtifact({ cadenceApproach: "plagal" }),
+        makeMinimalArtifact({ cadenceApproach: "tonic" }),
+        makeMinimalArtifact(),
+    ];
+    for (const artifact of cases) {
+        const score = computeForbiddenProgressionPenaltyScore(makeMinimalPlan(), artifact);
+        assert.ok(score >= 0 && score <= 1, `out of range: ${score}`);
+    }
+});
+
+// ─── computeCad64DetectionScore ───────────────────────────────────────────────
+
+test("computeCad64DetectionScore: plan not cad64 returns 0.5", () => {
+    const plan = makeMinimalPlan({ cadenceApproach: "basic" });
+    const artifact = makeMinimalArtifact();
+    assert.strictEqual(computeCad64DetectionScore(plan, artifact), 0.5);
+});
+
+test("computeCad64DetectionScore: cad64 + cadential_64 cue + dominant approach = 1.0", () => {
+    const plan = makeMinimalPlan({ cadenceApproach: "cad64" });
+    const artifact = makeMinimalArtifact({
+        cadenceApproach: "dominant",
+        harmonicColorCues: [{ tag: "cadential_64" }],
+    });
+    assert.strictEqual(computeCad64DetectionScore(plan, artifact), 1.0);
+});
+
+test("computeCad64DetectionScore: cad64 + cadential_64 cue + tonic approach = 0.75", () => {
+    const plan = makeMinimalPlan({ cadenceApproach: "cad64" });
+    const artifact = makeMinimalArtifact({
+        cadenceApproach: "tonic",
+        harmonicColorCues: [{ tag: "cadential_64" }],
+    });
+    assert.strictEqual(computeCad64DetectionScore(plan, artifact), 0.75);
+});
+
+test("computeCad64DetectionScore: cad64 planned but no cue = 0.2", () => {
+    const plan = makeMinimalPlan({ cadenceApproach: "cad64" });
+    const artifact = makeMinimalArtifact({ cadenceApproach: "other" });
+    assert.strictEqual(computeCad64DetectionScore(plan, artifact), 0.2);
+});
+
+test("computeCad64DetectionScore: returns value in [0, 1]", () => {
+    const cases = [
+        makeMinimalArtifact({ cadenceApproach: "dominant", harmonicColorCues: [{ tag: "cadential_64" }] }),
+        makeMinimalArtifact({ cadenceApproach: "tonic" }),
+        makeMinimalArtifact(),
+    ];
+    for (const artifact of cases) {
+        const score = computeCad64DetectionScore(makeMinimalPlan({ cadenceApproach: "cad64" }), artifact);
+        assert.ok(score >= 0 && score <= 1, `out of range: ${score}`);
+    }
+});
+
+// ─── computeHarmonicRhythmAccelerationScore ───────────────────────────────────
+
+test("computeHarmonicRhythmAccelerationScore: no summary returns 0.5", () => {
+    const plan = makeMinimalPlan({ harmonicRhythmShape: "slow→fast" });
+    const artifact = makeMinimalArtifact();
+    assert.strictEqual(computeHarmonicRhythmAccelerationScore(plan, artifact), 0.5);
+});
+
+test("computeHarmonicRhythmAccelerationScore: slow→fast + negative delta = 1.0", () => {
+    const plan = makeMinimalPlan({ harmonicRhythmShape: "slow→fast" });
+    const artifact = makeMinimalArtifact({
+        harmonicRealizationSummary: {
+            targetedMeasureCount: 8,
+            realizedMeasureCount: 8,
+            realizedNoteCount: 20,
+            averageDurationScale: 0.9,
+            peakDurationScaleDelta: -0.3,
+        },
+    });
+    assert.strictEqual(computeHarmonicRhythmAccelerationScore(plan, artifact), 1.0);
+});
+
+test("computeHarmonicRhythmAccelerationScore: fast→slow + positive delta = 1.0", () => {
+    const plan = makeMinimalPlan({ harmonicRhythmShape: "fast→slow" });
+    const artifact = makeMinimalArtifact({
+        harmonicRealizationSummary: {
+            targetedMeasureCount: 8,
+            realizedMeasureCount: 8,
+            realizedNoteCount: 20,
+            averageDurationScale: 1.1,
+            peakDurationScaleDelta: 0.3,
+        },
+    });
+    assert.strictEqual(computeHarmonicRhythmAccelerationScore(plan, artifact), 1.0);
+});
+
+test("computeHarmonicRhythmAccelerationScore: uniform + scale ~1.0 = high score", () => {
+    const plan = makeMinimalPlan({ harmonicRhythmShape: "uniform" });
+    const artifact = makeMinimalArtifact({
+        harmonicRealizationSummary: {
+            targetedMeasureCount: 8,
+            realizedMeasureCount: 8,
+            realizedNoteCount: 20,
+            averageDurationScale: 1.0,
+            peakDurationScaleDelta: 0.0,
+        },
+    });
+    const score = computeHarmonicRhythmAccelerationScore(plan, artifact);
+    assert.ok(score > 0.8, `expected > 0.8, got ${score}`);
+});
+
+test("computeHarmonicRhythmAccelerationScore: returns value in [0, 1]", () => {
+    const shapes = ["slow", "slow→fast", "fast→slow", "arch", "uniform"];
+    const summaries = [
+        { targetedMeasureCount: 8, realizedMeasureCount: 8, realizedNoteCount: 20, averageDurationScale: 0.8, peakDurationScaleDelta: -0.5 },
+        { targetedMeasureCount: 8, realizedMeasureCount: 8, realizedNoteCount: 20, averageDurationScale: 1.5, peakDurationScaleDelta: 0.5 },
+    ];
+    for (const shape of shapes) {
+        for (const summary of summaries) {
+            const score = computeHarmonicRhythmAccelerationScore(
+                makeMinimalPlan({ harmonicRhythmShape: shape }),
+                makeMinimalArtifact({ harmonicRealizationSummary: summary }),
+            );
+            assert.ok(score >= 0 && score <= 1, `shape=${shape} out of range: ${score}`);
+        }
+    }
+});
+
+// ─── computeAppliedDominantResolutionScore ────────────────────────────────────
+
+test("computeAppliedDominantResolutionScore: no cues planned returns 0.5", () => {
+    const plan = makeMinimalPlan();
+    const artifact = makeMinimalArtifact();
+    assert.strictEqual(computeAppliedDominantResolutionScore(plan, artifact), 0.5);
+});
+
+test("computeAppliedDominantResolutionScore: planned but no resolution evidence = 0.2", () => {
+    const plan = makeMinimalPlan({
+        appliedDominantCues: [{ tag: "applied_dominant", keyTarget: "V/V in C major" }],
+    });
+    const artifact = makeMinimalArtifact();
+    assert.strictEqual(computeAppliedDominantResolutionScore(plan, artifact), 0.2);
+});
+
+test("computeAppliedDominantResolutionScore: resolved via tonicizationWindows = high score", () => {
+    const plan = makeMinimalPlan({
+        appliedDominantCues: [{ tag: "applied_dominant", keyTarget: "V/V in C major" }],
+    });
+    const artifact = makeMinimalArtifact({
+        tonicizationWindows: [{ keyTarget: "V in C major" }],
+    });
+    const score = computeAppliedDominantResolutionScore(plan, artifact);
+    assert.ok(score > 0.5, `expected > 0.5, got ${score}`);
+});
+
+test("computeAppliedDominantResolutionScore: resolved via harmonicColorCues = high score", () => {
+    const plan = makeMinimalPlan({
+        appliedDominantCues: [{ tag: "applied_dominant", keyTarget: "V/vi in C major" }],
+    });
+    const artifact = makeMinimalArtifact({
+        harmonicColorCues: [{ tag: "applied_dominant", keyTarget: "vi in C major" }],
+    });
+    const score = computeAppliedDominantResolutionScore(plan, artifact);
+    assert.ok(score > 0.5, `expected > 0.5, got ${score}`);
+});
+
+test("computeAppliedDominantResolutionScore: returns value in [0, 1]", () => {
+    const cases = [
+        makeMinimalArtifact(),
+        makeMinimalArtifact({ tonicizationWindows: [{ keyTarget: "V in C major" }] }),
+    ];
+    for (const artifact of cases) {
+        const score = computeAppliedDominantResolutionScore(
+            makeMinimalPlan({ appliedDominantCues: [{ tag: "applied_dominant", keyTarget: "V/V in C major" }] }),
+            artifact,
+        );
+        assert.ok(score >= 0 && score <= 1, `out of range: ${score}`);
+    }
+});
+
+// ─── computeMixtureResolutionScore ────────────────────────────────────────────
+
+test("computeMixtureResolutionScore: no chromatic PD cues returns 0.5", () => {
+    const plan = makeMinimalPlan();
+    const artifact = makeMinimalArtifact({ harmonicColorCues: [{ tag: "prolongation" }] });
+    assert.strictEqual(computeMixtureResolutionScore(plan, artifact), 0.5);
+});
+
+test("computeMixtureResolutionScore: mixture + dominant close = 1.0", () => {
+    const plan = makeMinimalPlan();
+    const artifact = makeMinimalArtifact({
+        cadenceApproach: "dominant",
+        harmonicColorCues: [{ tag: "mixture" }],
+    });
+    assert.strictEqual(computeMixtureResolutionScore(plan, artifact), 1.0);
+});
+
+test("computeMixtureResolutionScore: neapolitan + dominant close = 1.0", () => {
+    const plan = makeMinimalPlan();
+    const artifact = makeMinimalArtifact({
+        cadenceApproach: "dominant",
+        harmonicColorCues: [{ tag: "neapolitan" }],
+    });
+    assert.strictEqual(computeMixtureResolutionScore(plan, artifact), 1.0);
+});
+
+test("computeMixtureResolutionScore: aug6 + dominant close = 1.0", () => {
+    const plan = makeMinimalPlan();
+    const artifact = makeMinimalArtifact({
+        cadenceApproach: "dominant",
+        harmonicColorCues: [{ tag: "aug6" }],
+    });
+    assert.strictEqual(computeMixtureResolutionScore(plan, artifact), 1.0);
+});
+
+test("computeMixtureResolutionScore: mixture + plagal close = penalised", () => {
+    const plan = makeMinimalPlan();
+    const artifact = makeMinimalArtifact({
+        cadenceApproach: "plagal",
+        harmonicColorCues: [{ tag: "mixture" }],
+    });
+    const score = computeMixtureResolutionScore(plan, artifact);
+    assert.ok(score <= 0.3, `expected <= 0.3 (plagal after mixture), got ${score}`);
+});
+
+test("computeMixtureResolutionScore: returns value in [0, 1]", () => {
+    const cases = [
+        { tag: "mixture", approach: "dominant" },
+        { tag: "neapolitan", approach: "tonic" },
+        { tag: "aug6", approach: "plagal" },
+    ];
+    for (const { tag, approach } of cases) {
+        const score = computeMixtureResolutionScore(
+            makeMinimalPlan(),
+            makeMinimalArtifact({ cadenceApproach: approach, harmonicColorCues: [{ tag }] }),
+        );
+        assert.ok(score >= 0 && score <= 1, `tag=${tag} out of range: ${score}`);
+    }
+});
+
+// ─── computeHarmonyGrammarScoreSummary — new fields ──────────────────────────
+
+test("computeHarmonyGrammarScoreSummary: includes all 12 scoring fields", () => {
+    const result = computeHarmonyGrammarScoreSummary(makeMinimalPlan(), makeMinimalArtifact());
+    for (const field of [
+        "pdtScore", "appliedDominantScore", "tonicizationDepthScore",
+        "harmonicRhythmConsistencyScore", "cadenceApproachQualityScore",
+        "prolongationProxyScore", "innerVoiceMotionScore",
+        "forbiddenProgressionPenaltyScore", "cad64DetectionScore",
+        "harmonicRhythmAccelerationScore", "appliedDominantResolutionScore",
+        "mixtureResolutionScore", "overall",
+    ]) {
+        assert.ok(field in result, `missing field: ${field}`);
+        assert.ok(result[field] >= 0 && result[field] <= 1, `${field} out of range: ${result[field]}`);
+    }
+});
+
+test("computeHarmonyGrammarScoreSummary: ideal evidence scores above 0.7 with new weights", () => {
+    const plan = makeMinimalPlan({
+        functionalSequence: ["tonic", "predominant", "dominant", "tonic"],
+        cadenceApproach: "cad64",
+        appliedDominantCues: [{ tag: "applied_dominant", keyTarget: "V/V in C major" }],
+        harmonicRhythmShape: "slow→fast",
+        prolongationMode: "tonic",
+    });
+    const artifact = makeMinimalArtifact({
+        cadenceApproach: "dominant",
+        harmonicColorCues: [
+            { tag: "predominant_color" },
+            { tag: "applied_dominant", keyTarget: "V in C major" },
+            { tag: "cadential_64" },
+        ],
+        harmonicRealizationSummary: {
+            targetedMeasureCount: 8,
+            realizedMeasureCount: 8,
+            realizedNoteCount: 24,
+            averageDurationScale: 0.9,
+            peakDurationScaleDelta: -0.2,
+        },
+        tonicizationWindows: [{ keyTarget: "V in C major" }],
+        prolongationMode: "tonic",
+        textureIndependentMotionRate: 0.6,
+        accompanimentEvents: [
+            { type: "note", pitch: 60 },
+            { type: "note", pitch: 62 },
+            { type: "note", pitch: 64 },
+        ],
+    });
+    const result = computeHarmonyGrammarScoreSummary(plan, artifact);
+    assert.ok(result.overall > 0.7, `expected > 0.7, got ${result.overall}`);
+});
+

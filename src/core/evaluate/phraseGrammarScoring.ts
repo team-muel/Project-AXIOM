@@ -1,6 +1,7 @@
 import type {
     PeriodStructure,
     PhraseGrammarPlan,
+    PhraseUnit,
     SectionArtifactSummary,
     SentenceStructure,
 } from "../pipeline/types.js";
@@ -40,7 +41,11 @@ export function computePhrasePeakScore(
     if (structure.type === "sentence") {
         return scoreSentencePeaks(structure, peaks, totalMeasures);
     }
-    return scorePeriodPeaks(structure, peaks, totalMeasures);
+    if (structure.type === "period") {
+        return scorePeriodPeaks(structure, peaks, totalMeasures);
+    }
+    // phrase_group: neutral — no single canonical peak window defined
+    return 0.5;
 }
 
 function scoreSentencePeaks(
@@ -103,7 +108,8 @@ export function computeCadencePlacementScore(
         return matchCadenceApproach(terminalCadence ?? "authentic", approach);
     }
 
-    // sentence
+    // sentence or phrase_group (phrase_group has no fixed cadential unit → neutral)
+    if (structure.type !== "sentence") return 0.5;
     const terminalCadence = structure.cadential.cadenceType;
     return matchCadenceApproach(terminalCadence ?? "authentic", approach);
 }
@@ -178,7 +184,9 @@ export function computePhraseClosureScore(
     const planEndsAuthentic =
         structure.type === "sentence"
             ? structure.cadential.cadenceType === "authentic"
-            : structure.consequent.cadenceType === "authentic";
+            : structure.type === "period"
+            ? structure.consequent.cadenceType === "authentic"
+            : true; // phrase_group: both phrases always end authentic
 
     if (!pf) {
         // No phrase function recorded — use cadence approach as proxy
@@ -205,7 +213,155 @@ export function computePhraseClosureScore(
 }
 
 // ---------------------------------------------------------------------------
-// 5. Summary
+// 5. Sentence 2+2+4 ratio score
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates that a sentence structure follows canonical 2+2+4 proportions:
+ * basicIdea ≈ 25%, repetition ≈ 25%, continuation+cadential ≈ 50%.
+ *
+ * Returns 0.5 for non-sentence structures (N/A).
+ */
+export function computeSentenceRatioScore(plan: PhraseGrammarPlan): number {
+    if (plan.structure.type !== "sentence") return 0.5;
+    const s: SentenceStructure = plan.structure;
+    const total = (s.totalMeasures ?? plan.totalMeasures);
+    if (!total) return 0.5;
+
+    const unitMeasures = (u: PhraseUnit): number =>
+        u.measures ?? (u.endMeasure !== undefined ? u.endMeasure - u.startMeasure + 1 : 0);
+
+    const presentationRatio = unitMeasures(s.basicIdea) / total;
+    const repetitionRatio = unitMeasures(s.repetition) / total;
+    const continuationRatio = (unitMeasures(s.continuation) + unitMeasures(s.cadential)) / total;
+
+    // Ideal targets: 0.25 / 0.25 / 0.50
+    const error =
+        Math.abs(presentationRatio - 0.25)
+        + Math.abs(repetitionRatio - 0.25)
+        + Math.abs(continuationRatio - 0.50);
+
+    return clamp01(1.0 - error * 2.0);
+}
+
+// ---------------------------------------------------------------------------
+// 6. Period 4+4 balance score
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates that a period structure has balanced antecedent and consequent
+ * halves (each ≈ 50% of total measures).
+ *
+ * Returns 0.5 for non-period structures (N/A).
+ */
+export function computePeriodBalanceScore(plan: PhraseGrammarPlan): number {
+    if (plan.structure.type !== "period") return 0.5;
+    const p: PeriodStructure = plan.structure;
+    const total = (p.totalMeasures ?? plan.totalMeasures);
+    if (!total) return 0.5;
+
+    const unitMeasures = (u: PhraseUnit): number =>
+        u.measures ?? (u.endMeasure !== undefined ? u.endMeasure - u.startMeasure + 1 : 0);
+
+    const antecedentRatio = unitMeasures(p.antecedent) / total;
+    const consequentRatio = unitMeasures(p.consequent) / total;
+
+    // Ideal: both 0.5
+    const error = Math.abs(antecedentRatio - 0.5) + Math.abs(consequentRatio - 0.5);
+    return clamp01(1.0 - error * 2.0);
+}
+
+// ---------------------------------------------------------------------------
+// 7. Antecedent HC / consequent PAC cadence pair score
+// ---------------------------------------------------------------------------
+
+/**
+ * For period structures: validates the canonical HC→PAC pair.
+ * antecedent should carry a half cadence, consequent an authentic cadence.
+ *
+ * Returns 0.5 for non-period structures (N/A).
+ * Returns 1.0 when both cadence types are correct.
+ * Returns 0.5 when only one of the two is correct.
+ * Returns 0.0 when both are wrong (e.g. both authentic, or both half).
+ */
+export function computeAntecedentConsequentCadenceScore(plan: PhraseGrammarPlan): number {
+    if (plan.structure.type !== "period") return 0.5;
+    const p: PeriodStructure = plan.structure;
+
+    const antecedentCorrect = p.antecedent.cadenceType === "half";
+    const consequentCorrect = p.consequent.cadenceType === "authentic";
+
+    if (antecedentCorrect && consequentCorrect) return 1.0;
+    if (antecedentCorrect || consequentCorrect) return 0.5;
+    return 0.0;
+}
+
+// ---------------------------------------------------------------------------
+// 8. Cadence structural position score
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates that the planned cadence falls at a metrically strong position.
+ *
+ * Uses `plan.phrasePlan.cadencePlacement.measure` when available.
+ * Strong positions: the final measure of the section, or any multiple of 4.
+ * Half-strong: multiples of 2 (but not 4).
+ * Weak: odd measures.
+ *
+ * Returns 0.5 when no cadencePlacement is recorded.
+ */
+export function computeCadenceStructuralPositionScore(plan: PhraseGrammarPlan): number {
+    const cadenceMeasure = plan.phrasePlan?.cadencePlacement?.measure;
+    if (cadenceMeasure === undefined) return 0.5;
+
+    const total = plan.totalMeasures;
+
+    // Terminal measure is always a strong position
+    if (cadenceMeasure === total) return 1.0;
+    if (cadenceMeasure % 4 === 0) return 1.0;
+    if (cadenceMeasure % 2 === 0) return 0.75;
+    return 0.4;
+}
+
+// ---------------------------------------------------------------------------
+// 9. Hypermetric stability score
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates that hypermetric groups have consistent span sizes matching the
+ * expected hypermeterUnit (from phrasePlan when present, otherwise derived
+ * from totalMeasures).
+ *
+ * All groups same span → 1.0; mixed spans reduce proportionally.
+ */
+export function computeHypermetricStabilityScore(plan: PhraseGrammarPlan): number {
+    const groups = plan.hypermetricGroups;
+    if (groups.length === 0) return 0.5;
+
+    const spans = groups.map((g) => g.endMeasure - g.startMeasure + 1);
+
+    // Find modal span (most common) as the reference unit
+    const spanFreq = new Map<number, number>();
+    for (const s of spans) spanFreq.set(s, (spanFreq.get(s) ?? 0) + 1);
+    let modalSpan = spans[0]!;
+    let maxFreq = 0;
+    for (const [span, freq] of spanFreq) {
+        if (freq > maxFreq) { maxFreq = freq; modalSpan = span; }
+    }
+
+    const stability = maxFreq / spans.length;
+
+    // If phrasePlan specifies hypermeterUnit, reward alignment
+    const expectedUnit = plan.phrasePlan?.hypermeterUnit;
+    if (expectedUnit !== undefined && modalSpan !== expectedUnit) {
+        return clamp01(stability * 0.7);
+    }
+
+    return clamp01(stability);
+}
+
+// ---------------------------------------------------------------------------
+// 10. Summary (updated with new dimensions)
 // ---------------------------------------------------------------------------
 
 export interface PhraseGrammarScoreSummary {
@@ -213,35 +369,60 @@ export interface PhraseGrammarScoreSummary {
     cadencePlacementScore: number;
     hypermetricRegularityScore: number;
     phraseClosureScore: number;
-    /** Weighted composite (all four dimensions). */
+    /** Sentence 2+2+4 structural proportion (N/A=0.5 for non-sentence). */
+    sentenceRatioScore: number;
+    /** Period 4+4 antecedent/consequent balance (N/A=0.5 for non-period). */
+    periodBalanceScore: number;
+    /** Period HC→PAC cadence pair validation (N/A=0.5 for non-period). */
+    antecedentConsequentCadenceScore: number;
+    /** Cadence placement on a metrically strong position (0.5 if unknown). */
+    cadenceStructuralPositionScore: number;
+    /** Hypermetric group span consistency (0.5 if no groups). */
+    hypermetricStabilityScore: number;
+    /** Weighted composite (all nine dimensions). */
     overall: number;
 }
 
 const WEIGHTS = {
-    phrasePeak: 0.25,
-    cadencePlacement: 0.30,
-    hypermetricRegularity: 0.20,
-    phraseClosureScore: 0.25,
+    phrasePeak:                    0.15,
+    cadencePlacement:              0.15,
+    hypermetricRegularity:         0.10,
+    phraseClosureScore:            0.15,
+    sentenceRatio:                 0.10,
+    periodBalance:                 0.10,
+    antecedentConsequentCadence:   0.15,
+    cadenceStructuralPosition:     0.05,
+    hypermetricStability:          0.05,
 };
 
 /**
- * Produces a PhraseGrammarScoreSummary by running all four scoring dimensions
+ * Produces a PhraseGrammarScoreSummary by running all nine scoring dimensions
  * and combining them into a weighted overall score.
  */
 export function computePhraseGrammarScoreSummary(
     plan: PhraseGrammarPlan,
     artifact: SectionArtifactSummary,
 ): PhraseGrammarScoreSummary {
-    const phrasePeakScore         = computePhrasePeakScore(plan, artifact);
-    const cadencePlacementScore   = computeCadencePlacementScore(plan, artifact);
-    const hypermetricRegularityScore = computeHypermetricRegularityScore(plan, artifact);
-    const phraseClosureScore      = computePhraseClosureScore(plan, artifact);
+    const phrasePeakScore              = computePhrasePeakScore(plan, artifact);
+    const cadencePlacementScore        = computeCadencePlacementScore(plan, artifact);
+    const hypermetricRegularityScore   = computeHypermetricRegularityScore(plan, artifact);
+    const phraseClosureScore           = computePhraseClosureScore(plan, artifact);
+    const sentenceRatioScore           = computeSentenceRatioScore(plan);
+    const periodBalanceScore           = computePeriodBalanceScore(plan);
+    const antecedentConsequentCadenceScore = computeAntecedentConsequentCadenceScore(plan);
+    const cadenceStructuralPositionScore   = computeCadenceStructuralPositionScore(plan);
+    const hypermetricStabilityScore    = computeHypermetricStabilityScore(plan);
 
     const overall = clamp01(
-        WEIGHTS.phrasePeak             * phrasePeakScore
-        + WEIGHTS.cadencePlacement     * cadencePlacementScore
-        + WEIGHTS.hypermetricRegularity * hypermetricRegularityScore
-        + WEIGHTS.phraseClosureScore   * phraseClosureScore,
+        WEIGHTS.phrasePeak                  * phrasePeakScore
+        + WEIGHTS.cadencePlacement          * cadencePlacementScore
+        + WEIGHTS.hypermetricRegularity     * hypermetricRegularityScore
+        + WEIGHTS.phraseClosureScore        * phraseClosureScore
+        + WEIGHTS.sentenceRatio             * sentenceRatioScore
+        + WEIGHTS.periodBalance             * periodBalanceScore
+        + WEIGHTS.antecedentConsequentCadence * antecedentConsequentCadenceScore
+        + WEIGHTS.cadenceStructuralPosition * cadenceStructuralPositionScore
+        + WEIGHTS.hypermetricStability      * hypermetricStabilityScore,
     );
 
     return {
@@ -249,6 +430,11 @@ export function computePhraseGrammarScoreSummary(
         cadencePlacementScore,
         hypermetricRegularityScore,
         phraseClosureScore,
+        sentenceRatioScore,
+        periodBalanceScore,
+        antecedentConsequentCadenceScore,
+        cadenceStructuralPositionScore,
+        hypermetricStabilityScore,
         overall,
     };
 }

@@ -239,8 +239,29 @@ AXIOM `HarmonicPlan.cadence` + `LongSpanFormPlan` 조합으로 이 위계 설계
 | Cadential 6/4 | ✅ `CadenceApproachTemplate="cad64"` at recap/cadence positions | `harmonyGrammar.ts` |
 | 화성 리듬 제어 | ✅ `HarmonicRhythmShape` per section | `harmonyGrammar.ts` |
 | Local tonicization | ✅ `suggestTonicizationWindow()` for development/bridge/theme_b | `harmonyGrammar.ts` |
-| Mixture / Neapolitan / Aug6 | ✅ colorPalette 태그 | `HarmonicColorCue` |
+| Mixture / Neapolitan / Aug6 | ✅ `"mixture"` `"neapolitan"` `"aug6"` 태그 | `HarmonicColorCue`, `harmony.ts` |
 | 금지 진행 검증 | ✅ `ClassicalHarmonyKnowledge.cadencePolicy` | `classicalKnowledge.ts` |
+
+### 8.1 HarmonyGrammarScoring — 12개 평가 차원
+
+`computeHarmonyGrammarScoreSummary(plan, artifact)` 에서 다음 12개 차원을 평가합니다:
+
+| 차원 | 함수 | 내용 |
+|------|------|------|
+| PDT 검증 | `computePDTScore` | T→PD→D→T 기능 순서 확인 |
+| Applied dominant | `computeAppliedDominantScore` | V/x 계획 실현 여부 |
+| Tonicization 깊이 | `computeTonicizationDepthScore` | 계획된 전조 창 실현 여부 |
+| 화성 리듬 일관성 | `computeHarmonicRhythmConsistencyScore` | shape와 평균 duration scale 일치 |
+| 종지 접근 품질 | `computeCadenceApproachQualityScore` | cad64/basic/applied_dominant 템플릿 실현 |
+| Prolongation 프록시 | `computeProlongationProxyScore` | 연장 모드 계획 실현 |
+| 내성부 운동 | `computeInnerVoiceMotionScore` | 반독립 성부 운동 |
+| **금지 진행 패널티** | `computeForbiddenProgressionPenaltyScore` | V→IV, I64→I 직접 해결, PD 결락 검출 |
+| **Cadential 6/4 검출** | `computeCad64DetectionScore` | `cadential_64` 태그 + 우세음 검출 |
+| **화성 리듬 가속도** | `computeHarmonicRhythmAccelerationScore` | slow→fast / fast→slow / arch 패턴 검증 |
+| **Applied dominant 해결** | `computeAppliedDominantResolutionScore` | V/x → x 해결 증거 확인 |
+| **Mixture/Nap/Aug6 해결** | `computeMixtureResolutionScore` | 색채 화음이 dominant로 해결되는지 검증 |
+
+굵게 표시된 5개 차원이 이번에 추가된 심층 채점 기능입니다.
 
 `applyHarmonyGrammarToSections(sections)` → `Map<sectionId, HarmonyGrammarPlan>` 형식으로
 `materializeCompositionSketch()`에서 매 섹션에 자동 주석 처리됨.

@@ -2,6 +2,9 @@ import type {
     MotifDevelopmentEntry,
     MotifDevelopmentPlan,
     MotifDraft,
+    MotifGraph,
+    MotifOccurrence,
+    SectionArtifactSummary,
     SectionPlan,
     ThematicTransformKind,
 } from "../pipeline/types.js";
@@ -209,4 +212,120 @@ export function buildMotifDevelopmentPlan(
     }
 
     return result;
+}
+
+// ---------------------------------------------------------------------------
+// 5. Motif Graph builder
+// ---------------------------------------------------------------------------
+
+/** Local utility: proportion of sign-matching positions between two interval arrays. */
+function contourSignMatch(a: number[], b: number[]): number {
+    const minLen = Math.min(a.length, b.length);
+    if (minLen === 0) return 0;
+    let matches = 0;
+    for (let i = 0; i < minLen; i++) {
+        const sA = Math.sign(a[i]!);
+        const sB = Math.sign(b[i]!);
+        if (sA === sB) matches++;
+    }
+    return matches / minLen;
+}
+
+/**
+ * Builds a MotifGraph describing how the original motif (sourced from the
+ * theme_a section) propagates, transforms, and recurs across all sections.
+ *
+ * Detects each section's relationship to the original via:
+ *   - Planned transform from the section's `motifDevelopment` entry (preferred)
+ *   - Contour similarity heuristic (fallback when no plan entry)
+ *   - "false_recap" is flagged when a development section has contour similarity ≥ 0.70
+ *
+ * Returns `undefined` when no source motif can be determined.
+ *
+ * @param sections  Array of SectionPlan (from the composition plan)
+ * @param motifDrafts  MotifDraft array from the composition sketch
+ * @param artifacts  Optional rendered artifacts for capturedMotif data
+ */
+export function buildMotifGraph(
+    sections: SectionPlan[],
+    motifDrafts: MotifDraft[],
+    artifacts?: SectionArtifactSummary[],
+): MotifGraph | undefined {
+    // Locate the source motif draft (theme_a by convention)
+    const themeASection = sections.find((s) => s.role === "theme_a");
+    const themeADraft =
+        (themeASection
+            ? motifDrafts.find((d) => d.sectionId === themeASection.id || d.id === "theme_a")
+            : undefined)
+        ?? motifDrafts.find((d) => d.id === "theme_a")
+        ?? motifDrafts[0];
+
+    if (!themeADraft) return undefined;
+
+    const artifactById = new Map((artifacts ?? []).map((a) => [a.sectionId, a]));
+    const themeAArt = themeASection ? artifactById.get(themeASection.id) : undefined;
+    const originalIntervals: number[] = themeAArt?.capturedMotif ?? themeADraft.intervals;
+
+    const occurrences: MotifOccurrence[] = [];
+
+    // Record the original statement
+    occurrences.push({
+        sectionId: themeASection?.id ?? themeADraft.sectionId ?? "theme_a",
+        role: themeASection?.role ?? "theme_a",
+        transform: "original",
+        similarity: 1.0,
+        intervals: originalIntervals,
+    });
+
+    for (const section of sections) {
+        if (section.role === "theme_a") continue;
+
+        const artifact = artifactById.get(section.id);
+        const capturedMotif = artifact?.capturedMotif;
+
+        // Prefer plan-specified transform; fall back to heuristic
+        const devPlan = (section as SectionPlan & { motifDevelopment?: MotifDevelopmentPlan })
+            .motifDevelopment;
+        const plannedTransform: ThematicTransformKind | undefined = devPlan?.entries[0]?.transform;
+
+        // Resolve which intervals to compare
+        const compIntervals: number[] | undefined =
+            capturedMotif ??
+            devPlan?.entries[0]?.transformedIntervals;
+
+        const similarity =
+            compIntervals && compIntervals.length > 0 && originalIntervals.length > 0
+                ? contourSignMatch(originalIntervals, compIntervals)
+                : 0;
+
+        // Classify transform
+        let transform: ThematicTransformKind | "original" | "false_recap";
+        if (section.role === "development" && !plannedTransform && similarity >= 0.70) {
+            transform = "false_recap";
+        } else {
+            transform = plannedTransform ?? "revoice";
+        }
+
+        occurrences.push({
+            sectionId: section.id,
+            role: section.role,
+            transform,
+            similarity,
+            intervals: compIntervals,
+        });
+    }
+
+    const nonOriginal = occurrences.filter((o) => o.transform !== "original");
+    const usedTransforms = [...new Set(nonOriginal.map((o) => o.transform as string))];
+    // Diversity: 1 type=0.25, 2=0.50, 3=0.75, 4+=1.0
+    const diversityScore = Math.max(0, Math.min(1, usedTransforms.length / 4));
+
+    return {
+        motifId: themeADraft.id,
+        originalIntervals,
+        sourceSectionId: themeASection?.id ?? themeADraft.sectionId ?? "theme_a",
+        occurrences,
+        usedTransforms,
+        diversityScore,
+    };
 }

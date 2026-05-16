@@ -75,3 +75,50 @@ export interface MotifDevelopmentPlan {
     recapIdentityScore?: number;
     notes?: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Motif Graph — cross-section occurrence tracking
+// ---------------------------------------------------------------------------
+
+/**
+ * A single observed occurrence of the original motif in a section.
+ * Carries contour similarity and the detected (or planned) transform.
+ */
+export interface MotifOccurrence {
+    sectionId: string;
+    /** Section role string (e.g. "theme_a", "development", "recap"). */
+    role: string;
+    /**
+     * Transform type that best describes this occurrence relative to the original.
+     * "original" = the source statement; "false_recap" = high similarity in development.
+     */
+    transform: ThematicTransformKind | "original" | "false_recap";
+    /** Contour sign-match proportion vs. originalIntervals (0–1). */
+    similarity: number;
+    /** Captured or transformed interval series for this occurrence. */
+    intervals?: number[];
+}
+
+/**
+ * Cross-section motif graph that tracks how the original motif propagates,
+ * transforms, and returns across the entire composition.
+ *
+ * Built by `buildMotifGraph()` in `motifDevelopment.ts`.
+ */
+export interface MotifGraph {
+    /** ID of the source MotifDraft. */
+    motifId: string;
+    /** Interval series of the original (un-transformed) motif. */
+    originalIntervals: number[];
+    /** Section ID where the original motif is stated. */
+    sourceSectionId: string;
+    /**
+     * All occurrences across the composition (including the original statement).
+     * Ordered chronologically by section index.
+     */
+    occurrences: MotifOccurrence[];
+    /** Distinct transform kinds applied across all non-original occurrences. */
+    usedTransforms: string[];
+    /** Diversity score [0–1]: how varied the applied transforms are. */
+    diversityScore: number;
+}

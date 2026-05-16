@@ -638,6 +638,7 @@ export function computePianoCraftScoreSummary(
     const melodyProminenceScore = computeMelodyProminenceScore(sectionArtifacts);
     const pedalBlurRisk         = computePedalBlurRisk(sectionArtifacts);
     const bassRootSupportScore  = computeBassRootSupportScore(sectionArtifacts);
+    const listenability         = computePianoListenabilityScore(sectionArtifacts, resolvedLayout);
 
     return {
         handPlayability:               Number(handPlayability.toFixed(4)),
@@ -654,6 +655,8 @@ export function computePianoCraftScoreSummary(
         melodyProminenceScore:         Number(melodyProminenceScore.toFixed(4)),
         pedalBlurRisk:                 Number(pedalBlurRisk.toFixed(4)),
         bassRootSupportScore:          Number(bassRootSupportScore.toFixed(4)),
+        textureFormCoherenceScore:     Number(listenability.textureFormCoherence.toFixed(4)),
+        pianoListenabilityScore:       Number(listenability.overall.toFixed(4)),
     };
 }
 
@@ -836,4 +839,141 @@ export function computeBassRootSupportScore(
 
     if (scores.length === 0) return 0.5;
     return clamp01(avg(scores));
+}
+
+// ---------------------------------------------------------------------------
+// Texture-form coherence  (listenability dimension 6)
+// ---------------------------------------------------------------------------
+
+/**
+ * Measures whether the accompaniment texture complexity aligns with the
+ * formal role of each section.
+ *
+ * Coherence rules:
+ *   - development sections should have higher accompaniment density than theme_a
+ *   - recap should match theme_a density within ±30%
+ *   - intro / outro / coda should be less dense than theme_a
+ *
+ * "Density" here is non-rest accompaniment events per measure.
+ * Returns 0.5 when fewer than 2 sections are present or no theme_a exists.
+ */
+export function computeTextureFormCoherence(
+    sectionArtifacts: SectionArtifactSummary[],
+): number {
+    if (sectionArtifacts.length < 2) return 0.5;
+
+    function accompDensity(sa: SectionArtifactSummary): number {
+        const nonRest = sa.accompanimentEvents.filter((e) => e.type !== "rest");
+        return nonRest.length / Math.max(1, sa.measureCount);
+    }
+
+    const themeA = sectionArtifacts.find((s) => s.role === "theme_a");
+    if (!themeA) return 0.5;
+
+    const themeADensity = accompDensity(themeA);
+    const scores: number[] = [];
+
+    for (const sa of sectionArtifacts) {
+        if (sa.role === "theme_a") continue;
+        const d = accompDensity(sa);
+
+        if (sa.role === "development") {
+            if (themeADensity === 0) {
+                scores.push(0.5);
+            } else {
+                const ratio = d / themeADensity;
+                // ≥1.0× = denser than theme_a (good); <1.0× = less dense (bad)
+                scores.push(ratio >= 1.0 ? clamp01(0.6 + Math.min(ratio - 1.0, 1.0) * 0.4) : clamp01(ratio * 0.6));
+            }
+        } else if (sa.role === "recap") {
+            if (themeADensity === 0) {
+                scores.push(0.6);
+            } else {
+                const diff = Math.abs(d - themeADensity) / themeADensity;
+                scores.push(diff <= 0.3 ? 1.0 : clamp01(1 - (diff - 0.3) * 1.5));
+            }
+        } else if (["intro", "outro", "coda"].includes(sa.role)) {
+            if (themeADensity === 0) {
+                scores.push(0.5);
+            } else {
+                const ratio = d / themeADensity;
+                // ≤1.0× = simpler than theme_a (good); >1.0× (over-complex) = penalized
+                scores.push(ratio <= 1.0 ? clamp01(0.6 + (1.0 - ratio) * 0.4) : clamp01(0.6 - (ratio - 1.0) * 0.5));
+            }
+        }
+        // Other roles (bridge, variation, …) contribute nothing — they have no expectation
+    }
+
+    if (scores.length === 0) return 0.5;
+    return clamp01(avg(scores));
+}
+
+// ---------------------------------------------------------------------------
+// Piano listenability composite
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-dimension breakdown for `computePianoListenabilityScore`.
+ */
+export interface PianoListenabilityScoreBreakdown {
+    melodyProminence: number;
+    bassRootSupport: number;
+    accompanimentConsistency: number;
+    registerSpacing: number;
+    pedalBlurRisk: number;
+    textureFormCoherence: number;
+    /** Weighted composite (0–1). */
+    overall: number;
+}
+
+/**
+ * Piano listenability composite score.
+ *
+ * Goes beyond gate-level playability to ask: "Will this piece sound good
+ * to a human listener?"  Combines six listener-facing dimensions:
+ *
+ *   melodyProminence        0.22 — RH sits clearly above LH in pitch + velocity
+ *   bassRootSupport         0.20 — LH grounds harmony in correct register
+ *   accompanimentConsistency 0.18 — rhythmic pattern regularity
+ *   registerSpacing         0.17 — natural gap between hands
+ *   pedalBlurRisk           0.13 — low pedal blur risk (inverted risk)
+ *   textureFormCoherence    0.10 — texture complexity tracks formal structure
+ *   ─────────────────────────────
+ *   total                   1.00
+ *
+ * Higher scores correlate with listener preference in A/B blind reviews.
+ * Not a gate score — use for ranking and targeted repair guidance.
+ */
+export function computePianoListenabilityScore(
+    sectionArtifacts: SectionArtifactSummary[],
+    layout?: PianoVoiceLayoutSummary,
+): PianoListenabilityScoreBreakdown {
+    const resolvedLayout =
+        layout ?? sectionArtifacts.find((a) => a.pianoVoiceLayout !== undefined)?.pianoVoiceLayout;
+
+    const melodyProminence        = computeMelodyProminenceScore(sectionArtifacts);
+    const bassRootSupport         = computeBassRootSupportScore(sectionArtifacts);
+    const accompanimentConsistency = computeAccompanimentPatternCoherence(sectionArtifacts).score;
+    const registerSpacing         = computeRegisterSpacing(sectionArtifacts, resolvedLayout).score;
+    const pedalBlurRisk           = computePedalBlurRisk(sectionArtifacts);
+    const textureFormCoherence    = computeTextureFormCoherence(sectionArtifacts);
+
+    const overall = clamp01(
+        0.22 * melodyProminence
+        + 0.20 * bassRootSupport
+        + 0.18 * accompanimentConsistency
+        + 0.17 * registerSpacing
+        + 0.13 * pedalBlurRisk
+        + 0.10 * textureFormCoherence,
+    );
+
+    return {
+        melodyProminence:         Number(melodyProminence.toFixed(4)),
+        bassRootSupport:          Number(bassRootSupport.toFixed(4)),
+        accompanimentConsistency: Number(accompanimentConsistency.toFixed(4)),
+        registerSpacing:          Number(registerSpacing.toFixed(4)),
+        pedalBlurRisk:            Number(pedalBlurRisk.toFixed(4)),
+        textureFormCoherence:     Number(textureFormCoherence.toFixed(4)),
+        overall:                  Number(overall.toFixed(4)),
+    };
 }

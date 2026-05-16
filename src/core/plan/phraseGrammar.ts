@@ -1,7 +1,10 @@
 import type {
     HypermetricGroup,
     PeriodStructure,
+    PhraseFunctionRole,
     PhraseGrammarPlan,
+    PhraseGroupStructure,
+    PhrasePlan,
     PhraseUnit,
     PhraseUnitRole,
     SectionPlan,
@@ -98,7 +101,7 @@ export function buildPeriodStructure(measures: number): PeriodStructure {
 
 export function computeHypermetricGroups(
     totalMeasures: number,
-    structure: SentenceStructure | PeriodStructure,
+    structure: SentenceStructure | PeriodStructure | PhraseGroupStructure,
 ): HypermetricGroup[] {
     const unitSize = totalMeasures >= 16 ? 8 : totalMeasures >= 8 ? 4 : 2;
     const groupType: HypermetricGroup["type"] =
@@ -112,10 +115,12 @@ export function computeHypermetricGroups(
                   { unit: structure.continuation, role: "continuation" },
                   { unit: structure.cadential,   role: "cadential" },
               ]
-            : [
+            : structure.type === "period"
+            ? [
                   { unit: structure.antecedent, role: "antecedent" },
                   { unit: structure.consequent, role: "consequent" },
-              ];
+              ]
+            : structure.phrases.map((p) => ({ unit: p, role: p.role }));
 
     return units.map(({ unit, role }) => ({
         type: groupType,
@@ -127,26 +132,103 @@ export function computeHypermetricGroups(
 }
 
 // ---------------------------------------------------------------------------
+// Phrase group structure: two independent phrases, each ending with PAC
+// ---------------------------------------------------------------------------
+
+export function buildPhraseGroupStructure(measures: number): PhraseGroupStructure {
+    const m = Math.max(4, measures);
+    const half = Math.floor(m / 2);
+
+    const phrase1: PhraseUnit = {
+        role: "phrase",
+        measures: half,
+        startMeasure: 1,
+        cadenceType: "authentic",
+        peakMeasure: Math.ceil(half * 0.75),
+    };
+    const phrase2: PhraseUnit = {
+        role: "phrase",
+        measures: m - half,
+        startMeasure: half + 1,
+        cadenceType: "authentic",
+        peakMeasure: Math.ceil((m - half) * 0.75),
+    };
+
+    return { type: "phrase_group", totalMeasures: m, phrases: [phrase1, phrase2] };
+}
+
+// ---------------------------------------------------------------------------
+// PhrasePlan builder — derives per-phrase operator metadata from a structure
+// ---------------------------------------------------------------------------
+
+export function buildPhrasePlan(
+    structure: SentenceStructure | PeriodStructure | PhraseGroupStructure,
+    _role: SectionRole,
+): PhrasePlan {
+    const phraseType = structure.type;
+
+    const phraseFunction: PhraseFunctionRole =
+        structure.type === "period" ? "antecedent"
+        : structure.type === "sentence" ? "presentation"
+        : "continuation";
+
+    const hypermeterUnit: 2 | 4 | 8 =
+        structure.totalMeasures >= 16 ? 8
+        : structure.totalMeasures >= 8 ? 4
+        : 2;
+
+    // Cadence placement at the terminal unit's final measure
+    let cadenceMeasure: number;
+
+    if (structure.type === "sentence") {
+        const u = structure.cadential;
+        cadenceMeasure = u.startMeasure + u.measures - 1;
+    } else if (structure.type === "period") {
+        const u = structure.consequent;
+        cadenceMeasure = u.startMeasure + u.measures - 1;
+    } else {
+        const last = structure.phrases[structure.phrases.length - 1];
+        cadenceMeasure = last ? last.startMeasure + last.measures - 1 : structure.totalMeasures;
+    }
+
+    const terminalCadenceType =
+        structure.type === "sentence" ? (structure.cadential.cadenceType ?? "authentic")
+        : structure.type === "period" ? (structure.consequent.cadenceType ?? "authentic")
+        : "authentic";
+
+    return {
+        phraseType,
+        phraseFunction,
+        hypermeterUnit,
+        cadencePlacement: { measure: cadenceMeasure, cadenceType: terminalCadenceType },
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Section-level chooser
 // ---------------------------------------------------------------------------
 
 export function choosePhraseStructure(
     role: SectionRole,
     measures: number,
-    preferredType?: "sentence" | "period",
+    preferredType?: "sentence" | "period" | "phrase_group",
 ): PhraseGrammarPlan {
     const m = Math.max(2, measures);
     const isMult4 = m % 4 === 0;
 
-    const usePeriod =
-        preferredType === "period" ||
-        (preferredType === undefined && PERIOD_PREFERRED_ROLES.has(role) && isMult4);
+    let structure: SentenceStructure | PeriodStructure | PhraseGroupStructure;
 
-    const structure = usePeriod
-        ? buildPeriodStructure(m)
-        : buildSentenceStructure(m);
+    if (preferredType === "phrase_group") {
+        structure = buildPhraseGroupStructure(m);
+    } else {
+        const usePeriod =
+            preferredType === "period" ||
+            (preferredType === undefined && PERIOD_PREFERRED_ROLES.has(role) && isMult4);
+        structure = usePeriod ? buildPeriodStructure(m) : buildSentenceStructure(m);
+    }
 
     const groups = computeHypermetricGroups(m, structure);
+    const phrasePlan = buildPhrasePlan(structure, role);
 
     const notes: string[] = [
         `${structure.type} structure for ${role} (${m} measures)`,
@@ -159,6 +241,7 @@ export function choosePhraseStructure(
         structure,
         hypermetricGroups: groups,
         totalMeasures: m,
+        phrasePlan,
         notes,
     };
 }

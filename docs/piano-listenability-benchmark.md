@@ -9,7 +9,7 @@ AXIOM 피아노 생성 경로(`solo_piano_symbolic`)가 만든 곡이 실제로 
 
 ---
 
-## 측정 지표 (5가지 + Overall)
+## 측정 지표 (7가지 + 2가지 종합 점수)
 
 ### 1. melodicClarity (멜로디 명료성)
 
@@ -95,6 +95,47 @@ overallAppeal = 0.35 × handPlayability
 
 ---
 
+### 7. textureFormCoherence (텍스처-형식 일관성)
+
+> "반주 텍스처 밀도가 악곡 형식과 논리적으로 연결되는가?"
+
+| 섹션 역할 | 기대 밀도 |
+|----------|----------|
+| development | theme_a보다 밀도 높음 (≥ 1.0×) |
+| recap | theme_a와 ±30% 이내 |
+| intro / outro / coda | theme_a보다 단순 (≤ 1.0×) |
+
+기준선이 없으면 (theme_a 없음, 섹션 2개 미만) 0.5 반환.
+
+구현 함수: `computeTextureFormCoherence()` in `pianoCraftScoring.ts`
+
+---
+
+### 8. pianoListenabilityScore (청취 품질 종합, 신규)
+
+> "피아노 연주자에게가 아니라 청취자에게 좋은 곡인가?"
+
+6차원 가중 복합 점수:
+
+```
+pianoListenabilityScore =
+    0.22 × melodyProminence          (RH가 LH 위 레지스터에 명확히 위치)
+  + 0.20 × bassRootSupport           (LH 베이스가 올바른 음역에서 화음 루트 지지)
+  + 0.18 × accompanimentConsistency  (반주 리듬 패턴 규칙성)
+  + 0.17 × registerSpacing           (손 간격 자연스러움)
+  + 0.13 × pedalBlurRisk             (페달 흐림 위험 낮음, 1-risk)
+  + 0.10 × textureFormCoherence      (텍스처-형식 일관성)
+```
+
+가중치 합계 = 1.00. 범위 [0.0, 1.0].
+
+구현 함수: `computePianoListenabilityScore()` in `pianoCraftScoring.ts`  
+반환 타입: `PianoListenabilityScoreBreakdown` (6차원 분해 + `overall`)
+
+`computePianoCraftScoreSummary()` 결과의 `pianoListenabilityScore` 필드에 저장.
+
+---
+
 ## 벤치마크 절차
 
 ### 자동 벤치마크 (A/B 비교)
@@ -152,6 +193,8 @@ test/piano-benchmark.test.mjs
 | registerSpacing | ✅ | ✅ |
 | pianoPlayability | ✅ | ✅ |
 | overallAppeal | ✅ | ✅ |
+| textureFormCoherence | ✅ | ✅ |
+| pianoListenabilityScore (composite) | ✅ | ✅ |
 
 ---
 

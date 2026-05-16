@@ -313,7 +313,230 @@ export function computeInnerVoiceMotionScore(
 }
 
 // ---------------------------------------------------------------------------
-// 8. Summary
+// 8. Forbidden progression penalty score
+// ---------------------------------------------------------------------------
+
+/**
+ * Penalises evidence of forbidden progressions (docs §1.3):
+ *   V → IV  : dominant resolving backward to pre-dominant
+ *   I64 → I : second-inversion tonic resolving directly without V
+ *   Tonic directly after dominant when plan expects full T→PD→D→T cycle
+ *
+ * Proxy evidence:
+ *   - cadenceApproach === "plagal" when plan's sequence ends on "dominant" → V→IV smell
+ *   - cad64 approach planned but cadenceApproach is "tonic" without dominant evidence
+ *     (jumped over V) → I64 direct resolution smell
+ *   - harmonicColorCues contain "harmonic_rhythm_shift" with no "predominant_color" in
+ *     a section expecting T→PD→D→T → missing PD break
+ *
+ * Returns 1.0 when no forbidden patterns detected, approaching 0.0 with more violations.
+ */
+export function computeForbiddenProgressionPenaltyScore(
+    plan: HarmonyGrammarPlan,
+    artifact: SectionArtifactSummary,
+): number {
+    const approach = artifact.cadenceApproach;
+    const colorCues = artifact.harmonicColorCues ?? [];
+    let penalty = 0;
+
+    // Proxy 1: V → IV smell — plagal close when plan expects dominant-function finale
+    const planEndsOnDominant = plan.functionalSequence.length > 0
+        && plan.functionalSequence[plan.functionalSequence.length - 1] === "dominant";
+    if (planEndsOnDominant && approach === "plagal") {
+        penalty += 0.35; // backward motion at close
+    }
+
+    // Proxy 2: I64 → I skip — cad64 planned but tonic arrived without dominant step
+    // (artifact closes on "tonic" and has cadential_64 cue but no dominant approach)
+    const hasCad64Cue = colorCues.some((c) => c.tag === "cadential_64");
+    if (plan.cadenceApproach === "cad64" && approach === "tonic" && !hasCad64Cue) {
+        penalty += 0.25; // cad64 bypassed
+    }
+
+    // Proxy 3: Missing PD in a full T→PD→D→T plan
+    const planHasPD = plan.functionalSequence.includes("predominant");
+    const hasPDEvidence = colorCues.some((c) =>
+        c.tag === "predominant_color" || c.tag === "applied_dominant",
+    );
+    if (planHasPD && !hasPDEvidence && approach !== undefined) {
+        penalty += 0.15; // PD expected but not detected
+    }
+
+    return clamp01(1.0 - penalty);
+}
+
+// ---------------------------------------------------------------------------
+// 9. Cadential 6/4 detection score
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates the cadential 6/4 pattern (I64 → V7 → I) when it is planned.
+ *
+ * Strong evidence: artifact has "cadential_64" color cue AND cadenceApproach
+ *   is "dominant" (V7 phase realised, not yet resolved) → 1.0
+ * Partial: cadential_64 cue present but approach is already "tonic" (V7
+ *   resolved through) → 0.75
+ * Planned cad64 but no cue detected → 0.2
+ * Plan is not cad64 → 0.5 (N/A)
+ */
+export function computeCad64DetectionScore(
+    plan: HarmonyGrammarPlan,
+    artifact: SectionArtifactSummary,
+): number {
+    if (plan.cadenceApproach !== "cad64") return 0.5; // N/A
+
+    const colorCues = artifact.harmonicColorCues ?? [];
+    const hasCad64Cue = colorCues.some((c) => c.tag === "cadential_64");
+    const approach = artifact.cadenceApproach;
+
+    if (hasCad64Cue) {
+        if (approach === "dominant") return 1.0;   // I64→V phase (V pending)
+        if (approach === "tonic") return 0.75;     // I64→V→I fully resolved
+        return 0.6;
+    }
+
+    if (approach === "dominant") return 0.5; // dominant close but no cue — ambiguous
+    return 0.2; // cad64 planned but undetected
+}
+
+// ---------------------------------------------------------------------------
+// 10. Harmonic rhythm acceleration score
+// ---------------------------------------------------------------------------
+
+/**
+ * Scores whether the harmonic rhythm accelerates through the section as
+ * expected for continuation-type and development sections.
+ *
+ * Evidence proxy: artifact.harmonicRealizationSummary
+ *   peakDurationScaleDelta > 0  → durations increased (slowed) at peak → arch/deceleration
+ *   peakDurationScaleDelta < 0  → durations shortened (accelerated) at peak → acceleration
+ *
+ * Matches plan.harmonicRhythmShape:
+ *   slow→fast : peakDurationScaleDelta < 0 rewarded (acceleration)
+ *   fast→slow : peakDurationScaleDelta > 0 rewarded (deceleration)
+ *   arch      : magnitude small (near 0) rewarded (stable arch)
+ *   slow/uniform: averageDurationScale ≥ 1.0 rewarded
+ *
+ * Returns 0.5 when no evidence available.
+ */
+export function computeHarmonicRhythmAccelerationScore(
+    plan: HarmonyGrammarPlan,
+    artifact: SectionArtifactSummary,
+): number {
+    const summary = artifact.harmonicRealizationSummary;
+    const shape = plan.harmonicRhythmShape;
+    if (!summary || !shape) return 0.5;
+
+    const delta = summary.peakDurationScaleDelta ?? 0;
+    const avg = summary.averageDurationScale ?? 1.0;
+
+    switch (shape) {
+        case "slow→fast":
+            // Acceleration: peak durations shorten → delta negative; avg < 1 overall
+            if (delta < -0.1 && avg < 1.05) return 1.0;
+            if (delta < 0) return 0.75;
+            return clamp01(0.5 - delta * 0.3);
+
+        case "fast→slow":
+            // Deceleration: peak durations lengthen → delta positive
+            if (delta > 0.1 && avg >= 0.95) return 1.0;
+            if (delta > 0) return 0.75;
+            return clamp01(0.5 + delta * 0.3);
+
+        case "arch":
+            // Middle peak: delta near 0
+            return clamp01(1.0 - Math.abs(delta) * 0.5);
+
+        case "slow":
+            return avg >= 1.1 ? 1.0 : clamp01(0.5 + (avg - 1.0) * 0.5);
+
+        case "uniform":
+        default:
+            return clamp01(1.0 - Math.abs(avg - 1.0) * 0.6 - Math.abs(delta) * 0.3);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 11. Applied dominant resolution score
+// ---------------------------------------------------------------------------
+
+/**
+ * Checks whether planned applied dominants resolve to their expected target.
+ *
+ * An applied dominant (V/X → X) should produce evidence of X being reached:
+ *   - the artifact's tonicizationWindows should contain a matching keyTarget
+ *   - OR harmonicColorCues include a "predominant_color" / "applied_dominant"
+ *     with matching keyTarget
+ *
+ * Returns 0.5 when no applied dominant cues planned.
+ * Returns 0.2 when cues planned but no resolution evidence.
+ * Returns 0.7–1.0 proportionally to matched resolutions.
+ */
+export function computeAppliedDominantResolutionScore(
+    plan: HarmonyGrammarPlan,
+    artifact: SectionArtifactSummary,
+): number {
+    const plannedCues = plan.appliedDominantCues ?? [];
+    if (plannedCues.length === 0) return 0.5;
+
+    const tonicWindows = artifact.tonicizationWindows ?? [];
+    const colorCues = artifact.harmonicColorCues ?? [];
+
+    let resolved = 0;
+    for (const cue of plannedCues) {
+        if (!cue.keyTarget) { resolved += 0.5; continue; } // no target specified = partial credit
+        const target = cue.keyTarget.split("/")[1]?.split(" ")[0]?.toLowerCase() ?? "";
+
+        const foundInTonicization = tonicWindows.some(
+            (w) => w.keyTarget?.toLowerCase().includes(target),
+        );
+        const foundInCues = colorCues.some(
+            (c) => c.tag === "applied_dominant" && c.keyTarget?.toLowerCase().includes(target),
+        );
+        if (foundInTonicization || foundInCues) resolved++;
+    }
+
+    if (resolved === 0) return 0.2;
+    return clamp01(0.2 + (resolved / plannedCues.length) * 0.8);
+}
+
+// ---------------------------------------------------------------------------
+// 12. Mixture / Neapolitan / Aug6 resolution score
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates that chromatic color chords (mixture, Neapolitan, Aug6) resolve
+ * in the expected direction: all three function as enhanced pre-dominants
+ * and should therefore precede a dominant close, not resolve directly to tonic.
+ *
+ * Evidence:
+ *   - colorCues contains "mixture" / "neapolitan" / "aug6"  AND  cadenceApproach "dominant"
+ *     → correct PD→D resolution → 1.0
+ *   - colorCues contains chromatic PD tag but cadenceApproach is "tonic"
+ *     → possible skip of dominant → 0.5
+ *   - No chromatic PD cues present → 0.5 (N/A)
+ *
+ * Penalise "plagal" close after chromatic PD tags (§1.3 V→IV equivalent).
+ */
+export function computeMixtureResolutionScore(
+    plan: HarmonyGrammarPlan,
+    artifact: SectionArtifactSummary,
+): number {
+    const colorCues = artifact.harmonicColorCues ?? [];
+    const chromaticPDTags = new Set(["mixture", "neapolitan", "aug6"] as const);
+    const hasChromaticPD = colorCues.some((c) => chromaticPDTags.has(c.tag as typeof chromaticPDTags extends Set<infer T> ? T : never));
+
+    if (!hasChromaticPD) return 0.5; // N/A — no chromatic PD chords detected
+
+    const approach = artifact.cadenceApproach;
+    if (approach === "dominant") return 1.0; // correct: PD → D
+    if (approach === "tonic") return 0.55;   // possible V resolved through
+    if (approach === "plagal") return 0.2;   // V→IV smell after chromatic PD
+    return 0.4;
+}
+
+// ---------------------------------------------------------------------------
+// 13. Summary (updated with 5 new dimensions)
 // ---------------------------------------------------------------------------
 
 export interface HarmonyGrammarScoreSummary {
@@ -325,22 +548,38 @@ export interface HarmonyGrammarScoreSummary {
     prolongationProxyScore: number;
     /** Inner-voice independence and stepwise filler motion (0–1). */
     innerVoiceMotionScore: number;
+    /** Penalises evidence of V→IV, I64→I, and missing PD regressions (0–1). */
+    forbiddenProgressionPenaltyScore: number;
+    /** Detects cadential 6/4 (I64→V7→I) realisation when cad64 is planned (0–1). */
+    cad64DetectionScore: number;
+    /** Scores harmonic rhythm acceleration/deceleration matching plan shape (0–1). */
+    harmonicRhythmAccelerationScore: number;
+    /** Validates applied-dominant cues resolve to their intended target degree (0–1). */
+    appliedDominantResolutionScore: number;
+    /** Validates mixture/Neapolitan/Aug6 chords resolve to dominant, not plagal (0–1). */
+    mixtureResolutionScore: number;
     /** Weighted composite. */
     overall: number;
 }
 
+// Weights must sum to 1.0 across all 12 dimensions.
 const WEIGHTS = {
-    pdt: 0.22,
-    appliedDominant: 0.13,
-    tonicizationDepth: 0.13,
-    harmonicRhythmConsistency: 0.13,
-    cadenceApproachQuality: 0.20,
-    prolongationProxy: 0.09,
-    innerVoiceMotion: 0.10,
+    pdt:                           0.15,
+    appliedDominant:               0.08,
+    tonicizationDepth:             0.08,
+    harmonicRhythmConsistency:     0.08,
+    cadenceApproachQuality:        0.13,
+    prolongationProxy:             0.07,
+    innerVoiceMotion:              0.08,
+    forbiddenProgressionPenalty:   0.12,
+    cad64Detection:                0.07,
+    harmonicRhythmAcceleration:    0.06,
+    appliedDominantResolution:     0.05,
+    mixtureResolution:             0.03,
 };
 
 /**
- * Produces a HarmonyGrammarScoreSummary by running all seven scoring dimensions.
+ * Produces a HarmonyGrammarScoreSummary by running all twelve scoring dimensions.
  */
 export function computeHarmonyGrammarScoreSummary(
     plan: HarmonyGrammarPlan,
@@ -353,6 +592,11 @@ export function computeHarmonyGrammarScoreSummary(
     const cadenceApproachQualityScore = computeCadenceApproachQualityScore(plan, artifact);
     const prolongationProxyScore = computeProlongationProxyScore(plan, artifact);
     const innerVoiceMotionScore = computeInnerVoiceMotionScore(plan, artifact);
+    const forbiddenProgressionPenaltyScore = computeForbiddenProgressionPenaltyScore(plan, artifact);
+    const cad64DetectionScore = computeCad64DetectionScore(plan, artifact);
+    const harmonicRhythmAccelerationScore = computeHarmonicRhythmAccelerationScore(plan, artifact);
+    const appliedDominantResolutionScore = computeAppliedDominantResolutionScore(plan, artifact);
+    const mixtureResolutionScore = computeMixtureResolutionScore(plan, artifact);
 
     const overall = clamp01(
         WEIGHTS.pdt                          * pdtScore
@@ -361,7 +605,12 @@ export function computeHarmonyGrammarScoreSummary(
         + WEIGHTS.harmonicRhythmConsistency  * harmonicRhythmConsistencyScore
         + WEIGHTS.cadenceApproachQuality     * cadenceApproachQualityScore
         + WEIGHTS.prolongationProxy          * prolongationProxyScore
-        + WEIGHTS.innerVoiceMotion           * innerVoiceMotionScore,
+        + WEIGHTS.innerVoiceMotion           * innerVoiceMotionScore
+        + WEIGHTS.forbiddenProgressionPenalty * forbiddenProgressionPenaltyScore
+        + WEIGHTS.cad64Detection             * cad64DetectionScore
+        + WEIGHTS.harmonicRhythmAcceleration * harmonicRhythmAccelerationScore
+        + WEIGHTS.appliedDominantResolution  * appliedDominantResolutionScore
+        + WEIGHTS.mixtureResolution          * mixtureResolutionScore,
     );
 
     return {
@@ -372,6 +621,11 @@ export function computeHarmonyGrammarScoreSummary(
         cadenceApproachQualityScore,
         prolongationProxyScore,
         innerVoiceMotionScore,
+        forbiddenProgressionPenaltyScore,
+        cad64DetectionScore,
+        harmonicRhythmAccelerationScore,
+        appliedDominantResolutionScore,
+        mixtureResolutionScore,
         overall,
     };
 }

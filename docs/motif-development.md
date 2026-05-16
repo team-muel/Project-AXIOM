@@ -234,7 +234,10 @@ AXIOM이 동기를 계획하고 실행할 때의 권장 흐름:
 | 축소 (diminution) | ✅ `applyDiminution(durations, factor)` | `motifDevelopment.ts` |
 | 재화성화 | ✅ `ThematicTransformKind="reharmonize"` | `motif.ts` (종류 정의) |
 | Recap 식별성 검증 | ✅ `computeRecapIdentityScore(themeIntervals, recapIntervals)` | `motifDevelopment.ts` |
-| False recap 감지 | ❌ | 조성 확인 후 분류 필요 |
+| False recap 감지 | ✅ `computeFalseRecapDetectionScore(src, cand)` | `motifDevelopmentScoring.ts` |
+| MotifGraph 빌더 | ✅ `buildMotifGraph(sections, drafts, artifacts?)` | `motifDevelopment.ts` |
+| 조성 내 반복 점수 | ✅ `computeTonalRepetitionScore(src, tgt)` | `motifDevelopmentScoring.ts` |
+| 동기 다양성 점수 | ✅ `computeMotifDiversityScore(occurrences)` | `motifDevelopmentScoring.ts` |
 
 `buildMotifDevelopmentPlan(sections, motifDrafts)` → `Map<sectionId, MotifDevelopmentPlan>` 형식으로
 `materializeCompositionSketch()`에서 매 섹션에 자동 주석 처리됨.
