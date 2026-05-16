@@ -19,6 +19,16 @@ import {
     computeRecapIdentityScore,
     buildMotifDevelopmentPlan,
 } from "../dist/core/plan/motifDevelopment.js";
+import {
+    computeExactReturnScore,
+    computeSequenceScore,
+    computeFragmentationScore,
+    computeInversionDetectionScore,
+    computeRhythmicProportionScore,
+    computeReharmonizedReturnScore,
+    computeMotifRecapIdentityScore,
+    computeMotifDevelopmentScoreSummary,
+} from "../dist/core/evaluate/motifDevelopmentScoring.js";
 
 // ─── 1. applySequence ────────────────────────────────────────────────────────
 
@@ -333,4 +343,144 @@ test("buildMotifDevelopmentPlan: recap identity score of exact return is 1.0", (
     assert.ok(recapPlan !== undefined);
     assert.equal(recapPlan.recapIdentityScore, 1.0);
     assert.equal(recapPlan.entries[0].recapIdentityScore, 1.0);
+});
+
+// ─── MotifDevelopmentScoring Tests ───────────────────────────────────────────
+
+function makeArt(capturedMotif, overrides = {}) {
+    return {
+        sectionId: "test",
+        role: "theme_a",
+        measureCount: 8,
+        melodyEvents: overrides.melodyEvents ?? [],
+        accompanimentEvents: [],
+        noteHistory: [],
+        capturedMotif,
+        ...overrides,
+    };
+}
+
+test("computeExactReturnScore: identical motifs return 1.0", () => {
+    const src = makeArt([2, 2, 1, -1]);
+    const tgt = makeArt([2, 2, 1, -1]);
+    assert.strictEqual(computeExactReturnScore(src, tgt), 1.0);
+});
+
+test("computeExactReturnScore: no capturedMotif returns 0", () => {
+    const src = makeArt(undefined);
+    const tgt = makeArt([2, 2]);
+    assert.strictEqual(computeExactReturnScore(src, tgt), 0);
+});
+
+test("computeExactReturnScore: opposite contour returns 0", () => {
+    const src = makeArt([2, 2, 1]);
+    const tgt = makeArt([-2, -2, -1]);
+    assert.strictEqual(computeExactReturnScore(src, tgt), 0);
+});
+
+test("computeSequenceScore: perfect transposition returns 1.0", () => {
+    const src = makeArt([2, 2, 1]);
+    const tgt = makeArt([4, 4, 3]); // stride=2
+    const score = computeSequenceScore(src, tgt);
+    assert.strictEqual(score, 1.0);
+});
+
+test("computeSequenceScore: no motifs returns 0", () => {
+    const src = makeArt(undefined);
+    const tgt = makeArt(undefined);
+    assert.strictEqual(computeSequenceScore(src, tgt), 0);
+});
+
+test("computeSequenceScore: random intervals score low", () => {
+    const src = makeArt([2, 2, 1]);
+    const tgt = makeArt([5, -3, 7]);
+    const score = computeSequenceScore(src, tgt);
+    assert.ok(score < 0.8, `expected < 0.8, got ${score}`);
+});
+
+test("computeFragmentationScore: exact prefix of source = 1.0", () => {
+    const src = makeArt([2, 2, 1, 3]);
+    const tgt = makeArt([2, 2]); // first 2 of 4
+    const score = computeFragmentationScore(src, tgt);
+    assert.strictEqual(score, 1.0);
+});
+
+test("computeFragmentationScore: target same length as source = 0.5 neutral", () => {
+    const src = makeArt([2, 2, 1]);
+    const tgt = makeArt([2, 2, 1]);
+    assert.strictEqual(computeFragmentationScore(src, tgt), 0.5);
+});
+
+test("computeInversionDetectionScore: perfect inversion returns 1.0", () => {
+    const src = makeArt([2, -3, 4]);
+    const tgt = makeArt([-2, 3, -4]);
+    assert.strictEqual(computeInversionDetectionScore(src, tgt), 1.0);
+});
+
+test("computeInversionDetectionScore: identical (not inverted) returns 0", () => {
+    const src = makeArt([2, 3, 4]);
+    const tgt = makeArt([2, 3, 4]);
+    assert.strictEqual(computeInversionDetectionScore(src, tgt), 0);
+});
+
+test("computeRhythmicProportionScore: augmentation with halved density = high", () => {
+    // source: 8 events in 4 measures = 2/measure; target: 4 events in 4 measures = 1/measure
+    const src = makeArt(undefined, { measureCount: 4, melodyEvents: [{},{},{},{},{},{},{},{}] });
+    const tgt = makeArt(undefined, { measureCount: 4, melodyEvents: [{},{},{},{}] });
+    const score = computeRhythmicProportionScore(src, tgt, "augmentation");
+    assert.ok(score > 0.6, `expected > 0.6, got ${score}`);
+});
+
+test("computeRhythmicProportionScore: diminution with doubled density = high", () => {
+    const src = makeArt(undefined, { measureCount: 4, melodyEvents: [{},{},{},{}] });
+    const tgt = makeArt(undefined, { measureCount: 4, melodyEvents: [{},{},{},{},{},{},{},{}] });
+    const score = computeRhythmicProportionScore(src, tgt, "diminution");
+    assert.ok(score > 0.6, `expected > 0.6, got ${score}`);
+});
+
+test("computeReharmonizedReturnScore: same melody + different harmony = high score", () => {
+    const src = makeArt([2, 2, 1], { harmonicColorCues: [{ tag: "prolongation" }] });
+    const tgt = makeArt([2, 2, 1], { harmonicColorCues: [{ tag: "applied_dominant" }] });
+    const score = computeReharmonizedReturnScore(src, tgt);
+    assert.ok(score > 0.8, `expected > 0.8, got ${score}`);
+});
+
+test("computeMotifRecapIdentityScore: delegates to computeExactReturnScore", () => {
+    const src = makeArt([2, 2, 1]);
+    const recap = makeArt([2, 2, 1]);
+    assert.strictEqual(computeMotifRecapIdentityScore(src, recap), 1.0);
+});
+
+test("computeMotifDevelopmentScoreSummary: repeat transform returns summary with primaryScore", () => {
+    const plan = {
+        entries: [{ sourceSectionId: "theme_a", targetSectionId: "recap", transform: "repeat" }],
+    };
+    const src = makeArt([2, 2, 1]);
+    const tgt = makeArt([2, 2, 1]);
+    const result = computeMotifDevelopmentScoreSummary(plan, src, tgt);
+    assert.strictEqual(result.transformKind, "repeat");
+    assert.strictEqual(result.primaryScore, 1.0);
+    assert.ok("overall" in result);
+});
+
+test("computeMotifDevelopmentScoreSummary: recap with recapIdentityScore blends into overall", () => {
+    const plan = {
+        entries: [{ sourceSectionId: "theme_a", targetSectionId: "recap", transform: "repeat" }],
+        recapIdentityScore: 0.8,
+    };
+    const src = makeArt([2, 2, 1]);
+    const tgt = makeArt([2, 2, 1]);
+    const result = computeMotifDevelopmentScoreSummary(plan, src, tgt);
+    assert.strictEqual(result.recapIdentityScore, 0.8);
+    // overall = 0.7 * 1.0 + 0.3 * 0.8 = 0.94
+    assert.ok(Math.abs(result.overall - 0.94) < 0.001, `expected 0.94, got ${result.overall}`);
+});
+
+test("computeMotifDevelopmentScoreSummary: unknown transform returns 0.5 primaryScore", () => {
+    const plan = { entries: [] };
+    const src = makeArt([2, 2]);
+    const tgt = makeArt([2, 2]);
+    const result = computeMotifDevelopmentScoreSummary(plan, src, tgt);
+    assert.strictEqual(result.transformKind, "unknown");
+    assert.strictEqual(result.primaryScore, 0.5);
 });

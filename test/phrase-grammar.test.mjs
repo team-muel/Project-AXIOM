@@ -4,6 +4,7 @@
  * Tests for:
  *   - phraseGrammar.ts builder functions (PR 2)
  *   - craftScoring.ts supplementary metrics (PR 1)
+ *   - phraseGrammarScoring.ts evaluator functions
  */
 
 import { describe, it } from "node:test";
@@ -23,6 +24,13 @@ import {
     computePhraseGrammarScore,
     computeCraftScoreSummary,
 } from "../dist/core/evaluate/craftScoring.js";
+import {
+    computePhrasePeakScore,
+    computeCadencePlacementScore,
+    computeHypermetricRegularityScore,
+    computePhraseClosureScore,
+    computePhraseGrammarScoreSummary,
+} from "../dist/core/evaluate/phraseGrammarScoring.js";
 
 // ─── Phrase Grammar Builder Tests ────────────────────────────────────────────
 
@@ -436,5 +444,204 @@ describe("computeCraftScoreSummary — supplementary fields", () => {
             ).toFixed(4),
         );
         assert.strictEqual(result.finalCraftScore, expected);
+    });
+});
+
+// ─── PhraseGrammarScoring Tests ───────────────────────────────────────────────
+
+// Helpers: build minimal plan and artifact
+function makeSentencePlan(measures = 8) {
+    const s = buildSentenceStructure(measures);
+    const groups = computeHypermetricGroups(measures, s);
+    return { structure: s, hypermetricGroups: groups, totalMeasures: measures, notes: [] };
+}
+
+function makePeriodPlan(measures = 8) {
+    const p = buildPeriodStructure(measures);
+    const groups = computeHypermetricGroups(measures, p);
+    return { structure: p, hypermetricGroups: groups, totalMeasures: measures, notes: [] };
+}
+
+function makeArtifact(overrides = {}) {
+    return {
+        sectionId: "test",
+        role: "theme_a",
+        measureCount: 8,
+        melodyEvents: [],
+        accompanimentEvents: [],
+        noteHistory: [],
+        ...overrides,
+    };
+}
+
+describe("computePhrasePeakScore", () => {
+    it("returns 0.5 when no phrasePeaks recorded", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact();
+        assert.strictEqual(computePhrasePeakScore(plan, artifact), 0.5);
+    });
+
+    it("sentence: single peak in cadential window scores 1.0", () => {
+        const plan = makeSentencePlan(8);
+        // continuation starts at measure 5 for 8-bar sentence
+        const artifact = makeArtifact({ phrasePeaks: [7] });
+        const score = computePhrasePeakScore(plan, artifact);
+        assert.strictEqual(score, 1.0);
+    });
+
+    it("sentence: peak before continuation scores 0.3", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({ phrasePeaks: [1] });
+        const score = computePhrasePeakScore(plan, artifact);
+        assert.strictEqual(score, 0.3);
+    });
+
+    it("period: peaks in both halves score 1.0", () => {
+        const plan = makePeriodPlan(8);
+        // antecedent m1-4, consequent m5-8
+        const artifact = makeArtifact({ phrasePeaks: [3, 7] });
+        const score = computePhrasePeakScore(plan, artifact);
+        assert.strictEqual(score, 1.0);
+    });
+
+    it("period: peak in only one half scores 0.65", () => {
+        const plan = makePeriodPlan(8);
+        const artifact = makeArtifact({ phrasePeaks: [3] });
+        const score = computePhrasePeakScore(plan, artifact);
+        assert.strictEqual(score, 0.65);
+    });
+});
+
+describe("computeCadencePlacementScore", () => {
+    it("returns 0.5 when no cadenceApproach", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact();
+        assert.strictEqual(computeCadencePlacementScore(plan, artifact), 0.5);
+    });
+
+    it("sentence authentic + artifact dominant = 1.0", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({ cadenceApproach: "dominant" });
+        assert.strictEqual(computeCadencePlacementScore(plan, artifact), 1.0);
+    });
+
+    it("sentence authentic + artifact tonic = 1.0", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({ cadenceApproach: "tonic" });
+        assert.strictEqual(computeCadencePlacementScore(plan, artifact), 1.0);
+    });
+
+    it("period consequent authentic + artifact dominant = 1.0", () => {
+        const plan = makePeriodPlan(8);
+        const artifact = makeArtifact({ cadenceApproach: "dominant" });
+        assert.strictEqual(computeCadencePlacementScore(plan, artifact), 1.0);
+    });
+
+    it("unclassified cadenceApproach 'other' yields partial score", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({ cadenceApproach: "other" });
+        assert.ok(computeCadencePlacementScore(plan, artifact) < 1.0);
+    });
+});
+
+describe("computeHypermetricRegularityScore", () => {
+    it("regular groups + matching measureCount = 1.0", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({ measureCount: 8 });
+        const score = computeHypermetricRegularityScore(plan, artifact);
+        assert.strictEqual(score, 1.0);
+    });
+
+    it("measure count mismatch reduces score", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({ measureCount: 12 });
+        const score = computeHypermetricRegularityScore(plan, artifact);
+        assert.ok(score < 1.0, `score ${score} should be < 1.0 for count mismatch`);
+    });
+
+    it("returns 0.5 for empty groups", () => {
+        const plan = { structure: makeSentencePlan(8).structure, hypermetricGroups: [], totalMeasures: 8, notes: [] };
+        const artifact = makeArtifact();
+        assert.strictEqual(computeHypermetricRegularityScore(plan, artifact), 0.5);
+    });
+});
+
+describe("computePhraseClosureScore", () => {
+    it("cadential function + authentic plan = 1.0", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({ phraseFunction: "cadential" });
+        assert.strictEqual(computePhraseClosureScore(plan, artifact), 1.0);
+    });
+
+    it("continuation function with open half-cadence plan = 1.0", () => {
+        // Build a period where consequent cadence is half
+        const p = buildPeriodStructure(8);
+        // Override: antecedent = half, consequent = half
+        const modP = { ...p, consequent: { ...p.consequent, cadenceType: "half" } };
+        const groups = computeHypermetricGroups(8, p);
+        const plan = { structure: modP, hypermetricGroups: groups, totalMeasures: 8, notes: [] };
+        const artifact = makeArtifact({ phraseFunction: "continuation" });
+        assert.strictEqual(computePhraseClosureScore(plan, artifact), 1.0);
+    });
+
+    it("no phraseFunction: tonic approach = 1.0", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({ cadenceApproach: "tonic" });
+        assert.strictEqual(computePhraseClosureScore(plan, artifact), 1.0);
+    });
+
+    it("no phraseFunction: dominant approach = 0.75", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({ cadenceApproach: "dominant" });
+        assert.strictEqual(computePhraseClosureScore(plan, artifact), 0.75);
+    });
+});
+
+describe("computePhraseGrammarScoreSummary", () => {
+    it("returns all four fields + overall", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({
+            phrasePeaks: [7],
+            cadenceApproach: "dominant",
+            phraseFunction: "cadential",
+            measureCount: 8,
+        });
+        const result = computePhraseGrammarScoreSummary(plan, artifact);
+        assert.ok("phrasePeakScore" in result);
+        assert.ok("cadencePlacementScore" in result);
+        assert.ok("hypermetricRegularityScore" in result);
+        assert.ok("phraseClosureScore" in result);
+        assert.ok("overall" in result);
+    });
+
+    it("overall is clamped to [0, 1]", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact();
+        const result = computePhraseGrammarScoreSummary(plan, artifact);
+        assert.ok(result.overall >= 0 && result.overall <= 1, `overall=${result.overall}`);
+    });
+
+    it("ideal artifact scores above 0.8", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({
+            phrasePeaks: [7],
+            cadenceApproach: "dominant",
+            phraseFunction: "cadential",
+            measureCount: 8,
+        });
+        const result = computePhraseGrammarScoreSummary(plan, artifact);
+        assert.ok(result.overall > 0.8, `expected > 0.8, got ${result.overall}`);
+    });
+
+    it("bad artifact scores below 0.6", () => {
+        const plan = makeSentencePlan(8);
+        const artifact = makeArtifact({
+            phrasePeaks: [1], // misplaced peak
+            cadenceApproach: "other",
+            phraseFunction: "developmental",
+            measureCount: 14, // wrong count
+        });
+        const result = computePhraseGrammarScoreSummary(plan, artifact);
+        assert.ok(result.overall < 0.65, `expected < 0.65, got ${result.overall}`);
     });
 });
