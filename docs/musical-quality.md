@@ -163,6 +163,9 @@ AXIOM 내부 `craftScoring.ts`가 계산하는 점수와 사람 평가 항목의
 | 텍스쳐 다양성 | `textureProfileScore` *(보조)* | — |
 | 종지 구조적 배치 | `cadenceArchitecturalWeight` *(보조)* | — |
 | 악절 문법 점수 | `phraseGrammarScore` *(보조)* | — |
+| 성부 진행 매끄러움 | `voiceLeadingScore` *(보조)* | — |
+| 조성화 풍부도 | `tonicizationDepthScore` *(보조)* | — |
+| 플랜 기반 악절 문법 | `planAwarePhraseGrammarScore` *(보조)* | — |
 
 **보조(supplementary) 지표**는 `finalCraftScore` 계산식에 포함되지 않습니다.
 대신 `dimensionNotes`를 통해 진단 피드백을 제공하며,
@@ -174,7 +177,8 @@ AXIOM 내부 `craftScoring.ts`가 계산하는 점수와 사람 평가 항목의
 
 | 영역 | 현재 | 목표 |
 |------|------|------|
-| Phrase grammar | 섹션 단위만 평가 | sentence/period/hypermeter 수준 |
-| Harmonic prolongation | 전조 감지만 | 기능 화성 계층 분석 |
-| Texture drama | 단순 성부 수 계산 | lead/accomp/counterpoint 역할 추적 |
+| Phrase grammar | `planAwarePhraseGrammarScore` (보조, section-level) | sentence/period/hypermeter 심층 채점 ✅ |
+| Voice leading | `voiceLeadingScore` 보조 지표 (역방향 운동 + 순탄한 도약 proxy) ✅ | 실제 병행 5도/8도 직접 감지 |
+| Harmonic prolongation | `tonicizationDepthScore` 보조 지표 ✅ | 기능 화성 계층 분석 (예: Schenkerian 중간층) |
+| Texture drama | 단순 성부 수 + counterpointMode | lead/accomp/counterpoint 역할 추적 |
 | Authorial identity | 없음 | 특정 스타일 수사 인식 및 재사용 |

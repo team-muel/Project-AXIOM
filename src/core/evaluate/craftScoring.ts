@@ -1,10 +1,12 @@
 import type {
     CompositionPlan,
     CraftScoreSummary,
+    PhraseGrammarPlan,
     SectionArtifactSummary,
     SectionRole,
     StructureEvaluationReport,
 } from "../pipeline/types.js";
+import { computePhraseGrammarScoreSummary } from "./phraseGrammarScoring.js";
 
 // craftScoring.ts — role boundary
 // ──────────────────────────────────────────────────────────────────────────────
@@ -789,6 +791,201 @@ export function computePhraseGrammarScore(
 }
 
 // ---------------------------------------------------------------------------
+// 14. voiceLeadingScore (supplementary)
+// ---------------------------------------------------------------------------
+
+/**
+ * Proxy for smooth voice leading quality.
+ *
+ * - Rewards high contrary-motion rates (parallel 5th/8th avoidance proxy)
+ * - Rewards stepwise melodic resolution in the final section
+ * - Penalizes large average leaps in the melody
+ * - Checks for voice-crossing signals via independent-motion rate
+ */
+export function computeVoiceLeadingScore(
+    sectionArtifacts: SectionArtifactSummary[],
+): { score: number; notes: string } {
+    if (sectionArtifacts.length === 0) return { score: 0.5, notes: "no artifacts" };
+
+    const notes: string[] = [];
+
+    // ── Contrary-motion rate (primary parallel-5th/8th proxy) ─────────────
+    const contraryRates = sectionArtifacts
+        .map((a) => a.textureContraryMotionRate)
+        .filter((v): v is number => v !== undefined);
+
+    const avgContrary = contraryRates.length > 0
+        ? contraryRates.reduce((s, v) => s + v, 0) / contraryRates.length
+        : 0.3;
+
+    if (contraryRates.length > 0) {
+        notes.push(`avg contrary motion: ${avgContrary.toFixed(2)}`);
+    }
+
+    // ── Independent-motion rate (voice crossing proxy) ────────────────────
+    const independentRates = sectionArtifacts
+        .map((a) => a.textureIndependentMotionRate)
+        .filter((v): v is number => v !== undefined);
+
+    const avgIndependent = independentRates.length > 0
+        ? independentRates.reduce((s, v) => s + v, 0) / independentRates.length
+        : 0.4;
+
+    // ── Melodic leap size (avg interval abs in melody events) ────────────
+    const allMelodyIntervals: number[] = [];
+    for (const section of sectionArtifacts) {
+        const pitches = section.melodyEvents
+            .filter((e) => e.type === "note" && e.pitch !== undefined)
+            .map((e) => e.pitch as number);
+        for (let i = 1; i < pitches.length; i++) {
+            allMelodyIntervals.push(Math.abs((pitches[i] ?? 0) - (pitches[i - 1] ?? 0)));
+        }
+    }
+    const avgLeap = allMelodyIntervals.length > 0
+        ? allMelodyIntervals.reduce((s, v) => s + v, 0) / allMelodyIntervals.length
+        : 3; // neutral
+    // Penalise average leaps > 4 semitones (more than a major 3rd average is choppy)
+    const leapPenalty = clamp01((avgLeap - 4) / 8); // 0 at leap≤4, 1 at leap≥12
+
+    if (allMelodyIntervals.length > 0) {
+        notes.push(`avg melodic leap: ${avgLeap.toFixed(2)} semitones`);
+    }
+
+    // ── Final section stepwise resolution bonus ────────────────────────────
+    const finalSection = sectionArtifacts[sectionArtifacts.length - 1];
+    let stepwiseBonus = 0;
+    if (finalSection?.lastInterval !== undefined && Math.abs(finalSection.lastInterval) <= 2) {
+        stepwiseBonus = 0.1;
+        notes.push("final resolution is stepwise ✓");
+    }
+
+    const score = clamp01(
+        0.30 * avgContrary
+        + 0.20 * avgIndependent
+        + 0.40 * (1 - leapPenalty)
+        + stepwiseBonus,
+    );
+
+    return { score, notes: notes.join("; ") || "voice leading evaluated" };
+}
+
+// ---------------------------------------------------------------------------
+// 15. tonicizationDepthScore (supplementary)
+// ---------------------------------------------------------------------------
+
+/**
+ * Rewards richness of tonicization across the piece.
+ *
+ * - Checks how many sections have tonicizationWindows
+ * - Counts distinct key targets across all windows (tonal variety)
+ * - Checks that development sections have at least one tonicization window
+ * - Rewards multi-level depth (≥ 2 distinct foreign key targets)
+ */
+export function computeTonicizationDepthScore(
+    sectionArtifacts: SectionArtifactSummary[],
+    plan: CompositionPlan | undefined,
+): { score: number; notes: string } {
+    if (sectionArtifacts.length === 0) return { score: 0.4, notes: "no artifacts" };
+
+    const notes: string[] = [];
+    const homeKey = plan?.key?.split(" ")[0]?.split("/")[0] ?? "";
+
+    // Collect all tonicization windows across sections
+    const allWindows: { keyTarget: string; sectionId: string; role: string }[] = [];
+    for (const section of sectionArtifacts) {
+        for (const w of section.tonicizationWindows ?? []) {
+            allWindows.push({ keyTarget: w.keyTarget, sectionId: section.sectionId, role: section.role });
+        }
+    }
+
+    if (allWindows.length === 0) {
+        return { score: 0.3, notes: "no tonicization windows found" };
+    }
+
+    // Distinct key targets (excluding home key)
+    const foreignKeys = new Set(
+        allWindows.filter((w) => !homeKey || !w.keyTarget.startsWith(homeKey)).map((w) => w.keyTarget),
+    );
+    const sectionsWithTonicization = new Set(allWindows.map((w) => w.sectionId)).size;
+    const totalSections = sectionArtifacts.length;
+
+    // Bonus: development section has tonicization
+    const devHasTonicization = sectionArtifacts
+        .filter((a) => a.role === "development" || a.role === "bridge")
+        .some((a) => (a.tonicizationWindows?.length ?? 0) > 0);
+    if (devHasTonicization) {
+        notes.push("development/bridge contains tonicization ✓");
+    }
+
+    // Score components
+    const sectionCoverage = sectionsWithTonicization / totalSections; // 0–1
+    const varietyScore = clamp01(foreignKeys.size / 3); // 0 at 0 foreign keys, 1 at ≥3
+    const devBonus = devHasTonicization ? 0.15 : 0;
+
+    notes.push(`${sectionsWithTonicization}/${totalSections} sections have tonicization; ${foreignKeys.size} foreign key(s)`);
+
+    const score = clamp01(
+        0.35 * sectionCoverage
+        + 0.50 * varietyScore
+        + devBonus,
+    );
+
+    return { score, notes: notes.join("; ") };
+}
+
+// ---------------------------------------------------------------------------
+// 16. planAwarePhraseGrammarScore (supplementary)
+// ---------------------------------------------------------------------------
+
+/**
+ * Uses the per-section PhraseGrammarPlan (from planning phase) to evaluate
+ * phrase grammar quality via the dedicated phraseGrammarScoring module.
+ *
+ * Sections that have a phraseGrammar plan are evaluated individually;
+ * the result is the weighted average across all evaluated sections.
+ *
+ * Falls back gracefully to 0.4 if no sections have phraseGrammar plans.
+ */
+export function computePlanAwarePhraseGrammarScore(
+    sectionArtifacts: SectionArtifactSummary[],
+    plan: CompositionPlan | undefined,
+): { score: number; notes: string; sectionScores: Record<string, number> } {
+    const planSections = plan?.sections ?? [];
+    const artifactById = new Map(sectionArtifacts.map((a) => [a.sectionId, a]));
+
+    const sectionScores: Record<string, number> = {};
+    const notesParts: string[] = [];
+
+    for (const ps of planSections) {
+        const phraseGrammar = ps.phraseGrammar as PhraseGrammarPlan | undefined;
+        if (!phraseGrammar) continue;
+
+        const artifact = artifactById.get(ps.id);
+        if (!artifact) continue;
+
+        const summary = computePhraseGrammarScoreSummary(phraseGrammar, artifact);
+        sectionScores[ps.id] = summary.overall;
+        notesParts.push(`${ps.id}(${ps.role}): phraseGrammar=${summary.overall.toFixed(2)}`);
+    }
+
+    const ids = Object.keys(sectionScores);
+    if (ids.length === 0) {
+        return {
+            score: 0.4,
+            notes: "no sections with phraseGrammar plan",
+            sectionScores: {},
+        };
+    }
+
+    const avg = ids.reduce((s, id) => s + (sectionScores[id] ?? 0), 0) / ids.length;
+    return {
+        score: clamp01(avg),
+        notes: notesParts.join("; "),
+        sectionScores,
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Master computation
 // ---------------------------------------------------------------------------
 
@@ -846,12 +1043,18 @@ export function computeCraftScoreSummary(
     const textureProfileResult     = computeTextureProfileScore(sectionArtifacts, plan);
     const cadenceWeightResult      = computeCadenceArchitecturalWeight(sectionArtifacts, plan);
     const phraseGrammarResult      = computePhraseGrammarScore(sectionArtifacts, plan);
+    const voiceLeadingResult       = computeVoiceLeadingScore(sectionArtifacts);
+    const tonicizationResult       = computeTonicizationDepthScore(sectionArtifacts, plan);
+    const planPhraseGrammarResult  = computePlanAwarePhraseGrammarScore(sectionArtifacts, plan);
 
     if (motifTransformResult.notes)  dimensionNotes["motifTransformVariety"]      = motifTransformResult.notes;
     if (harmonicRhythmResult.notes)  dimensionNotes["harmonicRhythmVariance"]     = harmonicRhythmResult.notes;
     if (textureProfileResult.notes)  dimensionNotes["textureProfileScore"]         = textureProfileResult.notes;
     if (cadenceWeightResult.notes)   dimensionNotes["cadenceArchitecturalWeight"]  = cadenceWeightResult.notes;
     if (phraseGrammarResult.notes)   dimensionNotes["phraseGrammarScore"]          = phraseGrammarResult.notes;
+    if (voiceLeadingResult.notes)    dimensionNotes["voiceLeadingScore"]           = voiceLeadingResult.notes;
+    if (tonicizationResult.notes)    dimensionNotes["tonicizationDepthScore"]      = tonicizationResult.notes;
+    if (planPhraseGrammarResult.notes) dimensionNotes["planAwarePhraseGrammarScore"] = planPhraseGrammarResult.notes;
 
     return {
         syntaxValidity: Number(syntaxValidity.toFixed(4)),
@@ -864,10 +1067,13 @@ export function computeCraftScoreSummary(
         registerIdiomaticFit: Number(registerIdiomaticFit.toFixed(4)),
         finalCraftScore,
         dimensionNotes,
-        motifTransformVariety:     Number(motifTransformResult.score.toFixed(4)),
-        harmonicRhythmVariance:    Number(harmonicRhythmResult.score.toFixed(4)),
-        textureProfileScore:       Number(textureProfileResult.score.toFixed(4)),
-        cadenceArchitecturalWeight: Number(cadenceWeightResult.score.toFixed(4)),
-        phraseGrammarScore:        Number(phraseGrammarResult.score.toFixed(4)),
+        motifTransformVariety:        Number(motifTransformResult.score.toFixed(4)),
+        harmonicRhythmVariance:       Number(harmonicRhythmResult.score.toFixed(4)),
+        textureProfileScore:          Number(textureProfileResult.score.toFixed(4)),
+        cadenceArchitecturalWeight:   Number(cadenceWeightResult.score.toFixed(4)),
+        phraseGrammarScore:           Number(phraseGrammarResult.score.toFixed(4)),
+        voiceLeadingScore:            Number(voiceLeadingResult.score.toFixed(4)),
+        tonicizationDepthScore:       Number(tonicizationResult.score.toFixed(4)),
+        planAwarePhraseGrammarScore:  Number(planPhraseGrammarResult.score.toFixed(4)),
     };
 }

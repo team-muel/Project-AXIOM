@@ -93,6 +93,12 @@ export interface CraftScoreSummary {
     cadenceArchitecturalWeight?: number;
     /** Sentence/period/hypermeter alignment and phrase peak coverage score 0–1 */
     phraseGrammarScore?: number;
+    /** Proxy for parallel 5th/8th avoidance via contrary motion + stepwise resolution (0–1) */
+    voiceLeadingScore?: number;
+    /** Richness of tonicization windows across sections; rewards foreign key variety (0–1) */
+    tonicizationDepthScore?: number;
+    /** Per-section PhraseGrammarPlan-aware phrase grammar quality, averaged across sections (0–1) */
+    planAwarePhraseGrammarScore?: number;
 }
 
 // ─── Piano-specific craft scoring ────────────────────────────────────────────

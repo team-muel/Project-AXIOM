@@ -551,3 +551,321 @@ test("voiceIndependence: development with high contrary motion elevates overall 
         `With developmental polyphony (${withDev}) should beat without (${withoutDev})`,
     );
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW: MOTIF TRANSFORM VARIETY
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const {
+    computeMotifTransformVariety,
+    computeHarmonicRhythmVariance,
+    computeVoiceLeadingScore,
+    computeTonicizationDepthScore,
+    computePlanAwarePhraseGrammarScore,
+} = await import("../dist/core/evaluate/craftScoring.js");
+
+// [21] Sections with diverse transform modes score higher than single-mode
+test("motifTransformVariety: multiple distinct transform modes → higher score than one mode", () => {
+    const multiTransform = [
+        makeSection("s1", "theme_a",     { transform: { transformMode: "sequence",      rhythmTransform: "augmentation" } }),
+        makeSection("s2", "development", { transform: { transformMode: "fragmentation", rhythmTransform: "diminution"  } }),
+        makeSection("s3", "recap",       { transform: { transformMode: "inversion",      rhythmTransform: "augmentation" } }),
+    ];
+    const singleTransform = [
+        makeSection("s1", "theme_a",     { transform: { transformMode: "literal" } }),
+        makeSection("s2", "development", { transform: { transformMode: "literal" } }),
+        makeSection("s3", "recap",       { transform: { transformMode: "literal" } }),
+    ];
+    const { score: multiScore }  = computeMotifTransformVariety(multiTransform);
+    const { score: singleScore } = computeMotifTransformVariety(singleTransform);
+    assert.ok(
+        multiScore > singleScore,
+        `Multi-mode transforms (${multiScore}) should beat single mode (${singleScore})`,
+    );
+});
+
+// [22] Diverse phrase functions alone give partial transform variety score
+test("motifTransformVariety: diverse phrase functions give partial score when no transform field", () => {
+    const artifacts = [
+        makeSection("s1", "theme_a",     { phraseFunction: "presentation" }),
+        makeSection("s2", "development", { phraseFunction: "continuation" }),
+        makeSection("s3", "recap",       { phraseFunction: "cadential" }),
+        makeSection("s4", "outro",       { phraseFunction: "developmental" }),
+    ];
+    const { score } = computeMotifTransformVariety(artifacts);
+    assert.ok(score >= 0.4, `Expected phrase-function variety to yield score >= 0.4, got ${score}`);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW: HARMONIC RHYTHM VARIANCE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// [23] Plan with slow + fast harmonic rhythm sections has higher variance than uniform
+test("harmonicRhythmVariance: slow→fast contrast scores higher than all-medium", () => {
+    const contrastPlan = {
+        ...sonataPlan(),
+        sections: [
+            { id: "s1", role: "theme_a",     label: "A",    measures: 8,  energy: 0.5, density: 0.5, harmonicPlan: { harmonicRhythm: "slow" } },
+            { id: "s2", role: "development", label: "Dev",  measures: 8,  energy: 0.8, density: 0.7, harmonicPlan: { harmonicRhythm: "fast" } },
+            { id: "s3", role: "recap",       label: "Rec",  measures: 8,  energy: 0.4, density: 0.4, harmonicPlan: { harmonicRhythm: "slow" } },
+        ],
+    };
+    const uniformPlan = {
+        ...sonataPlan(),
+        sections: [
+            { id: "s1", role: "theme_a",     label: "A",   measures: 8, energy: 0.5, density: 0.5, harmonicPlan: { harmonicRhythm: "medium" } },
+            { id: "s2", role: "development", label: "Dev", measures: 8, energy: 0.8, density: 0.7, harmonicPlan: { harmonicRhythm: "medium" } },
+            { id: "s3", role: "recap",       label: "Rec", measures: 8, energy: 0.4, density: 0.4, harmonicPlan: { harmonicRhythm: "medium" } },
+        ],
+    };
+    const artifacts = [
+        makeSection("s1", "theme_a"),
+        makeSection("s2", "development"),
+        makeSection("s3", "recap"),
+    ];
+    const { score: contrastScore } = computeHarmonicRhythmVariance(artifacts, contrastPlan);
+    const { score: uniformScore }  = computeHarmonicRhythmVariance(artifacts, uniformPlan);
+    assert.ok(
+        contrastScore > uniformScore,
+        `Slow/fast contrast (${contrastScore}) should beat all-medium (${uniformScore})`,
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW: VOICE LEADING SCORE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// [24] High contrary motion + stepwise final resolution → high voiceLeadingScore
+test("voiceLeadingScore: high contrary motion + stepwise final resolution → high score", () => {
+    const artifacts = [
+        makeSection("s1", "theme_a", {
+            textureContraryMotionRate:    0.75,
+            textureIndependentMotionRate: 0.65,
+            melodyEvents: [60,62,64,65,67,69,71,72].map(p => note(p, 0.5)),
+        }),
+        makeSection("s2", "development", {
+            textureContraryMotionRate:    0.80,
+            textureIndependentMotionRate: 0.70,
+            melodyEvents: [67,69,71,72,71,69,67,65].map(p => note(p, 0.5)),
+        }),
+        makeSection("s3", "recap", {
+            textureContraryMotionRate:    0.70,
+            textureIndependentMotionRate: 0.60,
+            melodyEvents: [64,65,67,65,64,62,61,60].map(p => note(p, 0.5)),
+            lastInterval: 1,  // stepwise
+        }),
+    ];
+    const { score } = computeVoiceLeadingScore(artifacts);
+    assert.ok(score >= 0.6, `Expected voiceLeadingScore >= 0.6, got ${score}`);
+});
+
+// [25] Low contrary motion + large leaps → low voiceLeadingScore
+test("voiceLeadingScore: parallel motion + large leaps → low score", () => {
+    const smoothArtifacts = [
+        makeSection("s1", "theme_a", {
+            textureContraryMotionRate:    0.75,
+            textureIndependentMotionRate: 0.65,
+            melodyEvents: [60,62,64,65,67,69,71,72].map(p => note(p, 0.5)),
+            lastInterval: 1,
+        }),
+    ];
+    const roughArtifacts = [
+        makeSection("s1", "theme_a", {
+            textureContraryMotionRate:    0.05,  // parallel motion
+            textureIndependentMotionRate: 0.10,
+            melodyEvents: [60,72,48,84,60,72,48,84].map(p => note(p, 1.0)), // octave leaps
+            lastInterval: 12, // octave leap at end
+        }),
+    ];
+    const { score: smoothScore } = computeVoiceLeadingScore(smoothArtifacts);
+    const { score: roughScore }  = computeVoiceLeadingScore(roughArtifacts);
+    assert.ok(
+        smoothScore > roughScore,
+        `Smooth voice leading (${smoothScore}) should beat rough/parallel (${roughScore})`,
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW: TONICIZATION DEPTH SCORE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// [26] Development with multiple foreign tonicizations → high tonicizationDepthScore
+test("tonicizationDepthScore: development with multiple foreign keys → high score", () => {
+    const plan = sonataPlan(); // key: "C major"
+    const artifacts = [
+        makeSection("s1", "theme_a", {
+            tonicizationWindows: [{ keyTarget: "C", startMeasure: 1, endMeasure: 8, emphasis: "strong", cadence: "PAC" }],
+        }),
+        makeSection("s2", "development", {
+            tonicizationWindows: [
+                { keyTarget: "G", startMeasure: 1, endMeasure: 4, emphasis: "strong", cadence: "PAC" },
+                { keyTarget: "E", startMeasure: 5, endMeasure: 8, emphasis: "mild",   cadence: "HC" },
+                { keyTarget: "A", startMeasure: 9, endMeasure: 12, emphasis: "strong", cadence: "PAC" },
+            ],
+        }),
+        makeSection("s3", "recap", {
+            tonicizationWindows: [{ keyTarget: "C", startMeasure: 1, endMeasure: 8, emphasis: "strong", cadence: "PAC" }],
+        }),
+    ];
+    const { score } = computeTonicizationDepthScore(artifacts, plan);
+    assert.ok(score >= 0.5, `Expected tonicizationDepthScore >= 0.5 with rich development tonicizations, got ${score}`);
+});
+
+// [27] No tonicization at all → low score
+test("tonicizationDepthScore: no tonicization windows → low score", () => {
+    const plan = sonataPlan();
+    const artifacts = [
+        makeSection("s1", "theme_a"),
+        makeSection("s2", "development"),
+        makeSection("s3", "recap"),
+    ];
+    const richArtifacts = [
+        makeSection("s1", "theme_a"),
+        makeSection("s2", "development", {
+            tonicizationWindows: [
+                { keyTarget: "G", startMeasure: 1, endMeasure: 4, emphasis: "strong", cadence: "PAC" },
+                { keyTarget: "E", startMeasure: 5, endMeasure: 8, emphasis: "mild",   cadence: "HC" },
+            ],
+        }),
+        makeSection("s3", "recap"),
+    ];
+    const { score: noneScore } = computeTonicizationDepthScore(artifacts, plan);
+    const { score: richScore } = computeTonicizationDepthScore(richArtifacts, plan);
+    assert.ok(
+        richScore > noneScore,
+        `Rich tonicization (${richScore}) should beat none (${noneScore})`,
+    );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW: PLAN-AWARE PHRASE GRAMMAR SCORE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// [28] Section with sentence PhraseGrammarPlan + well-placed peak → high planAwarePhraseGrammarScore
+test("planAwarePhraseGrammarScore: sentence plan + peak in cadential window → near 1.0", () => {
+    const plan = {
+        ...sonataPlan(),
+        sections: [
+            {
+                id: "s1", role: "theme_a", label: "A", measures: 8, energy: 0.5, density: 0.5,
+                phraseGrammar: {
+                    structure: {
+                        type: "sentence",
+                        basicIdea:    { startMeasure: 1, endMeasure: 2 },
+                        repetition:   { startMeasure: 3, endMeasure: 4 },
+                        continuation: { startMeasure: 5, endMeasure: 6 },
+                        cadential:    { startMeasure: 7, endMeasure: 8, cadenceType: "authentic" },
+                    },
+                    hypermetricGroups: [
+                        { startMeasure: 1, endMeasure: 4, label: "antecedent" },
+                        { startMeasure: 5, endMeasure: 8, label: "consequent" },
+                    ],
+                    totalMeasures: 8,
+                    notes: "4+4 sentence",
+                },
+            },
+        ],
+    };
+    const artifacts = [
+        makeSection("s1", "theme_a", {
+            measureCount: 8,
+            phrasePeaks: [7],        // peak at measure 7 (cadential window start → good)
+            phraseFunction: "cadential",
+            cadenceApproach: "dominant",
+        }),
+    ];
+    const { score } = computePlanAwarePhraseGrammarScore(artifacts, plan);
+    assert.ok(score >= 0.6, `Expected planAwarePhraseGrammarScore >= 0.6 for sentence with well-placed peak, got ${score}`);
+});
+
+// [29] Plan with no phraseGrammar → fallback score 0.4
+test("planAwarePhraseGrammarScore: plan with no phraseGrammar → returns 0.4 fallback", () => {
+    const plan = sonataPlan(); // no phraseGrammar in sections
+    const artifacts = [
+        makeSection("s1", "theme_a"),
+        makeSection("s2", "development"),
+        makeSection("s3", "recap"),
+    ];
+    const { score, notes } = computePlanAwarePhraseGrammarScore(artifacts, plan);
+    assert.strictEqual(score, 0.4, `Expected fallback score of 0.4, got ${score}`);
+    assert.ok(notes.includes("no sections with phraseGrammar"), `Expected fallback note, got: ${notes}`);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW: SUPPLEMENTARY METRICS IN INTEGRATION TEST
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// [30] Full craft score integration includes all new supplementary fields
+test("integration: computeCraftScoreSummary includes voiceLeadingScore and tonicizationDepthScore", () => {
+    const plan = sonataPlan();
+    const evaluation = passedEval();
+    const artifacts = [
+        makeSection("s1", "theme_a", {
+            noteHistory: ASCENDING,
+            measureCount: 8,
+            melodyPitchMin: 60, melodyPitchMax: 84,
+            bassPitchMin: 36,  bassPitchMax:  60,
+            textureContraryMotionRate: 0.6,
+            textureIndependentMotionRate: 0.5,
+            melodyEvents: [60,62,64,65,67,69,71,72].map(p => note(p, 0.5)),
+            cadenceApproach: "dominant",
+        }),
+        makeSection("s2", "development", {
+            noteHistory: [62,64,67,69,71],
+            measureCount: 8,
+            melodyPitchMin: 60, melodyPitchMax: 84,
+            bassPitchMin: 36,  bassPitchMax:  60,
+            textureContraryMotionRate: 0.75,
+            tonicizationWindows: [
+                { keyTarget: "G", startMeasure: 1, endMeasure: 4, emphasis: "strong", cadence: "PAC" },
+                { keyTarget: "E", startMeasure: 5, endMeasure: 8, emphasis: "mild",   cadence: "HC" },
+            ],
+            melodyEvents: [64,65,67,69,71,72,71,69].map(p => note(p, 0.5)),
+        }),
+        makeSection("s3", "recap", {
+            noteHistory: ASCENDING,
+            measureCount: 8,
+            melodyPitchMin: 60, melodyPitchMax: 84,
+            bassPitchMin: 36,  bassPitchMax:  60,
+            textureContraryMotionRate: 0.65,
+            cadenceApproach: "dominant",
+            lastInterval: 1,
+            melodyEvents: [64,65,67,65,64,62,61,60].map(p => note(p, 0.5)),
+            tonicizationWindows: [
+                { keyTarget: "C", startMeasure: 1, endMeasure: 8, emphasis: "strong", cadence: "PAC" },
+            ],
+        }),
+    ];
+    const summary = computeCraftScoreSummary(artifacts, plan, evaluation);
+
+    assert.ok(typeof summary.voiceLeadingScore === "number",
+        "voiceLeadingScore should be present in CraftScoreSummary");
+    assert.ok(typeof summary.tonicizationDepthScore === "number",
+        "tonicizationDepthScore should be present in CraftScoreSummary");
+    assert.ok(typeof summary.planAwarePhraseGrammarScore === "number",
+        "planAwarePhraseGrammarScore should be present in CraftScoreSummary");
+
+    assert.ok(summary.voiceLeadingScore >= 0 && summary.voiceLeadingScore <= 1,
+        `voiceLeadingScore out of range: ${summary.voiceLeadingScore}`);
+    assert.ok(summary.tonicizationDepthScore >= 0 && summary.tonicizationDepthScore <= 1,
+        `tonicizationDepthScore out of range: ${summary.tonicizationDepthScore}`);
+    assert.ok(summary.planAwarePhraseGrammarScore >= 0 && summary.planAwarePhraseGrammarScore <= 1,
+        `planAwarePhraseGrammarScore out of range: ${summary.planAwarePhraseGrammarScore}`);
+
+    // finalCraftScore must NOT include new supplementary fields
+    const expectedFinal = Number((
+        0.15 * summary.sectionContractFit
+        + 0.15 * summary.cadenceStrength
+        + 0.15 * summary.tonalReturn
+        + 0.15 * summary.motifSurvival
+        + 0.15 * summary.voiceIndependence
+        + 0.10 * summary.phraseShape
+        + 0.10 * summary.registerIdiomaticFit
+        + 0.05 * summary.syntaxValidity
+    ).toFixed(4));
+    assert.strictEqual(
+        summary.finalCraftScore,
+        expectedFinal,
+        `finalCraftScore should not include new supplementary fields, expected ${expectedFinal} got ${summary.finalCraftScore}`,
+    );
+});
