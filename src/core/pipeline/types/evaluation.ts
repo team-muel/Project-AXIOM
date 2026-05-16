@@ -80,6 +80,19 @@ export interface CraftScoreSummary {
     finalCraftScore: number;
     /** Optional per-dimension human-readable notes keyed by dimension name */
     dimensionNotes?: Record<string, string>;
+
+    // ── Supplementary quality metrics (not included in finalCraftScore formula) ─
+
+    /** Variety of motif transform techniques across sections (sequence, fragmentation, inversion, etc.) 0–1 */
+    motifTransformVariety?: number;
+    /** Variance in harmonic rhythm rate across sections (0 = uniform, 1 = high contrast) */
+    harmonicRhythmVariance?: number;
+    /** Texture profile diversity across sections (distinct lead/counterpoint/texture roles) 0–1 */
+    textureProfileScore?: number;
+    /** PAC/HC weight at structurally critical positions (recap, cadence, final section) 0–1 */
+    cadenceArchitecturalWeight?: number;
+    /** Sentence/period/hypermeter alignment and phrase peak coverage score 0–1 */
+    phraseGrammarScore?: number;
 }
 
 // ─── Piano-specific craft scoring ────────────────────────────────────────────

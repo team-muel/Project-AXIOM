@@ -114,9 +114,9 @@ export function normalizeLearnedSymbolicResponse(
         // Piano-specific evidence (solo_piano_symbolic lane only)
         ...(section.pianoVoiceLayout ? { pianoVoiceLayout: section.pianoVoiceLayout as PianoVoiceLayoutSummary } : {}),
         ...(Array.isArray(section.rightHandEvents) && section.rightHandEvents.length > 0
-            ? { rightHandEvents: [...section.rightHandEvents] } : {}),
+            ? { rightHandEvents: normalizeLearnedProposalEvents(section.rightHandEvents) } : {}),
         ...(Array.isArray(section.leftHandEvents) && section.leftHandEvents.length > 0
-            ? { leftHandEvents: [...section.leftHandEvents] } : {}),
+            ? { leftHandEvents: normalizeLearnedProposalEvents(section.leftHandEvents) } : {}),
     }));
     const sectionTransforms = (response.proposalSections ?? [])
         .filter((section): section is LearnedSymbolicProposalSection & { transform: SectionTransformSummary } => Boolean(section.transform))

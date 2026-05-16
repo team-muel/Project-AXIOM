@@ -150,12 +150,12 @@ function extractConfirmedMotifIds(
     if (!eval_) return [];
 
     // Direct field if available (forward-compatible).
-    const extended = eval_ as Record<string, unknown>;
+    const extended = eval_ as unknown as Record<string, unknown>;
     if (Array.isArray(extended["confirmedMotifIds"])) {
         return extended["confirmedMotifIds"] as string[];
     }
 
-    const motifSurvival = eval_.craftScore?.motifSurvival ?? 0;
+    const motifSurvival = eval_.craftScoreSummary?.motifSurvival ?? 0;
     const confirmed: string[] = [];
 
     if (motifSurvival >= 0.6) {
@@ -173,7 +173,7 @@ function evidenceStrengthFrom(structureEval: StructureEvaluationReport | undefin
     if (!structureEval) return 0.5;
     const piano = structureEval.pianoCraftScoreSummary;
     if (piano) return piano.finalPianoScore ?? 0.5;
-    return structureEval.craftScore?.motifSurvival ?? 0.5;
+    return structureEval.craftScoreSummary?.motifSurvival ?? 0.5;
 }
 
 // ─── Per-movement request derivation ─────────────────────────────────────────
@@ -228,12 +228,12 @@ function buildMovementRequest(
 function inferGateTier(manifest: JobManifest): 0 | 1 | 2 | 3 {
     const eval_ = manifest.structureEvaluation;
     if (!eval_) return 0;
-    const extended = eval_ as Record<string, unknown>;
+    const extended = eval_ as unknown as Record<string, unknown>;
     if (typeof extended["gateTier"] === "number") {
         const t = extended["gateTier"] as number;
         if (t === 0 || t === 1 || t === 2 || t === 3) return t;
     }
-    const craftScore = eval_.craftScore?.finalCraftScore ?? 0;
+    const craftScore = eval_.craftScoreSummary?.finalCraftScore ?? 0;
     const pianoScore = eval_.pianoCraftScoreSummary?.finalPianoScore;
     const q = pianoScore ?? craftScore;
     if (q >= 0.65) return 3;

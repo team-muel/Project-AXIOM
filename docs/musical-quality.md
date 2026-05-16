@@ -148,15 +148,25 @@ LLM 기반 생성기는 "괜찮아 보이는" 음악을 만들 수 있지만, "�
 
 AXIOM 내부 `craftScoring.ts`가 계산하는 점수와 사람 평가 항목의 대응:
 
-| 사람 평가 항목 | AXIOM 지표 |
-|--------------|-----------|
-| 형식 논리 | `longSpanFormScore` |
-| 긴장/이완 | `tensionArcScore`, `longSpanReturnPayoff` |
-| 주제 아이덴티티 | `motifReturnScore` |
-| 화성 흥미 | `harmonicScore`, `tonicizationScore` |
-| 텍스쳐 | `textureProfileScore` |
-| 종지 설득력 | `cadenceArrivalStrength`, `cadenceArchitecturalWeight` |
-| 연주 자연스러움 | `pianoPlayabilityScore` (피아노 한정) |
+| 사람 평가 항목 | AXIOM 지표 | finalCraftScore 포함 |
+|--------------|-----------|:---:|
+| 형식 논리 | `sectionContractFit` | ✅ (0.15) |
+| 종지 설득력 | `cadenceStrength` | ✅ (0.15) |
+| 조성 복귀 | `tonalReturn` | ✅ (0.15) |
+| 주제 아이덴티티 | `motifSurvival` | ✅ (0.15) |
+| 성부 독립성 | `voiceIndependence` | ✅ (0.15) |
+| 악절 형태 | `phraseShape` | ✅ (0.10) |
+| 음역 관용성 | `registerIdiomaticFit` | ✅ (0.10) |
+| 구문 유효성 | `syntaxValidity` | ✅ (0.05) |
+| 동기 변형 다양성 | `motifTransformVariety` *(보조)* | — |
+| 화성 리듬 대비 | `harmonicRhythmVariance` *(보조)* | — |
+| 텍스쳐 다양성 | `textureProfileScore` *(보조)* | — |
+| 종지 구조적 배치 | `cadenceArchitecturalWeight` *(보조)* | — |
+| 악절 문법 점수 | `phraseGrammarScore` *(보조)* | — |
+
+**보조(supplementary) 지표**는 `finalCraftScore` 계산식에 포함되지 않습니다.
+대신 `dimensionNotes`를 통해 진단 피드백을 제공하며,
+향후 preferenceModel과 연동해 보조 신호로 활용할 수 있습니다.
 
 ---
 

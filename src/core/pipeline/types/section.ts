@@ -47,6 +47,8 @@ export interface SectionPlan {
     expression?: ExpressionGuidance;
     tempoMotion?: TempoMotionPlan[];
     ornaments?: OrnamentPlan[];
+    /** Phrase grammar plan annotated by phraseGrammar.ts during sketch materialization */
+    phraseGrammar?: PhraseGrammarPlan;
     notes?: string[];
 }
 
@@ -214,4 +216,53 @@ export interface SectionTonalitySummary {
     tonicizationWindows?: TonicizationWindow[];
     harmonicColorCues?: HarmonicColorCue[];
     measures?: number;
+}
+
+// ─── Phrase Grammar Types ─────────────────────────────────────────────────────
+
+export type PhraseUnitRole =
+    | "basic_idea"
+    | "repetition"
+    | "continuation"
+    | "cadential"
+    | "antecedent"
+    | "consequent";
+
+export interface PhraseUnit {
+    role: PhraseUnitRole;
+    measures: number;
+    startMeasure: number;
+    cadenceType?: CadenceStyle;
+    peakMeasure?: number;
+}
+
+export interface SentenceStructure {
+    type: "sentence";
+    totalMeasures: number;
+    basicIdea: PhraseUnit;
+    repetition: PhraseUnit;
+    continuation: PhraseUnit;
+    cadential: PhraseUnit;
+}
+
+export interface PeriodStructure {
+    type: "period";
+    totalMeasures: number;
+    antecedent: PhraseUnit;
+    consequent: PhraseUnit;
+}
+
+export interface HypermetricGroup {
+    type: "2bar" | "4bar" | "8bar";
+    startMeasure: number;
+    endMeasure: number;
+    phraseUnit: PhraseUnitRole;
+    cadenceAtEnd?: CadenceStyle;
+}
+
+export interface PhraseGrammarPlan {
+    structure: SentenceStructure | PeriodStructure;
+    hypermetricGroups: HypermetricGroup[];
+    totalMeasures: number;
+    notes: string[];
 }

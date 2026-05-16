@@ -18,6 +18,7 @@ import type {
     SectionPlan,
     StructureVisibility,
 } from "../pipeline/types.js";
+import { applyPhraseGrammarToSections } from "./phraseGrammar.js";
 
 const MOTIF_ROLES = new Set(["intro", "theme_a", "theme_b", "bridge", "development", "variation", "recap"]);
 const CADENCE_ROLES = new Set(["cadence", "outro", "recap"]);
@@ -727,10 +728,18 @@ export function materializeCompositionSketch(request: ComposeRequest): ComposeRe
         return request;
     }
 
+    // Annotate each section with its phrase grammar plan.
+    const phraseGrammarMap = applyPhraseGrammarToSections(plan.sections);
+    const sections: SectionPlan[] = plan.sections.map((section) => {
+        const grammar = phraseGrammarMap.get(section.id);
+        return grammar ? { ...section, phraseGrammar: grammar } : section;
+    });
+
     return {
         ...request,
         compositionPlan: {
             ...plan,
+            sections,
             sketch,
         },
     };

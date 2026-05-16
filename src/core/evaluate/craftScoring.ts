@@ -531,6 +531,264 @@ export function computeRegisterIdiomaticFit(
 }
 
 // ---------------------------------------------------------------------------
+// 9. motifTransformVariety
+// ---------------------------------------------------------------------------
+
+/**
+ * Rewards variety in motif transform techniques (sequence, fragmentation,
+ * inversion, retrograde, etc.) across sections.
+ */
+export function computeMotifTransformVariety(
+    sectionArtifacts: SectionArtifactSummary[],
+): { score: number; notes: string } {
+    const transformModes = new Set<string>();
+    const rhythmTransforms = new Set<string>();
+    const phraseFunctions = new Set<string>();
+
+    for (const section of sectionArtifacts) {
+        if (section.transform?.transformMode) {
+            transformModes.add(section.transform.transformMode);
+        }
+        if (section.transform?.rhythmTransform) {
+            rhythmTransforms.add(section.transform.rhythmTransform);
+        }
+        if (section.phraseFunction) {
+            phraseFunctions.add(section.phraseFunction);
+        }
+    }
+
+    const transformVariety = transformModes.size + rhythmTransforms.size;
+
+    if (transformVariety === 0 && phraseFunctions.size === 0) {
+        return { score: 0.4, notes: "no transform data available" };
+    }
+
+    if (transformVariety === 0) {
+        const score = clamp01(0.2 + (phraseFunctions.size / 4) * 0.6);
+        return { score, notes: `phrase function variety: ${phraseFunctions.size} distinct types` };
+    }
+
+    const score = clamp01(0.2 + (transformVariety / 4) * 0.6 + (phraseFunctions.size > 2 ? 0.1 : 0));
+    const noteParts: string[] = [];
+    if (transformModes.size > 0) noteParts.push(`transform modes: ${[...transformModes].join(",")}`);
+    if (rhythmTransforms.size > 0) noteParts.push(`rhythm transforms: ${[...rhythmTransforms].join(",")}`);
+    return { score, notes: noteParts.join("; ") || "transform variety evaluated" };
+}
+
+// ---------------------------------------------------------------------------
+// 10. harmonicRhythmVariance
+// ---------------------------------------------------------------------------
+
+/**
+ * Rewards contrast in harmonic rhythm across sections (slow vs fast chord change rate).
+ * Maps harmonicRhythm slow→1, medium→2, fast→3 and computes variance.
+ */
+export function computeHarmonicRhythmVariance(
+    sectionArtifacts: SectionArtifactSummary[],
+    plan: CompositionPlan | undefined,
+): { score: number; notes: string } {
+    const rhythmValues: number[] = [];
+
+    for (const section of plan?.sections ?? []) {
+        const hr = section.harmonicPlan?.harmonicRhythm;
+        if (hr === "slow") rhythmValues.push(1);
+        else if (hr === "medium") rhythmValues.push(2);
+        else if (hr === "fast") rhythmValues.push(3);
+    }
+    for (const artifact of sectionArtifacts) {
+        const density = artifact.harmonyDensity;
+        if (density === "sparse") rhythmValues.push(1);
+        else if (density === "medium") rhythmValues.push(2);
+        else if (density === "rich") rhythmValues.push(3);
+    }
+
+    if (rhythmValues.length < 2) {
+        return { score: 0.4, notes: "insufficient harmonic rhythm data" };
+    }
+
+    const mean = rhythmValues.reduce((a, b) => a + b, 0) / rhythmValues.length;
+    const variance = rhythmValues.reduce((sum, v) => sum + (v - mean) ** 2, 0) / rhythmValues.length;
+    // Max variance for spread across 3 levels ≈ 0.67
+    const score = clamp01(0.2 + Math.min(variance / 0.7, 1) * 0.8);
+    return {
+        score,
+        notes: `harmonic rhythm variance: ${variance.toFixed(3)} across ${rhythmValues.length} data points`,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// 11. textureProfileScore
+// ---------------------------------------------------------------------------
+
+/**
+ * Rewards diversity in texture profiles (primary texture roles, counterpoint modes)
+ * across sections.
+ */
+export function computeTextureProfileScore(
+    sectionArtifacts: SectionArtifactSummary[],
+    plan: CompositionPlan | undefined,
+): { score: number; notes: string } {
+    const textureProfiles = new Set<string>();
+    const counterpointModes = new Set<string>();
+    const voiceCountValues: number[] = [];
+
+    for (const artifact of sectionArtifacts) {
+        if (artifact.primaryTextureRoles?.length) {
+            textureProfiles.add([...artifact.primaryTextureRoles].sort().join("+"));
+        }
+        if (artifact.counterpointMode) {
+            counterpointModes.add(artifact.counterpointMode);
+        }
+        if (artifact.textureVoiceCount !== undefined) {
+            voiceCountValues.push(artifact.textureVoiceCount);
+        }
+    }
+    for (const section of plan?.sections ?? []) {
+        if (section.texture?.counterpointMode) {
+            counterpointModes.add(section.texture.counterpointMode);
+        }
+    }
+
+    if (textureProfiles.size === 0 && counterpointModes.size === 0 && voiceCountValues.length === 0) {
+        return { score: 0.4, notes: "no texture profile data" };
+    }
+
+    let voiceCountVariance = 0;
+    if (voiceCountValues.length >= 2) {
+        const mean = voiceCountValues.reduce((a, b) => a + b, 0) / voiceCountValues.length;
+        voiceCountVariance = voiceCountValues.reduce((sum, v) => sum + (v - mean) ** 2, 0) / voiceCountValues.length;
+    }
+
+    const base = Math.max(3, sectionArtifacts.length);
+    const score = clamp01(
+        0.2
+        + (textureProfiles.size / base) * 0.4
+        + (counterpointModes.size > 1 ? 0.2 : 0)
+        + Math.min(voiceCountVariance * 0.3, 0.2),
+    );
+
+    const noteParts: string[] = [];
+    if (textureProfiles.size > 0) noteParts.push(`${textureProfiles.size} distinct texture profiles`);
+    if (counterpointModes.size > 0) noteParts.push(`counterpoint modes: ${[...counterpointModes].join(",")}`);
+    return { score, notes: noteParts.join("; ") || "texture profile evaluated" };
+}
+
+// ---------------------------------------------------------------------------
+// 12. cadenceArchitecturalWeight
+// ---------------------------------------------------------------------------
+
+/**
+ * Rewards dominant (PAC) cadences at structurally critical positions:
+ * recap, cadence, and the final section.
+ */
+export function computeCadenceArchitecturalWeight(
+    sectionArtifacts: SectionArtifactSummary[],
+    plan: CompositionPlan | undefined,
+): { score: number; notes: string } {
+    const CRITICAL_ROLES = new Set(["recap", "cadence", "outro"]);
+    const criticalSections = sectionArtifacts.filter(
+        (a, i) => CRITICAL_ROLES.has(a.role) || i === sectionArtifacts.length - 1,
+    );
+
+    if (criticalSections.length === 0) {
+        return { score: 0.5, notes: "no critical sections found" };
+    }
+
+    const noteParts: string[] = [];
+    let weightedScore = 0;
+    let totalWeight = 0;
+
+    for (const section of criticalSections) {
+        const isLast = section === sectionArtifacts[sectionArtifacts.length - 1];
+        const weight = isLast ? 2 : 1;
+        totalWeight += weight;
+
+        let positionScore = 0.3;
+        if (section.cadenceApproach === "dominant") {
+            positionScore = 1.0;
+            noteParts.push(`${section.sectionId}(${section.role}): dominant PAC ✓`);
+        } else if (section.cadenceApproach === "plagal") {
+            positionScore = 0.7;
+            noteParts.push(`${section.sectionId}(${section.role}): plagal`);
+        } else if (section.cadenceApproach === "tonic") {
+            positionScore = 0.5;
+        }
+
+        weightedScore += positionScore * weight;
+    }
+
+    return {
+        score: clamp01(weightedScore / totalWeight),
+        notes: noteParts.join("; ") || "cadence architectural weight evaluated",
+    };
+}
+
+// ---------------------------------------------------------------------------
+// 13. phraseGrammarScore
+// ---------------------------------------------------------------------------
+
+/**
+ * Rewards sentence/period patterns in phrase function sequence, phrase peaks
+ * at cadential sections, and 4-measure hypermeter alignment.
+ */
+export function computePhraseGrammarScore(
+    sectionArtifacts: SectionArtifactSummary[],
+    plan: CompositionPlan | undefined,
+): { score: number; notes: string } {
+    const noteParts: string[] = [];
+    let score = 0.4;
+
+    const phraseFunctions = sectionArtifacts.map((a) => a.phraseFunction).filter(Boolean);
+
+    // Sentence pattern: presentation → continuation → cadential
+    const hasSentencePattern =
+        phraseFunctions.includes("presentation") &&
+        phraseFunctions.includes("continuation") &&
+        phraseFunctions.includes("cadential");
+    if (hasSentencePattern) {
+        score += 0.15;
+        noteParts.push("sentence pattern: presentation→continuation→cadential ✓");
+    }
+
+    // Theme-A tension hold (antecedent-like behavior in period)
+    const themeA = sectionArtifacts.find((a) => a.role === "theme_a");
+    const hasFollowup = sectionArtifacts.some((a) => a.role === "theme_b" || a.role === "development");
+    if (themeA && hasFollowup && themeA.cadenceApproach !== "dominant") {
+        score += 0.1;
+        noteParts.push("theme_a holds tension (non-PAC) → period antecedent behavior ✓");
+    }
+
+    // Phrase peaks presence
+    const sectionsWithPeaks = sectionArtifacts.filter((a) => a.phrasePeaks?.length);
+    const peakRatio = sectionArtifacts.length > 0 ? sectionsWithPeaks.length / sectionArtifacts.length : 0;
+    if (peakRatio >= 0.5) {
+        score += 0.1;
+        noteParts.push(`phrase peaks in ${sectionsWithPeaks.length}/${sectionArtifacts.length} sections ✓`);
+    }
+
+    // Hypermeter: measure counts divisible by 4
+    const planSections = plan?.sections ?? [];
+    const hypermetricSections = planSections.filter((s) => s.measures % 4 === 0);
+    const hypermetricRatio = planSections.length > 0 ? hypermetricSections.length / planSections.length : 0;
+    if (hypermetricRatio >= 0.75) {
+        score += 0.1;
+        noteParts.push(`hypermeter: ${hypermetricSections.length}/${planSections.length} sections have 4-bar units ✓`);
+    }
+
+    // phraseSpanShape annotation in plan sections
+    const sectionsWithPhraseSpan = planSections.filter((s) => s.phraseSpanShape);
+    if (sectionsWithPhraseSpan.length > 0) {
+        score += 0.15;
+        noteParts.push(`phrase span shapes: ${sectionsWithPhraseSpan.map((s) => `${s.id}:${s.phraseSpanShape}`).join(",")} ✓`);
+    }
+
+    return {
+        score: clamp01(score),
+        notes: noteParts.join("; ") || "phrase grammar evaluated",
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Master computation
 // ---------------------------------------------------------------------------
 
@@ -582,6 +840,19 @@ export function computeCraftScoreSummary(
     if (phraseResult.notes) dimensionNotes["phraseShape"] = phraseResult.notes;
     if (registerResult.notes) dimensionNotes["registerIdiomaticFit"] = registerResult.notes;
 
+    // ── Supplementary quality metrics (not weighted into finalCraftScore) ─────
+    const motifTransformResult     = computeMotifTransformVariety(sectionArtifacts);
+    const harmonicRhythmResult     = computeHarmonicRhythmVariance(sectionArtifacts, plan);
+    const textureProfileResult     = computeTextureProfileScore(sectionArtifacts, plan);
+    const cadenceWeightResult      = computeCadenceArchitecturalWeight(sectionArtifacts, plan);
+    const phraseGrammarResult      = computePhraseGrammarScore(sectionArtifacts, plan);
+
+    if (motifTransformResult.notes)  dimensionNotes["motifTransformVariety"]      = motifTransformResult.notes;
+    if (harmonicRhythmResult.notes)  dimensionNotes["harmonicRhythmVariance"]     = harmonicRhythmResult.notes;
+    if (textureProfileResult.notes)  dimensionNotes["textureProfileScore"]         = textureProfileResult.notes;
+    if (cadenceWeightResult.notes)   dimensionNotes["cadenceArchitecturalWeight"]  = cadenceWeightResult.notes;
+    if (phraseGrammarResult.notes)   dimensionNotes["phraseGrammarScore"]          = phraseGrammarResult.notes;
+
     return {
         syntaxValidity: Number(syntaxValidity.toFixed(4)),
         sectionContractFit: Number(sectionContractFit.toFixed(4)),
@@ -593,5 +864,10 @@ export function computeCraftScoreSummary(
         registerIdiomaticFit: Number(registerIdiomaticFit.toFixed(4)),
         finalCraftScore,
         dimensionNotes,
+        motifTransformVariety:     Number(motifTransformResult.score.toFixed(4)),
+        harmonicRhythmVariance:    Number(harmonicRhythmResult.score.toFixed(4)),
+        textureProfileScore:       Number(textureProfileResult.score.toFixed(4)),
+        cadenceArchitecturalWeight: Number(cadenceWeightResult.score.toFixed(4)),
+        phraseGrammarScore:        Number(phraseGrammarResult.score.toFixed(4)),
     };
 }

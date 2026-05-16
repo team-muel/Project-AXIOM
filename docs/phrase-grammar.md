@@ -187,13 +187,14 @@ Hypermeasure 2: [마디5-8]  (hyperdownbeat: 마디5)
 
 ## 6. AXIOM 현재 구현 상태와 목표
 
-| 개념 | 현재 지원 | 목표 |
+| 개념 | 현재 지원 | 구현 경로 |
 |------|---------|------|
-| sentence / period 구분 | ❌ (섹션 단위만) | SectionPlan에 `phraseType` 추가 |
-| antecedent / consequent 쌍 | ❌ | `phraseFunction` 페어링 검증 |
-| cadence 위치 강제 | 부분적 (`cadenceOptions`) | HC/PAC/DC 위치 + 기능 검증 |
-| 악절 확장/압축 | ❌ | `phraseLengthModifier` 개념 도입 |
-| hypermeter | ❌ | `hyperMeterUnit` (2/4/8 마디) |
-| elision | ❌ | 섹션 전환 옵션으로 추가 |
-| phrase breath | ✅ (`PhraseBreathPlan`) | 기능 강화 |
-| rubato anchors | ✅ | 자동 제안 로직 개선 |
+| sentence / period 구분 | ✅ `src/core/plan/phraseGrammar.ts` | `SectionPlan.phraseGrammar.structure.type` |
+| antecedent / consequent 쌍 | ✅ `PeriodStructure` | `phraseGrammar.structure.antecedent/consequent` |
+| cadence 위치 강제 | ✅ 부분적 (`cadenceOptions` + phraseGrammar) | `PhraseUnit.cadenceType` (HC/PAC 지정) |
+| hypermeter | ✅ `HypermetricGroup` (2/4/8 bar) | `phraseGrammar.hypermetricGroups` |
+| phrase peak | ✅ `SectionArtifactSummary.phrasePeaks` | 평가 시 `computePhraseGrammarScore` 확인 |
+| 악절 확장/압축 | ❌ | `phraseLengthModifier` 개념 도입 예정 |
+| elision | ❌ | 섹션 전환 옵션으로 추가 예정 |
+| phrase breath | ✅ (`PhraseBreathPlan`) | 기능 강화 예정 |
+| rubato anchors | ✅ | 자동 제안 로직 개선 예정 |

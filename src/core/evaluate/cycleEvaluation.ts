@@ -85,7 +85,7 @@ export function movementQualityScore(record: MovementCompletionRecord): number {
     if (record.pianoCraftScore) {
         return record.pianoCraftScore.finalPianoScore ?? 0;
     }
-    return record.structureEvaluation.craftScore?.finalCraftScore ?? 0;
+    return record.structureEvaluation.craftScoreSummary?.finalCraftScore ?? 0;
 }
 
 // ─── Motif survival ───────────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ export function computeFinalPayoffScore(
  *   - tier 1 otherwise
  */
 function gateTierOf(record: MovementCompletionRecord): 0 | 1 | 2 | 3 {
-    const eval_ = record.structureEvaluation as Record<string, unknown>;
+    const eval_ = record.structureEvaluation as unknown as Record<string, unknown>;
     if (typeof eval_["gateTier"] === "number") {
         const t = eval_["gateTier"] as number;
         if (t === 0 || t === 1 || t === 2 || t === 3) return t;
