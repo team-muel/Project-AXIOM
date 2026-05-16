@@ -9,10 +9,10 @@ import type {
     QualityAttemptRecord,
     QualityControlReport,
     StructureEvaluationReport,
-} from "../pipeline/types.js";
-import { summarizeLongSpanDivergence } from "../pipeline/longSpan.js";
-import { summarizeManifestTracking } from "../memory/manifestAnalytics.js";
-import type { ManifestTrackingSummary } from "../memory/manifestAnalytics.js";
+} from "../core/pipeline/types.js";
+import { summarizeLongSpanDivergence } from "../core/pipeline/longSpan.js";
+import { summarizeManifestTracking } from "../core/memory/manifestAnalytics.js";
+import type { ManifestTrackingSummary } from "../core/memory/manifestAnalytics.js";
 import type { QueuedJob } from "./jobQueue.js";
 
 export interface SerializedQualityTargetContract {

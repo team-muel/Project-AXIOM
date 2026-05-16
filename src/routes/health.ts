@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getRuntimeReadinessSummary } from "../operator/summary.js";
+import { getRuntimeReadinessSummary } from "../ops/operator/summary.js";
 
 const router = Router();
 

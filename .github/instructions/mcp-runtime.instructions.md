@@ -1,6 +1,6 @@
 ---
 description: "AXIOM runtime routing and guardrails for MCP, autonomy, queue, and operator surfaces."
-applyTo: "{src/mcp/**,src/autonomy/**,src/queue/**,src/routes/**,src/overseer/**,src/config.ts,src/index.ts,test/**}"
+applyTo: "{src/ops/mcp/**,src/ops/autonomy/**,src/ops/overseer/**,src/ops/operator/**,src/queue/**,src/routes/**,src/config.ts,src/index.ts,test/**}"
 ---
 
 # AXIOM Runtime Routing
@@ -10,21 +10,21 @@ applyTo: "{src/mcp/**,src/autonomy/**,src/queue/**,src/routes/**,src/overseer/**
 ## Surface Map
 
 ### MCP transport
-- Stdio server: `src/mcp/server.ts`
-- HTTP server: `src/mcp/httpServer.ts`
-- Shared protocol/types: `src/mcp/protocol.ts`, `src/mcp/types.ts`, `src/mcp/toolAdapter.ts`
+- Stdio server: `src/ops/mcp/server.ts`
+- HTTP server: `src/ops/mcp/httpServer.ts`
+- Shared protocol/types: `src/ops/mcp/protocol.ts`, `src/ops/mcp/types.ts`, `src/ops/mcp/toolAdapter.ts`
 - Route bindings: `src/routes/mcp.ts`, `src/routes/mcpHttp.ts`
 
 ### Autonomy and recovery
-- Runtime control: `src/autonomy/controller.ts`, `src/autonomy/service.ts`
-- Scheduling: `src/autonomy/scheduler.ts`, `src/autonomy/calendar.ts`
+- Runtime control: `src/ops/autonomy/controller.ts`, `src/ops/autonomy/service.ts`
+- Scheduling: `src/ops/autonomy/scheduler.ts`, `src/ops/autonomy/calendar.ts`
 - Queue state and retry behavior: `src/queue/jobQueue.ts`
 - Shared operator presentation: `src/queue/presentation.ts`
 
 ### Operator surfaces
 - Health and readiness: `src/routes/health.ts`
 - Autonomy APIs: `src/routes/autonomy.ts`
-- Overseer APIs and reporting: `src/routes/overseer.ts`, `src/overseer/**`
+- Overseer APIs and reporting: `src/routes/overseer.ts`, `src/ops/overseer/**`
 
 ## Guardrails
 

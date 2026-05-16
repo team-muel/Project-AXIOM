@@ -6,8 +6,8 @@
 |------|------|------|
 | `npm run start:core` | `src/index.core.ts` | compose + health만. autonomy/overseer/MCP 없음. R&D 기본 |
 | `npm run start` | `src/index.ts` | 전체 런타임. autonomy scheduler + overseer + MCP |
-| `npm run start:mcp` | `src/mcp/server.ts` | stdio MCP (IDE agent용) |
-| `npm run start:mcp:http` | `src/mcp/httpServer.ts` | HTTP MCP (원격 consumer, bridge용) |
+| `npm run start:mcp` | `src/ops/mcp/server.ts` | stdio MCP (IDE agent용) |
+| `npm run start:mcp:http` | `src/ops/mcp/httpServer.ts` | HTTP MCP (원격 consumer, bridge용) |
 
 ---
 
@@ -15,32 +15,34 @@
 
 ```
 src/
-├── pipeline/          ← 파이프라인 조율 + 모든 계획 타입
-│   ├── orchestrator.ts        메인 파이프라인 실행 루프
-│   ├── types.ts               모든 도메인 타입 정의
-│   ├── sketch.ts              CompositionSketch 생성
-│   ├── orchestrationPlan.ts   OrchestrationPlan 도출
-│   ├── formTemplates.ts       형식 검증
-│   ├── sonataCyclePlanner.ts  다악장 계획
-│   ├── longSpan.ts            장기 형식 계획
-│   ├── evaluation.ts          StructureEvaluationReport 생성
-│   ├── craftScoring.ts        craft score 계산
-│   ├── quality.ts             재시도 정책
-│   ├── expressionPlan.ts      expression sidecar
-│   ├── pianoIR.ts             피아노 중간 표현
-│   ├── pianoProjection.ts     연주성 지표 (21개)
-│   ├── pianoRepairSolver.ts   repair 지시
-│   └── hybridSymbolicCandidatePool.ts  복수 candidate 생성
-├── composer/          ← Python compose worker 연결
-├── critic/            ← Python critique worker 연결
-├── humanizer/         ← Python humanize worker 연결
-├── render/            ← Python render worker 연결
-├── memory/            ← manifest, candidate sidecar, analytics 영속성
-├── queue/             ← 작업 큐 (jobQueue.ts)
-├── autonomy/          ← 자율 스케줄링 (ops)
-├── overseer/          ← 품질 감시 (ops)
-├── mcp/               ← MCP surfaces (ops)
-├── operator/          ← 운영 요약 (ops)
+├── core/                  ← 작곡 엔진 (core)
+│   ├── pipeline/          ← 파이프라인 조율 + 모든 계획 타입
+│   │   ├── orchestrator.ts        메인 파이프라인 실행 루프
+│   │   ├── types.ts               모든 도메인 타입 정의
+│   │   ├── sketch.ts              CompositionSketch 생성
+│   │   ├── orchestrationPlan.ts   OrchestrationPlan 도출
+│   │   ├── formTemplates.ts       형식 검증
+│   │   ├── sonataCyclePlanner.ts  다악장 계획
+│   │   ├── longSpan.ts            장기 형식 계획
+│   │   ├── evaluation.ts          StructureEvaluationReport 생성
+│   │   ├── craftScoring.ts        craft score 계산
+│   │   ├── quality.ts             재시도 정책
+│   │   ├── expressionPlan.ts      expression sidecar
+│   │   ├── pianoIR.ts             피아노 중간 표현
+│   │   ├── pianoProjection.ts     연주성 지표 (21개)
+│   │   ├── pianoRepairSolver.ts   repair 지시
+│   │   └── hybridSymbolicCandidatePool.ts  복수 candidate 생성
+│   ├── composer/          ← Python compose worker 연결
+│   ├── critic/            ← Python critique worker 연결
+│   ├── humanizer/         ← Python humanize worker 연결
+│   ├── render/            ← Python render worker 연결
+│   └── memory/            ← manifest, candidate sidecar, analytics 영속성
+├── ops/                   ← 운영 계층 (ops)
+│   ├── autonomy/          ← 자율 스케줄링
+│   ├── overseer/          ← 품질 감시
+│   ├── mcp/               ← MCP surfaces (stdio + HTTP)
+│   └── operator/          ← 운영 요약
+├── queue/             ← 작업 큐 (jobQueue.ts) — core↔ops 경계
 ├── routes/            ← HTTP route handlers
 ├── logging/           ← 로거
 └── config.ts          ← 중앙 설정

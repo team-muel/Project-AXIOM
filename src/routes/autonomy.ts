@@ -7,21 +7,21 @@ import {
     previewAutonomyPlan,
     rejectAutonomySong,
     resumeAutonomy,
-} from "../autonomy/service.js";
-import { getAutonomySchedulerStatus } from "../autonomy/scheduler.js";
-import { isAutonomyConflictError } from "../autonomy/service.js";
+} from "../ops/autonomy/service.js";
+import { getAutonomySchedulerStatus } from "../ops/autonomy/scheduler.js";
+import { isAutonomyConflictError } from "../ops/autonomy/service.js";
 import {
     getAutonomyOperationalSummary,
     reconcileAutonomyLock,
     isAutonomyUnavailableError,
     parseAutonomyConflictPayload,
     triggerAutonomyRun,
-} from "../autonomy/controller.js";
+} from "../ops/autonomy/controller.js";
 import { config } from "../config.js";
 import { logger } from "../logging/logger.js";
-import { checkOllamaReachable } from "../overseer/index.js";
-import type { AutonomyReviewFeedbackInput } from "../autonomy/types.js";
-import type { ListenerFeedback } from "../pipeline/types.js";
+import { checkOllamaReachable } from "../ops/overseer/index.js";
+import type { AutonomyReviewFeedbackInput } from "../ops/autonomy/types.js";
+import type { ListenerFeedback } from "../core/pipeline/types.js";
 
 const router = Router();
 

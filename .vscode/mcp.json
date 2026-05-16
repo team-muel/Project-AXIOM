@@ -10,7 +10,7 @@
             "args": [
                 "--import",
                 "tsx",
-                "src/mcp/server.ts"
+                "src/ops/mcp/server.ts"
             ],
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env"

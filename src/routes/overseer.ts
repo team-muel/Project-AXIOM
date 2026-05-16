@@ -1,8 +1,8 @@
 import { Router, urlencoded } from "express";
-import { callMcpTool } from "../mcp/toolAdapter.js";
-import { runOverseer, checkOllamaReachable } from "../overseer/index.js";
-import { renderOverseerDashboard } from "../overseer/dashboard.js";
-import { getOverseerSchedulerStatus } from "../overseer/scheduler.js";
+import { callMcpTool } from "../ops/mcp/toolAdapter.js";
+import { runOverseer, checkOllamaReachable } from "../ops/overseer/index.js";
+import { renderOverseerDashboard } from "../ops/overseer/dashboard.js";
+import { getOverseerSchedulerStatus } from "../ops/overseer/scheduler.js";
 import {
     acknowledgeOverseerWarning,
     clearOverseerWarningAcknowledgement,
@@ -12,9 +12,9 @@ import {
     loadLastOverseerReport,
     loadOverseerHistory,
     summarizeOverseerHistory,
-} from "../overseer/storage.ts";
-import { buildManifestOperationalSummary } from "../memory/manifestAnalytics.js";
-import { listStoredManifests } from "../memory/manifest.js";
+} from "../ops/overseer/storage.ts";
+import { buildManifestOperationalSummary } from "../core/memory/manifestAnalytics.js";
+import { listStoredManifests } from "../core/memory/manifest.js";
 import { logger } from "../logging/logger.js";
 
 const router = Router();

@@ -6,9 +6,9 @@ import composeRouter from "./routes/compose.js";
 import autonomyRouter from "./routes/autonomy.js";
 import mcpHttpRouter from "./routes/mcpHttp.js";
 import overseerRouter from "./routes/overseer.js";
-import { recoverAutonomyRuntimeOnStartup } from "./autonomy/controller.js";
-import { startAutonomyScheduler, stopAutonomyScheduler } from "./autonomy/scheduler.js";
-import { startOverseerScheduler, stopOverseerScheduler } from "./overseer/scheduler.js";
+import { recoverAutonomyRuntimeOnStartup } from "./ops/autonomy/controller.js";
+import { startAutonomyScheduler, stopAutonomyScheduler } from "./ops/autonomy/scheduler.js";
+import { startOverseerScheduler, stopOverseerScheduler } from "./ops/overseer/scheduler.js";
 
 const app = express();
 app.use(express.json());

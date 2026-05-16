@@ -6,14 +6,14 @@ import {
     markAutonomyRunPendingApproval,
     markAutonomyRunRetryScheduled,
     markAutonomyRunRunning,
-} from "../autonomy/service.js";
-import { getAutonomyDayKey } from "../autonomy/calendar.js";
-import { ensureComposeRequestMetadata } from "../autonomy/request.js";
-import { loadManifest } from "../memory/manifest.js";
-import { mergeExpressionPlanIntoRequest } from "../pipeline/expressionPlan.js";
-import type { ComposeRequest, JobManifest } from "../pipeline/types.js";
-import { PipelineState } from "../pipeline/states.js";
-import { runPipeline } from "../pipeline/orchestrator.js";
+} from "../ops/autonomy/service.js";
+import { getAutonomyDayKey } from "../ops/autonomy/calendar.js";
+import { ensureComposeRequestMetadata } from "../ops/autonomy/request.js";
+import { loadManifest } from "../core/memory/manifest.js";
+import { mergeExpressionPlanIntoRequest } from "../core/pipeline/expressionPlan.js";
+import type { ComposeRequest, JobManifest } from "../core/pipeline/types.js";
+import { PipelineState } from "../core/pipeline/states.js";
+import { runPipeline } from "../core/pipeline/orchestrator.js";
 import { logger } from "../logging/logger.js";
 import { config } from "../config.js";
 import fs from "node:fs";

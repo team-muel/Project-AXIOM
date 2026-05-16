@@ -1,10 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import { Router, type Request, type Response } from "express";
 import { config } from "../config.js";
-import { listMcpTools } from "../mcp/toolAdapter.js";
-import { MCP_PROTOCOL_VERSION, fail, handleMcpRequest, isJsonRpcNotification } from "../mcp/protocol.js";
-import { getMcpDiagnosticsSnapshot } from "../operator/summary.js";
-import type { JsonRpcRequest } from "../mcp/types.js";
+import { listMcpTools } from "../ops/mcp/toolAdapter.js";
+import { MCP_PROTOCOL_VERSION, fail, handleMcpRequest, isJsonRpcNotification } from "../ops/mcp/protocol.js";
+import { getMcpDiagnosticsSnapshot } from "../ops/operator/summary.js";
+import type { JsonRpcRequest } from "../ops/mcp/types.js";
 
 const router = Router();
 
