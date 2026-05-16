@@ -46,6 +46,8 @@ import { resolveStructureRerankerPromotion } from "./structureRerankerPromotion.
 import { runStructureRerankerShadowScoring } from "./structureShadowReranker.js";
 import { buildExpressionPlanSidecar, mergeExpressionPlanIntoRequest } from "./expressionPlan.js";
 import { cloneClassicalKnowledgePlan, summarizeClassicalKnowledgePlan } from "./classicalKnowledge.js";
+// ops hook: autonomy feedback is injected here; this is the core↔ops coupling boundary.
+// In core-only mode (index.core.ts) these calls still run but have no active scheduler to observe.
 import { evaluateCompletedManifest, updateAutonomyPreferencesFromManifest } from "../autonomy/service.js";
 import { computePromptHash, ensureComposeRequestMetadata } from "../autonomy/request.js";
 import { buildExecutionPlan, compose, readComposeProgress } from "../composer/index.js";

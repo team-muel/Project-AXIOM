@@ -146,7 +146,6 @@ test("restores running MusicGen compose job with same songId and completes from 
         env: {
             OUTPUT_DIR: outputDir,
             LOG_DIR: logDir,
-            OLLAMA_URL: "http://127.0.0.1:1",
             LOG_LEVEL: "error",
         },
     });

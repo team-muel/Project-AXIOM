@@ -44,6 +44,5 @@ applyTo: "{src/mcp/**,src/autonomy/**,src/queue/**,src/routes/**,src/overseer/**
 
 Update these docs when changing operator-visible behavior or persisted state:
 
-- `docs/autonomy-operations.md`
-- `docs/state-machine.md`
-- `docs/manifest-schema.md`
+- `docs/architecture.md`
+- `docs/composition-engine.md`

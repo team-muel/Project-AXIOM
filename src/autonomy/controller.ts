@@ -330,7 +330,7 @@ export async function triggerAutonomyRun(
 
     const reachable = await checkOllamaReachable();
     if (!reachable) {
-        throw new AutonomyUnavailableError("Ollama is not reachable. Is it running?");
+        throw new AutonomyUnavailableError("LLM backend is not reachable. Is it running?");
     }
 
     await reconcileAutonomyLock(`pre_trigger:${initiatedBy}`);

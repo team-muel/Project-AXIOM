@@ -195,7 +195,7 @@ router.post("/autonomy/preview", async (_req, res) => {
 
     const reachable = await checkOllamaReachable();
     if (!reachable) {
-        res.status(503).json({ error: "Ollama is not reachable. Is it running?" });
+        res.status(503).json({ error: "LLM backend is not reachable. Is it running?" });
         return;
     }
 

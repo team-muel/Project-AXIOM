@@ -646,7 +646,7 @@ export async function callMcpTool(request: McpToolCallRequest): Promise<McpToolC
     if (toolName === "axiom_autonomy_preview") {
         const reachable = await checkOllamaReachable();
         if (!reachable) {
-            return toTextResult("Ollama is not reachable. Is it running?", true);
+            return toTextResult("LLM backend is not reachable. Is it running?", true);
         }
 
         return toJsonResult(await previewAutonomyPlan());

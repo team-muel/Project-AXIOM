@@ -719,7 +719,7 @@ export function renderOverseerDashboard(payload: DashboardPayload): string {
             <h1>AXIOM Overseer Dashboard</h1>
             <p>자동 Overseer 최신 리포트, 일자별 히스토리, 최근 ${escapeHtml(payload.windowHours)}시간 요약을 같은 화면에서 읽는 운영 대시보드입니다.</p>
             <div class="hero-meta">
-                <span class="pill ${reachable ? "pill-healthy" : "pill-failure"}">${reachable ? "Ollama reachable" : "Ollama unreachable"}</span>
+                <span class="pill ${reachable ? "pill-healthy" : "pill-failure"}">${reachable ? "LLM reachable" : "LLM unreachable"}</span>
                 <span class="pill ${scheduler?.running ? "pill-warning" : "pill-healthy"}">scheduler ${scheduler?.running ? "running" : "idle"}</span>
                 <span class="pill">last run ${formatTimestamp(summary?.lastRunAt ?? scheduler?.lastCompletedAt)}</span>
                 <span class="pill">refreshed ${formatTimestamp(payload.refreshedAt)}</span>

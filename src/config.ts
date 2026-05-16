@@ -27,8 +27,6 @@ export const config = {
     pythonBin: env("PYTHON_BIN", "python"),
     soundfontPath: env("SOUNDFONT_PATH", "assets/soundfonts/MuseScore_General.sf3"),
     ffmpegBin: env("FFMPEG_BIN", "ffmpeg"),
-    ollamaUrl: env("OLLAMA_URL", "http://localhost:11434"),
-    ollamaModel: env("OLLAMA_MODEL", "gemma4:latest"),
     overseerLogLines: envInt("OVERSEER_LOG_LINES", 80),
     overseerManifestCount: envInt("OVERSEER_MANIFEST_COUNT", 5),
     overseerAutoEnabled: envBool("OVERSEER_AUTO_ENABLED", true),

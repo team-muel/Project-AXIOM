@@ -89,8 +89,6 @@ async function runOverseerScenario({ existingReport, existingHistory = {}, exist
             env: {
                 OUTPUT_DIR: outputDir,
                 LOG_DIR: logDir,
-                OLLAMA_URL: "http://127.0.0.1:11434",
-                OLLAMA_MODEL: "gemma4:latest",
                 OVERSEER_AUTO_ENABLED: "true",
                 OVERSEER_INTERVAL_MS: "3600000",
                 LOG_LEVEL: "error",
@@ -347,8 +345,8 @@ test("summary route, dashboard, and MCP surface expose derived overseer metrics"
                 {
                     kind: "failure",
                     generatedAt: "2026-04-10T10:30:00.000Z",
-                    error: "ollama timeout",
-                    report: "Overseer auto-run failed: ollama timeout",
+                    error: "model timeout",
+                    report: "Overseer auto-run failed: model timeout",
                 },
                 {
                     generatedAt: "2026-04-10T09:00:00.000Z",
@@ -1086,7 +1084,7 @@ test("automatic overseer failures are appended to history and counted in summary
         evalCode: `
             globalThis.fetch = async (url) => {
                 if (String(url).includes("/api/generate")) {
-                    throw new Error("ollama timeout");
+                    throw new Error("model timeout");
                 }
                 if (String(url).includes("/api/tags")) {
                     return { ok: true, status: 200, json: async () => ({ models: [] }) };
@@ -1121,7 +1119,7 @@ test("automatic overseer failures are appended to history and counted in summary
     const historyFiles = Object.keys(storedHistory);
 
     assert.equal(result.history.entries[0].kind, "failure");
-    assert.equal(result.history.entries[0].error, "ollama timeout");
+    assert.equal(result.history.entries[0].error, "model timeout");
     assert.equal(result.summary.recentFailureCount, 1);
     assert.equal(result.summary.lastFailureAt, result.history.entries[0].generatedAt);
     assert.equal(historyFiles.length, 1);

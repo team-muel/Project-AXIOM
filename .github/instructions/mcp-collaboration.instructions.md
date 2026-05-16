@@ -1,11 +1,11 @@
 ---
-description: "Routing rules for collaborating across local AXIOM MCP, gcpCompute SSH MCP, and discord-news-bot upstream AXIOM bridge."
-applyTo: "{README.md,.env.example,.vscode/mcp.json,docs/planning/**,.github/prompts/**}"
+description: "Routing rules for collaborating across local AXIOM MCP and discord-news-bot upstream AXIOM bridge."
+applyTo: "{README.md,.env.example,.vscode/mcp.json,.github/prompts/**}"
 ---
 
 # MCP Collaboration Routing
 
-> Local code understanding stays local. Remote orchestration goes through gcpCompute. Runtime control crosses repo boundaries only through official MCP surfaces.
+> Local code understanding stays local. Runtime control crosses repo boundaries only through official MCP surfaces.
 
 ## Roles
 
@@ -13,11 +13,6 @@ applyTo: "{README.md,.env.example,.vscode/mcp.json,docs/planning/**,.github/prom
 - Use local AXIOM MCP when you need the current workspace runtime or direct access to local outputs.
 - Preferred entrypoints: local stdio MCP for IDE work, local HTTP MCP for cross-process integration.
 - Source of truth for queue, autonomy state, manifests, and Overseer data is this repo's runtime and `outputs/_system/`.
-
-### gcpCompute
-- Treat `gcpCompute` as a remote operations hub, not as a replacement for local code indexing.
-- Use it for remote adapters, team-shared automation, unattended routines, or remote state that exists only on the GCP side.
-- Do not use it to inspect local AXIOM files when the workspace already has the source.
 
 ### discord-news-bot upstream bridge
 - Use discord-news-bot `MCP_UPSTREAM_SERVERS` when you want AXIOM exposed as `upstream.axiom.*` inside the team's unified MCP surface.
@@ -27,8 +22,7 @@ applyTo: "{README.md,.env.example,.vscode/mcp.json,docs/planning/**,.github/prom
 
 1. Local code analysis: workspace tools or local indexing only.
 2. Local AXIOM runtime inspection: local AXIOM MCP.
-3. Team-shared remote operations: `gcpCompute`.
-4. Cross-repo AXIOM delegation from discord-news-bot: `upstream.axiom.*` over AXIOM HTTP MCP.
+3. Cross-repo AXIOM delegation from discord-news-bot: `upstream.axiom.*` over AXIOM HTTP MCP.
 
 ## Guardrails
 
@@ -42,4 +36,3 @@ applyTo: "{README.md,.env.example,.vscode/mcp.json,docs/planning/**,.github/prom
 - Local AXIOM stdio MCP entry in `.vscode/mcp.json`
 - Local AXIOM HTTP server via `npm run start:mcp:http`
 - Optional discord-news-bot upstream registration using `MCP_UPSTREAM_SERVERS`
-- Optional `gcpCompute` SSH stdio access for team-wide operator workflows

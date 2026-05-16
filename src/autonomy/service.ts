@@ -1098,7 +1098,7 @@ function plannerModelBindings(workflow: ComposeWorkflow): ModelBinding[] {
     return defaultModelBindings(workflow, {
         includePlanner: true,
         plannerProvider: "ollama",
-        plannerModel: config.ollamaModel,
+        plannerModel: process.env.OLLAMA_MODEL ?? "",
     });
 }
 

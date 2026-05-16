@@ -96,16 +96,16 @@ Be specific. Reference songIds, state names, and error codes where relevant.
 Respond in the same language as the prompt language context (Korean or English).`;
 }
 
-// ── Ollama API 호출 ───────────────────────────────────
+// ── LLM API 호출 ─────────────────────────────────────
 
-interface OllamaResponse {
+interface LlmResponse {
     model: string;
     response: string;
     done: boolean;
 }
 
-async function callOllama(prompt: string): Promise<string> {
-    return generateOllamaText(prompt, {
+async function callLlm(prompt: string): Promise<string> {
+    return generateLlmText(prompt, {
         temperature: 0.3,
         maxTokens: 512,
     });
@@ -118,10 +118,22 @@ export async function generateOllamaText(
         maxTokens?: number;
     },
 ): Promise<string> {
-    const url = `${config.ollamaUrl}/api/generate`;
+    return generateLlmText(prompt, options);
+}
+
+async function generateLlmText(
+    prompt: string,
+    options?: {
+        temperature?: number;
+        maxTokens?: number;
+    },
+): Promise<string> {
+    const llmUrl = process.env.OLLAMA_URL ?? "http://localhost:11434";
+    const llmModel = process.env.OLLAMA_MODEL ?? "gemma4:latest";
+    const url = `${llmUrl}/api/generate`;
 
     const body = JSON.stringify({
-        model: config.ollamaModel,
+        model: llmModel,
         prompt,
         stream: false,
         options: {
@@ -138,10 +150,10 @@ export async function generateOllamaText(
     });
 
     if (!res.ok) {
-        throw new Error(`Ollama API error: ${res.status} ${res.statusText}`);
+        throw new Error(`LLM API error: ${res.status} ${res.statusText}`);
     }
 
-    const data = (await res.json()) as OllamaResponse;
+    const data = (await res.json()) as LlmResponse;
     return data.response.trim();
 }
 
@@ -169,14 +181,15 @@ export async function runOverseer(): Promise<OverseerReport> {
 
     const prompt = buildPrompt(logs, manifests);
 
-    logger.info("Overseer: querying Gemma 4", { model: config.ollamaModel });
-    const report = await callOllama(prompt);
+    const llmModel = process.env.OLLAMA_MODEL ?? "gemma4:latest";
+    logger.info("Overseer: querying LLM", { model: llmModel });
+    const report = await callLlm(prompt);
 
     logger.info("Overseer: report ready");
 
     return {
         generatedAt: new Date().toISOString(),
-        model: config.ollamaModel,
+        model: llmModel,
         logLines: logLineCount,
         manifestsRead: manifests.length,
         report,
@@ -184,8 +197,9 @@ export async function runOverseer(): Promise<OverseerReport> {
 }
 
 export async function checkOllamaReachable(): Promise<boolean> {
+    const llmUrl = process.env.OLLAMA_URL ?? "http://localhost:11434";
     try {
-        const res = await fetch(`${config.ollamaUrl}/api/tags`, {
+        const res = await fetch(`${llmUrl}/api/tags`, {
             signal: AbortSignal.timeout(3000),
         });
         return res.ok;

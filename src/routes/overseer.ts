@@ -93,7 +93,7 @@ function actionRedirectTarget(req: { body?: unknown; query?: unknown }): string 
 
 /**
  * GET /overseer/status
- * Ollama 연결 가능 여부만 빠르게 확인한다.
+ * LLM 백엔드 연결 가능 여부만 빠르게 확인한다.
  */
 router.get("/overseer/status", async (_req, res) => {
     const reachable = await checkOllamaReachable();
@@ -309,7 +309,7 @@ router.post("/overseer/warnings/unacknowledge", (req, res) => {
 router.post("/overseer/report", async (_req, res) => {
     const reachable = await checkOllamaReachable();
     if (!reachable) {
-        res.status(503).json({ error: "Ollama is not reachable. Is it running?" });
+        res.status(503).json({ error: "LLM backend is not reachable. Is it running?" });
         return;
     }
 

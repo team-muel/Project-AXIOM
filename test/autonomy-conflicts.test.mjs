@@ -63,7 +63,6 @@ async function runConflictScenario({ controlState, manifests = [], runLedger = [
         env: {
             OUTPUT_DIR: outputDir,
             LOG_DIR: logDir,
-            OLLAMA_URL: "http://127.0.0.1:11434",
             AUTONOMY_ENABLED: "true",
             AUTONOMY_SCHEDULER_TIMEZONE: "Asia/Seoul",
             AUTONOMY_STALE_LOCK_MS: "86400000",

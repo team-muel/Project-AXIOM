@@ -178,7 +178,7 @@ previewed
 ## Remote Operator Diagnostics
 
 상태의 source of truth는 계속 local AXIOM runtime과 `outputs/_system/`에 남는다.
-다만 remote operator와 shared gcpCompute smoke check를 위해 별도 diagnostics surface를 둔다.
+다만 remote operator smoke check를 위해 별도 diagnostics surface를 둔다.
 
 - `GET /health` — 최소 liveness
 - `GET /ready` — symbolic/audio capability readiness

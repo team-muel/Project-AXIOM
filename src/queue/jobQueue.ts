@@ -1,4 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
+// ops hook: autonomy run state tracking; this is the core↔ops coupling boundary in the queue.
+// In core-only mode (index.core.ts) the marks are written to disk but no scheduler consumes them.
 import {
     markAutonomyRunFailed,
     markAutonomyRunPendingApproval,

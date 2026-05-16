@@ -155,7 +155,6 @@ async function runPlannerScenario(evalCode, plannerResponse = createPlannerRespo
         env: {
             OUTPUT_DIR: outputDir,
             LOG_DIR: logDir,
-            OLLAMA_URL: "http://127.0.0.1:11434",
             AUTONOMY_ENABLED: "true",
             AUTONOMY_SCHEDULER_TIMEZONE: "Asia/Seoul",
             AUTONOMY_MAX_ATTEMPTS_PER_DAY: "3",
@@ -1316,7 +1315,6 @@ test("updateAutonomyPreferencesFromManifest stores reflection and style memory",
         env: {
             OUTPUT_DIR: outputDir,
             LOG_DIR: logDir,
-            OLLAMA_URL: "http://127.0.0.1:1",
             LOG_LEVEL: "error",
         },
     });

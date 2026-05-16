@@ -7,7 +7,9 @@
 
 매일 또는 설계 변경 직전에 먼저 볼 문서는 아래 순서로 고정한다.
 
-1. [multimodel-composition-pipeline.md](multimodel-composition-pipeline.md)
+1. [../composition-pipeline.md](../composition-pipeline.md)
+   - 작곡 파이프라인 전체 구조 — 6개 음악적 질문과 각 단계의 코드 매핑
+2. [multimodel-composition-pipeline.md](multimodel-composition-pipeline.md)
    - 음악적 방향, 품질 계약, symbolic path의 현재 한계, learned reranker or learned compose worker 확장 로드맵을 설명하는 전략 문서
 2. [truth-plane-dataset-design.md](truth-plane-dataset-design.md)
    - 현재 manifest, sidecar, review truth-plane을 backbone or rewrite or reranker 학습용 데이터셋으로 바꾸는 설계 문서
@@ -17,11 +19,7 @@
    - 사용자가 제안한 9개 외부 repo를 core, support, operations 층으로 나누어 AXIOM 역할별로 정리한 상위 reference 문서
 5. [symbolic-backbone-reference.md](symbolic-backbone-reference.md)
    - AXIOM이 참고할 외부 symbolic backbone 후보, 제어형 재생성 참고 모델, theory-engine 축을 역할별로 정리한 subset reference 문서
-6. [gcpcompute-axiom-integration.md](gcpcompute-axiom-integration.md)
-   - AXIOM truth plane, gcpCompute control plane, bridge plane 역할 분리를 설명하는 운영 설계 문서
-7. [gcpcompute-shared-adoption-plan.md](gcpcompute-shared-adoption-plan.md)
-   - shared runtime mirror consumption, shared-only bootstrap, `/mcp/health` diagnostics 도입 계획과 현재 구현 범위
-8. [../autonomy-operations.md](../autonomy-operations.md)
+6. [../autonomy-operations.md](../autonomy-operations.md)
    - autonomy scheduler, approval, recovery, 운영 규칙의 정본
 9. [../state-machine.md](../state-machine.md)
    - 파이프라인 상태, 산출물, 복구 단계의 정본
@@ -30,16 +28,7 @@
 
 ## Operator Runbooks
 
-아래 문서는 전략 문서가 아니라 gcpCompute 또는 team operator 절차용 runbook이다.
-
-1. [gcpcompute-operator-projection-runbook.md](gcpcompute-operator-projection-runbook.md)
-   - `ops:project` 주기 실행과 operator summary projection 설정
-2. [gcpcompute-safe-unattended-sweep-runbook.md](gcpcompute-safe-unattended-sweep-runbook.md)
-   - `ops:sweep` 기반 unattended 상태 점검과 triage 절차
-3. [gcpcompute-shadow-governance-runbook.md](gcpcompute-shadow-governance-runbook.md)
-   - 정책 변경 전 shadow review 절차
-4. [gcpcompute-shared-pickup-runbook.md](gcpcompute-shared-pickup-runbook.md)
-   - `ops:pickup` handoff bundle 생성 및 shared pickup 절차
+아래 문서는 절차용 runbook이다.
 
 ## Active Design Docs
 
@@ -79,14 +68,14 @@
 
 역할 분리:
 
-1. 이 디렉터리는 AXIOM runtime, gcpCompute operator, MCP compatibility planning의 정본이다.
+1. 이 디렉터리는 AXIOM runtime 및 MCP compatibility planning의 정본이다.
 2. 외부 bridge 또는 knowledge plane 가정이 필요하면 개별 runbook 안에 integration note로만 남기고 별도 sibling planning tree를 전제하지 않는다.
 3. 원격 bridge가 존재해도 AXIOM truth plane과 운영 계약의 source of truth는 계속 이 디렉터리와 상위 docs에 둔다.
 
 ## Reduction Rules
 
 1. 새 AXIOM planning 문서를 만들기 전에 위 Read First 문서 중 어디에 흡수할지 먼저 판단한다.
-2. 전략 변경은 `multimodel-composition-pipeline.md` 또는 `gcpcompute-axiom-integration.md`에만 남긴다.
+2. 전략 변경은 `multimodel-composition-pipeline.md`에만 남긴다.
 3. 절차 추가는 개별 runbook에만 남기고 전략 문서와 중복 서술하지 않는다.
 4. 결과 보고서와 단발성 검증은 `gate-runs/` 아래로 보낸다.
 5. 완료된 rollout 문서는 삭제하지 말고 status를 명시한 reference로 유지한다.
