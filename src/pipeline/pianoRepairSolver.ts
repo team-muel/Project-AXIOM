@@ -12,8 +12,17 @@ import { applyPianoProjection } from "./pianoProjection.js";
 // harmonic intent are preserved; only physical realization is adjusted.
 //
 // Pipeline position:
-//   NotaGen candidates → ABC/MIDI projection → piano playability gate
-//   → PianoRepairSolver (this) → craft scoring → localized rewrite
+//   NotaGen candidates → ABC/MIDI projection → piano_repair_solver.py (Python)
+//   → piano playability gate → PianoRepairSolver (this, TS) → craft scoring
+//   → localized rewrite
+//
+// Relationship to Python repair (piano_repair_solver.py):
+//   Python repair runs BEFORE the MIDI file is written and directly corrects
+//   the rendered audio.  This module runs AFTERWARDS on SectionArtifactSummary
+//   event arrays to re-derive the 21 piano* evidence fields so craft scoring
+//   and Gate 3 see accurate post-repair metrics.  When `proposalMidiRewritten`
+//   is true in the Python response the MIDI already reflects all corrections;
+//   this module's job is then purely to update scoring evidence.
 //
 // Seven repair kinds:
 //   1. chord_span_revoice    — inner voices dropped when hand span exceeds limit
@@ -76,6 +85,12 @@ export interface PianoRepairResult {
     actions: PianoRepairAction[];
     /** A new SectionArtifactSummary with updated events and projection evidence. */
     updatedArtifact: SectionArtifactSummary;
+    /** True when the Python pipeline already rewrote the MIDI file via
+     *  piano_repair_solver.py + write_midi_from_events().  In that case this
+     *  TypeScript pass updates scoring evidence only; the rendered audio is
+     *  already corrected.  Callers should set this from `proposalMidiRewritten`
+     *  in the LearnedSymbolicProposalResponse. */
+    midiRewritten?: boolean;
 }
 
 // ---------------------------------------------------------------------------

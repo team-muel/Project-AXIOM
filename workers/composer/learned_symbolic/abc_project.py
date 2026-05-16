@@ -8,6 +8,9 @@ Pipeline stages:
   2b. duration validation — music21 bar-duration + voice-sync checks (when music21 available)
   3. abc_to_events  — music21 parse → per-section SectionMaterial events
   4. abc_to_midi    — music21 Score → MIDI file (only when output_path provided)
+  5a. piano_projection   — RH/LH split + voice layout (solo_piano_symbolic only)
+  5b. piano_repair_solver — 7 idiom repairs on event arrays (solo_piano_symbolic only)
+  6.  write_midi_from_events — MIDI re-write from repaired events (when repairs applied)
 
 Hard failures (AbcProjectionResult.ok=False):
   - ABC parse failure (missing K:, all voices empty, music21 error)
@@ -303,24 +306,57 @@ def run_abc_projection_pipeline(
                 error=f"MIDI conversion failed: {exc}",
             )
 
-    # ── Stage 5: Piano RH/LH enrichment (solo_piano_symbolic lane only) ──────
+    # ── Stage 5: Piano enrichment + repair + MIDI re-write (solo_piano_symbolic) ─
     voice_layout_summary: dict[str, Any] | None = None
+    repair_actions: list[dict[str, Any]] | None = None
+    midi_rewritten = False
+
     if lane == "solo_piano_symbolic":
         try:
-            from .piano_projection import enrich_proposal_sections_with_piano_layout
+            from .piano_projection import (
+                compute_piano_voice_layout_summary,
+                enrich_proposal_sections_with_piano_layout,
+            )
+            from .piano_repair_solver import repair_piano_sections
 
+            # Stage 5a: enrich with RH/LH split
             enriched_sections, piano_layout, piano_warnings = (
                 enrich_proposal_sections_with_piano_layout(list(proposal_sections))
             )
-            proposal_sections = enriched_sections
-            voice_layout_summary = dict(piano_layout)
             for w in piano_warnings:
                 if w not in warnings:
                     warnings.append(w)
+
+            # Stage 5b: apply 7 piano-idiom repairs
+            repaired_sections, repair_log, did_repair = repair_piano_sections(
+                enriched_sections
+            )
+            proposal_sections = repaired_sections
+            if repair_log:
+                repair_actions = repair_log
+
+            # Re-compute global voice layout from repaired events
+            all_rh = [ev for s in repaired_sections for ev in (s.get("rightHandEvents") or [])]
+            all_lh = [ev for s in repaired_sections for ev in (s.get("leftHandEvents") or [])]
+            final_layout, layout_warnings = compute_piano_voice_layout_summary(all_rh, all_lh)
+            voice_layout_summary = dict(final_layout)
+            for w in layout_warnings:
+                if w not in warnings:
+                    warnings.append(w)
+
+            # Stage 6: re-write MIDI from repaired events when repairs changed things
+            if did_repair and output_path and midi_path:
+                try:
+                    from .abc_to_midi import write_midi_from_events
+
+                    write_midi_from_events(all_rh, all_lh, midi_path, tempo_bpm=tempo_bpm)
+                    midi_rewritten = True
+                except RuntimeError:
+                    warnings.append("piano_midi_rewrite_failed")
+
         except Exception:  # noqa: BLE001
-            # Piano enrichment is best-effort; a failure here must not block
-            # the rest of the pipeline — the generic proposal_sections are
-            # still returned without RH/LH fields.
+            # Piano enrichment/repair is best-effort; a failure here must not
+            # block the rest of the pipeline.
             warnings.append("piano_projection_enrichment_failed")
 
     return AbcProjectionResult(
@@ -330,4 +366,6 @@ def run_abc_projection_pipeline(
         normalization_warnings=warnings,
         error=None,
         voice_layout_summary=voice_layout_summary,
+        repair_actions=repair_actions,
+        midi_rewritten=midi_rewritten,
     )

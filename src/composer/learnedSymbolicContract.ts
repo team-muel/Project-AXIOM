@@ -76,6 +76,14 @@ export interface LearnedSymbolicProposalResponse {
      *  Present only when lane === "solo_piano_symbolic" and piano enrichment succeeded.
      *  Mirrors compute_piano_voice_layout_summary() output from piano_projection.py. */
     proposalVoiceLayoutSummary?: Record<string, unknown>;
+    /** Per-section piano repair log from piano_repair_solver.py.
+     *  Each entry: { sectionId: string; actions: { kind: string; ... }[] }
+     *  Present only when Python-side repairs were applied. */
+    proposalRepairActions?: Array<{ sectionId: string; actions: unknown[] }>;
+    /** True when write_midi_from_events() rewrote the MIDI file after Python-side
+     *  piano repairs.  When true, the rendered audio already reflects idiom corrections
+     *  and the TypeScript repair solver runs only for craft-score metric updates. */
+    proposalMidiRewritten?: boolean;
     error?: string;
 }
 

@@ -204,6 +204,13 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
         # Mirrors PianoVoiceLayoutSummary in TypeScript.
         **({"proposalVoiceLayoutSummary": result.voice_layout_summary}
            if result.voice_layout_summary is not None else {}),
+        # Piano repair information.
+        # proposalMidiRewritten=True means the MIDI file reflects Python-side
+        # idiom repairs and is safe to deliver to the listener as-is.
+        # proposalRepairActions carries the per-section repair log for dataset export.
+        **({"proposalRepairActions": result.repair_actions}
+           if result.repair_actions else {}),
+        "proposalMidiRewritten": result.midi_rewritten,
     }
 
 

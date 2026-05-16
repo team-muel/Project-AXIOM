@@ -76,6 +76,12 @@ class AbcProjectionResult(NamedTuple):
     error: str | None                        # non-None when ok=False
     # Present only when lane == "solo_piano_symbolic"; mirrors PianoVoiceLayoutDict.
     voice_layout_summary: dict[str, Any] | None = None
+    # Piano repair log: list of {"sectionId": str, "actions": [...]} dicts.
+    # Empty when no repairs were applied or lane != "solo_piano_symbolic".
+    repair_actions: list[dict[str, Any]] | None = None
+    # True when write_midi_from_events() re-wrote the MIDI after repair.
+    # Signals to TypeScript that the MIDI file reflects Python-side corrections.
+    midi_rewritten: bool = False
 
 
 # ─── Piano voice layout constants ────────────────────────────────────────────

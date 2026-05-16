@@ -631,6 +631,8 @@ class NotagenBackend:
             tempo_bpm=int(provider_request.get("tempo") or 92),
             confidence=0.5,
             voice_layout_summary=result.voice_layout_summary,
+            repair_actions=result.repair_actions,
+            midi_rewritten=result.midi_rewritten,
         )
 
     # ── Local inference ───────────────────────────────────────────────────────
@@ -773,6 +775,8 @@ class NotagenBackend:
                     tempo_bpm=int(provider_request.get("tempo") or 92),
                     confidence=max(0.1, 1.0 - attempt * 0.2),
                     voice_layout_summary=result.voice_layout_summary,
+                    repair_actions=result.repair_actions,
+                    midi_rewritten=result.midi_rewritten,
                 )
 
             last_error = result.error or "ABC validation failed"

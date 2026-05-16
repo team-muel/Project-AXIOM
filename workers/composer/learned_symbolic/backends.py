@@ -43,6 +43,12 @@ class LearnedSymbolicBackendResult:
     # Piano voice layout (solo_piano_symbolic lane only): mirrors PianoVoiceLayoutDict.
     # Present when run_abc_projection_pipeline() ran piano enrichment successfully.
     voice_layout_summary: dict[str, Any] | None = None
+    # Piano repair log from piano_repair_solver.py.
+    # List of {"sectionId": str, "actions": [{"kind": str, ...}]} dicts.
+    repair_actions: list[dict[str, Any]] | None = None
+    # True when write_midi_from_events() rewrote the MIDI file after Python-side repairs.
+    # Signals to TypeScript that the rendered audio reflects idiom corrections.
+    midi_rewritten: bool = False
 
     # Summary metadata (set by backend; used in response summary)
     note_count: int = 0
