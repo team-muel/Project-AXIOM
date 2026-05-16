@@ -46,4 +46,6 @@ import "./piano-repair-solver.test.mjs";
 import "./piano-voice-layout.test.mjs";
 import "./sonata-cycle-planner.test.mjs";
 import "./learned-backend-routing.test.mjs";
+import "./piano-strict-gates.test.mjs";
+import "./piano-benchmark.test.mjs";
 
