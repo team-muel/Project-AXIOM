@@ -297,6 +297,15 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
         ? (0.5 - craft.sectionContractFit) * 60
         : 0;
 
+    // Evidence coverage penalty: when the generator did not produce enough
+    // observable evidence for grammar evaluation (coverage < 0.5), the neutral
+    // 0.5 fallbacks mask real quality gaps.  Penalise up to 25 pts to ensure
+    // well-evidenced candidates rank above evidence-sparse ones at the same
+    // structural score level.
+    const evidenceCoveragePenalty = craft?.evidenceCoverageScore !== undefined
+        ? Math.max(0, (0.5 - craft.evidenceCoverageScore) * 50)
+        : 0;
+
     return Number(((evaluation.passed ? 1_000 : 0)
         + (baseScore * 10)
         + averageSectionScore
@@ -316,6 +325,7 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
         - pianoPlayabilityPenalty
         - weakestSectionPenalty
         - contractPenalty
+        - evidenceCoveragePenalty
         - (tensionMismatch * 40)).toFixed(4));
 }
 

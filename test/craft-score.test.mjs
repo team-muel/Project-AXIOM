@@ -36,7 +36,7 @@ const {
     computePhraseShape,
     computeRegisterIdiomaticFit,
     computeCraftScoreSummary,
-} = await import("../dist/pipeline/craftScoring.js");
+} = await import("../dist/core/evaluate/craftScoring.js");
 
 const {
     scoreStructureEvaluationForCandidateSelection,
@@ -50,14 +50,21 @@ const {
     passesCraftGate,
     candidateGateTier,
 } = await import(
-    "../dist/pipeline/structureSelection.js"
+    "../dist/core/generate/structureSelection.js"
 );
+
+const {
+    computePhraseEvidenceCoverage,
+    computeHarmonyEvidenceCoverage,
+    computeMotifEvidenceCoverage,
+    computeEvidenceCoverageReport,
+} = await import("../dist/core/evaluate/evidenceCoverage.js");
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** @param {Partial<import("../dist/pipeline/types.js").SectionArtifactSummary>} overrides */
+/** @param {Partial<import("../dist/core/pipeline/types.js").SectionArtifactSummary>} overrides */
 function makeArtifact(overrides = {}) {
     return {
         sectionId: "s1",
@@ -70,7 +77,7 @@ function makeArtifact(overrides = {}) {
     };
 }
 
-/** @param {Partial<import("../dist/pipeline/types.js").CompositionPlan>} overrides */
+/** @param {Partial<import("../dist/core/pipeline/types.js").CompositionPlan>} overrides */
 function makePlan(overrides = {}) {
     return {
         version: "1",
@@ -97,7 +104,7 @@ function makePlan(overrides = {}) {
     };
 }
 
-/** @param {Partial<import("../dist/pipeline/types.js").StructureEvaluationReport>} overrides */
+/** @param {Partial<import("../dist/core/pipeline/types.js").StructureEvaluationReport>} overrides */
 function makeEvaluation(overrides = {}) {
     return {
         passed: true,
@@ -276,8 +283,9 @@ test("registerIdiomaticFit scores high when all pitches in idiomatic range", () 
 test("computeCraftScoreSummary finalCraftScore matches weighted formula", () => {
     const plan = makePlan();
     const evaluation = makeEvaluation();
+    // capturedMotif on theme_a ensures motifEvidenceCoverage = 1.0 → overallCoverage ≥ 0.5 → no penalty
     const artifacts = [
-        makeArtifact({ sectionId: "s1", role: "theme_a", measureCount: 4 }),
+        makeArtifact({ sectionId: "s1", role: "theme_a", measureCount: 4, capturedMotif: [0, 2, -1] }),
         makeArtifact({ sectionId: "s2", role: "development", measureCount: 4 }),
         makeArtifact({ sectionId: "s3", role: "recap", measureCount: 4 }),
     ];
@@ -758,3 +766,154 @@ test("tier-2 candidate scores significantly higher than tier-0 (no gate passes)"
     assert.ok(s2 > s0, `Tier-2 (${s2}) should beat Tier-0 (${s0})`);
 });
 
+// ---------------------------------------------------------------------------
+// Evidence coverage tests
+// ---------------------------------------------------------------------------
+
+test("computePhraseEvidenceCoverage returns 1.0 when all four evidence fields present", () => {
+    const artifact = makeArtifact({
+        sectionId: "s1",
+        role: "theme_a",
+        measureCount: 4,
+        phrasePeaks: [2],
+        cadenceApproach: "dominant",
+        phraseFunction: "statement",
+    });
+    const plan = { totalMeasures: 4, structure: {}, hypermetricGroups: [], notes: [] };
+    const score = computePhraseEvidenceCoverage(artifact, plan);
+    assert.strictEqual(score, 1.0);
+});
+
+test("computePhraseEvidenceCoverage returns 0.5 when only 2 of 4 fields present", () => {
+    // phrasePeaks present, cadenceApproach present; phraseFunction absent, measureCount mismatch
+    const artifact = makeArtifact({
+        sectionId: "s1",
+        role: "theme_a",
+        measureCount: 4,
+        phrasePeaks: [2],
+        cadenceApproach: "dominant",
+    });
+    const plan = { totalMeasures: 8, structure: {}, hypermetricGroups: [], notes: [] };
+    const score = computePhraseEvidenceCoverage(artifact, plan);
+    assert.strictEqual(score, 0.5);
+});
+
+test("computeHarmonyEvidenceCoverage returns 1.0 when all evidence present (no tonicization planned)", () => {
+    const artifact = makeArtifact({
+        sectionId: "s1",
+        role: "theme_a",
+        harmonicColorCues: [{ tag: "applied_dominant" }],
+        harmonicRealizationSummary: { sectionId: "s1", chordsUsed: 4 },
+        cadenceApproach: "dominant",
+    });
+    const plan = { functionalSequence: ["tonic", "dominant"], cadenceApproach: "basic" };
+    const score = computeHarmonyEvidenceCoverage(artifact, plan);
+    assert.strictEqual(score, 1.0);
+});
+
+test("computeHarmonyEvidenceCoverage penalises missing tonicizationWindows when plan.tonicization is set", () => {
+    const artifact = makeArtifact({
+        sectionId: "s1",
+        role: "theme_a",
+        harmonicColorCues: [{ tag: "applied_dominant" }],
+        harmonicRealizationSummary: { sectionId: "s1", chordsUsed: 4 },
+        cadenceApproach: "dominant",
+        // tonicizationWindows intentionally absent
+    });
+    const planWith    = { functionalSequence: [], cadenceApproach: "basic", tonicization: { targetKey: "D minor" } };
+    const planWithout = { functionalSequence: [], cadenceApproach: "basic" };
+    const scoreWith    = computeHarmonyEvidenceCoverage(artifact, planWith);
+    const scoreWithout = computeHarmonyEvidenceCoverage(artifact, planWithout);
+    assert.strictEqual(scoreWithout, 1.0, "no tonicization check when plan has no tonicization");
+    assert.ok(scoreWith < 1.0, `Expected < 1.0 when tonicizationWindows missing, got ${scoreWith}`);
+});
+
+test("computeMotifEvidenceCoverage returns 1.0 for theme_a when capturedMotif present", () => {
+    const artifact = makeArtifact({
+        sectionId: "s1",
+        role: "theme_a",
+        capturedMotif: [0, 2, -1],
+    });
+    const planSection = { id: "s1", role: "theme_a", label: "Theme A", measures: 4, energy: 0.5, density: 0.4 };
+    const score = computeMotifEvidenceCoverage(artifact, planSection);
+    assert.strictEqual(score, 1.0);
+});
+
+test("computeMotifEvidenceCoverage returns 0 for theme_a when capturedMotif absent", () => {
+    const artifact = makeArtifact({ sectionId: "s1", role: "theme_a" });
+    const planSection = { id: "s1", role: "theme_a", label: "Theme A", measures: 4, energy: 0.5, density: 0.4 };
+    const score = computeMotifEvidenceCoverage(artifact, planSection);
+    assert.strictEqual(score, 0);
+});
+
+test("computeEvidenceCoverageReport returns neutral 0.5 when no grammar plans and no theme_a section", () => {
+    const artifacts = [makeArtifact({ sectionId: "s1", role: "development", measureCount: 4 })];
+    const plan = makePlan({
+        sections: [{ id: "s1", role: "development", label: "Development", measures: 4, energy: 0.5, density: 0.4 }],
+    });
+    const report = computeEvidenceCoverageReport(artifacts, plan);
+    assert.strictEqual(report.phraseEvidenceCoverage, 0.5, "phrase neutral when no phraseGrammar");
+    assert.strictEqual(report.harmonyEvidenceCoverage, 0.5, "harmony neutral when no harmonyGrammar");
+    assert.strictEqual(report.motifEvidenceCoverage, 0.5, "motif neutral when no theme_a or motifDevelopment");
+    assert.strictEqual(report.overallCoverage, 0.5, "overall neutral");
+    assert.strictEqual(report.coveragePenalty, 0, "no penalty when overall coverage = 0.5");
+});
+
+test("computeEvidenceCoverageReport applies penalty when theme_a lacks capturedMotif", () => {
+    // s1 is theme_a but has no capturedMotif → motifEvidenceCoverage = 0
+    const artifacts = [makeArtifact({ sectionId: "s1", role: "theme_a", measureCount: 4 })];
+    const plan = makePlan({
+        sections: [{ id: "s1", role: "theme_a", label: "Theme A", measures: 4, energy: 0.5, density: 0.4 }],
+    });
+    const report = computeEvidenceCoverageReport(artifacts, plan);
+    assert.ok(report.motifEvidenceCoverage < 0.5, `Expected motif < 0.5, got ${report.motifEvidenceCoverage}`);
+    assert.ok(report.overallCoverage < 0.5, `Expected overall < 0.5, got ${report.overallCoverage}`);
+    assert.ok(report.coveragePenalty > 0, `Expected penalty > 0, got ${report.coveragePenalty}`);
+});
+
+test("computeCraftScoreSummary populates all four evidence coverage fields", () => {
+    const plan = makePlan();
+    const summary = computeCraftScoreSummary(
+        [
+            makeArtifact({ sectionId: "s1", role: "theme_a", measureCount: 4, capturedMotif: [0, 2, -1] }),
+            makeArtifact({ sectionId: "s2", role: "development", measureCount: 4 }),
+            makeArtifact({ sectionId: "s3", role: "recap", measureCount: 4 }),
+        ],
+        plan,
+        makeEvaluation(),
+    );
+    for (const key of ["phraseEvidenceCoverage", "harmonyEvidenceCoverage", "motifEvidenceCoverage", "evidenceCoverageScore"]) {
+        assert.ok(
+            typeof summary[key] === "number" && summary[key] >= 0 && summary[key] <= 1,
+            `${key} should be 0-1, got ${summary[key]}`,
+        );
+    }
+});
+
+test("scoreStructureEvaluationForCandidateSelection applies evidenceCoveragePenalty for low coverage", () => {
+    const baseCraft = {
+        syntaxValidity: 1,
+        sectionContractFit: 0.8,
+        cadenceStrength: 0.8,
+        tonalReturn: 0.8,
+        motifSurvival: 0.8,
+        voiceIndependence: 0.8,
+        phraseShape: 0.8,
+        registerIdiomaticFit: 0.8,
+        finalCraftScore: 0.8,
+    };
+    const goodCoverage = makeEvaluation({
+        passed: true,
+        craftScoreSummary: { ...baseCraft, evidenceCoverageScore: 0.9 },
+    });
+    const poorCoverage = makeEvaluation({
+        passed: true,
+        craftScoreSummary: { ...baseCraft, evidenceCoverageScore: 0.1 },
+    });
+    const scoreGood = scoreStructureEvaluationForCandidateSelection(goodCoverage);
+    const scorePoor = scoreStructureEvaluationForCandidateSelection(poorCoverage);
+    assert.ok(
+        scoreGood > scorePoor,
+        `Good coverage (${scoreGood}) should beat poor coverage (${scorePoor})`,
+    );
+});

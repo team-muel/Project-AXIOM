@@ -33,12 +33,12 @@ const { buildLearnedSymbolicWorkerPayload } = await import("../dist/composer/lea
 const { buildLearnedNotagenProviderRequest, buildRewriteBlock } = await import(
     "../dist/composer/learnedNotagenAdapter.js"
 );
-const { buildLearnedLocalizedRewriteSpec } = await import("../dist/pipeline/quality.js");
+const { buildLearnedLocalizedRewriteSpec } = await import("../dist/core/evaluate/quality.js");
 const {
     computeCraftScoreSummary,
     computeVoiceIndependence,
     computeCadenceStrength,
-} = await import("../dist/pipeline/craftScoring.js");
+} = await import("../dist/core/evaluate/craftScoring.js");
 
 /** @type {import("../dist/pipeline/types.js").ModelBinding[]} */
 const LEARNED_MODELS = [

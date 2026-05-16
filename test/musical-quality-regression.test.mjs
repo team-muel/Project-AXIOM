@@ -812,6 +812,7 @@ test("integration: computeCraftScoreSummary includes voiceLeadingScore and tonic
             textureIndependentMotionRate: 0.5,
             melodyEvents: [60,62,64,65,67,69,71,72].map(p => note(p, 0.5)),
             cadenceApproach: "dominant",
+            capturedMotif: [0, 2, -1],   // motifEvidenceCoverage = 1 → overall ≥ 0.5 → no penalty
         }),
         makeSection("s2", "development", {
             noteHistory: [62,64,67,69,71],
@@ -913,7 +914,7 @@ test("integration: computeCraftScoreSummary includes planAwareHarmonyGrammarScor
     assert.ok(summary.planAwareMotifDevelopmentScore >= 0 && summary.planAwareMotifDevelopmentScore <= 1,
         `planAwareMotifDevelopmentScore out of range: ${summary.planAwareMotifDevelopmentScore}`);
 
-    // finalCraftScore still uses only the 8 weighted dimensions
+    // finalCraftScore must NOT include supplementary fields (grammar scores, coverage penalty can only reduce it)
     const expectedFinal = Number((
         0.15 * summary.sectionContractFit
         + 0.15 * summary.cadenceStrength
@@ -924,10 +925,13 @@ test("integration: computeCraftScoreSummary includes planAwareHarmonyGrammarScor
         + 0.10 * summary.registerIdiomaticFit
         + 0.05 * summary.syntaxValidity
     ).toFixed(4));
-    assert.strictEqual(
-        summary.finalCraftScore,
-        expectedFinal,
-        `finalCraftScore must stay at 8-dim formula: expected ${expectedFinal}, got ${summary.finalCraftScore}`,
+    assert.ok(
+        summary.finalCraftScore <= expectedFinal,
+        `finalCraftScore must not exceed 8-dim formula: expected ≤ ${expectedFinal}, got ${summary.finalCraftScore}`,
+    );
+    assert.ok(
+        summary.finalCraftScore >= 0,
+        `finalCraftScore must be non-negative, got ${summary.finalCraftScore}`,
     );
 });
 

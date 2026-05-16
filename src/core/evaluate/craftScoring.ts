@@ -11,6 +11,7 @@ import type {
 import { computePhraseGrammarScoreSummary } from "./phraseGrammarScoring.js";
 import { computeHarmonyGrammarScoreSummary } from "./harmonyGrammarScoring.js";
 import { computeMotifDevelopmentScoreSummary } from "./motifDevelopmentScoring.js";
+import { computeEvidenceCoverageReport } from "./evidenceCoverage.js";
 
 // craftScoring.ts — role boundary
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1156,7 +1157,7 @@ export function computeCraftScoreSummary(
     const phraseShape = phraseResult.score;
     const registerIdiomaticFit = registerResult.score;
 
-    const finalCraftScore = Number(
+    const finalCraftScoreRaw = Number(
         (
             0.15 * sectionContractFit
             + 0.15 * cadenceStrength
@@ -1167,6 +1168,16 @@ export function computeCraftScoreSummary(
             + 0.10 * registerIdiomaticFit
             + 0.05 * syntaxValidity
         ).toFixed(4),
+    );
+
+    // ── Evidence coverage ─────────────────────────────────────────────────────
+    // Compute how much observable evidence the generator produced for each
+    // grammar domain.  When coverage is low (< 0.5) the neutral-fallback
+    // scores in grammar evaluators pass unchallenged; we apply a small but
+    // visible penalty to push the generator toward producing richer artifacts.
+    const coverageReport = computeEvidenceCoverageReport(sectionArtifacts, plan);
+    const finalCraftScore = Number(
+        clamp01(finalCraftScoreRaw - coverageReport.coveragePenalty).toFixed(4),
     );
 
     const dimensionNotes: Record<string, string> = {};
@@ -1222,5 +1233,9 @@ export function computeCraftScoreSummary(
         planAwarePhraseGrammarScore:      Number(planPhraseGrammarResult.score.toFixed(4)),
         planAwareHarmonyGrammarScore:     Number(planHarmonyGrammarResult.score.toFixed(4)),
         planAwareMotifDevelopmentScore:   Number(planMotifDevResult.score.toFixed(4)),
+        phraseEvidenceCoverage:           Number(coverageReport.phraseEvidenceCoverage.toFixed(4)),
+        harmonyEvidenceCoverage:          Number(coverageReport.harmonyEvidenceCoverage.toFixed(4)),
+        motifEvidenceCoverage:            Number(coverageReport.motifEvidenceCoverage.toFixed(4)),
+        evidenceCoverageScore:            Number(coverageReport.overallCoverage.toFixed(4)),
     };
 }

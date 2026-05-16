@@ -103,6 +103,20 @@ export interface CraftScoreSummary {
     planAwareHarmonyGrammarScore?: number;
     /** Per-section MotifDevelopmentPlan-aware transformation quality; rewards sequence/fragmentation/inversion diversity (0–1) */
     planAwareMotifDevelopmentScore?: number;
+
+    // ── Evidence coverage metrics ─────────────────────────────────────────────
+    // Measure whether the artifact produced enough observable evidence for each
+    // grammar domain to be scored meaningfully (rather than silently returning
+    // neutral 0.5 fallbacks).  Low coverage triggers a finalCraftScore penalty.
+
+    /** Fraction of expected phrase evidence (phrasePeaks, cadenceApproach, phraseFunction, measureCount) present (0–1) */
+    phraseEvidenceCoverage?: number;
+    /** Fraction of expected harmony evidence (harmonicColorCues, harmonicRealizationSummary, cadenceApproach, tonicizationWindows when planned) present (0–1) */
+    harmonyEvidenceCoverage?: number;
+    /** Fraction of expected motif evidence (capturedMotif, transform artifact, plan entries) present (0–1) */
+    motifEvidenceCoverage?: number;
+    /** Average of the three domain coverage scores (0–1); below 0.5 triggers a finalCraftScore penalty */
+    evidenceCoverageScore?: number;
 }
 
 // ─── Piano-specific craft scoring ────────────────────────────────────────────
