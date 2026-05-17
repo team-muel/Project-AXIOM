@@ -57,3 +57,4 @@ import "./harmony-grammar.test.mjs";
 import "./motif-development.test.mjs";
 import "./piano-listenability.test.mjs";
 import "./scoring-profile.test.mjs";
+import "./evidence-coverage.test.mjs";

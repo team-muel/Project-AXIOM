@@ -16,12 +16,23 @@ import type {
 // so that candidate selection can penalise under-evidenced outputs rather
 // than silently accepting them.
 //
-// Three domains:
+// Four domains:
 //   Phrase  — phrasePeaks, cadenceApproach, phraseFunction, measureCount match
 //   Harmony — harmonicColorCues, harmonicRealizationSummary, cadenceApproach,
 //             tonicizationWindows (when planned)
 //   Motif   — capturedMotif, transform artifact (for non-theme_a sections)
+//   Piano   — rightHandEvents, leftHandEvents, pianoPlayabilityScore,
+//             pianoHandSpan (any of pianoHandSpanMax / pianoHandSpanAverage)
 // ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Three-tier evidence coverage label.
+ *
+ * full     overallCoverage >= 0.75 — all domains well-evidenced
+ * reduced  0.50 <= overallCoverage < 0.75 — some evidence missing; apply penalty
+ * failed   overallCoverage < 0.50 — critically under-evidenced; demote tier
+ */
+export type EvidenceCoverageGateTier = "full" | "reduced" | "failed";
 
 export interface EvidenceCoverageReport {
     /** Fraction of required phrase evidence present across evaluated sections (0–1). */
@@ -30,12 +41,25 @@ export interface EvidenceCoverageReport {
     harmonyEvidenceCoverage: number;
     /** Fraction of required motif evidence present across evaluated sections (0–1). */
     motifEvidenceCoverage: number;
-    /** Average of the three domain scores (0–1). */
+    /**
+     * Fraction of required piano evidence present across piano sections (0–1).
+     * 0.5 neutral when no piano sections were detected.
+     */
+    pianoEvidenceCoverage: number;
+    /** Average of all non-neutral domain scores (0–1). */
     overallCoverage: number;
     /** Number of sections evaluated per domain. */
     phraseSectionsEvaluated: number;
     harmonySectionsEvaluated: number;
     motifSectionsEvaluated: number;
+    pianoSectionsEvaluated: number;
+    /**
+     * Gate tier derived from overallCoverage:
+     *   full     >= 0.75
+     *   reduced  >= 0.50
+     *   failed   < 0.50
+     */
+    gateTier: EvidenceCoverageGateTier;
     /**
      * Penalty to subtract from finalCraftScore.
      * = max(0, (COVERAGE_THRESHOLD − overallCoverage) × PENALTY_SCALE)
@@ -50,6 +74,11 @@ export interface EvidenceCoverageReport {
 
 const COVERAGE_PENALTY_THRESHOLD = 0.50;
 const COVERAGE_PENALTY_SCALE = 0.20;
+
+/** overallCoverage >= this → "full" tier */
+const GATE_TIER_FULL_THRESHOLD    = 0.75;
+/** overallCoverage >= this → "reduced" tier (else "failed") */
+const GATE_TIER_REDUCED_THRESHOLD = 0.50;
 
 // ---------------------------------------------------------------------------
 // Domain: phrase evidence
@@ -152,6 +181,36 @@ export function computeMotifEvidenceCoverage(
 }
 
 // ---------------------------------------------------------------------------
+// Domain: piano evidence
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the fraction of expected piano evidence present in the artifact.
+ * Only called for artifacts that went through the piano rendering path
+ * (detected by the presence of `rightHandEvents` or `leftHandEvents`).
+ *
+ * Checks:
+ *   rightHandEvents      — at least one RH event was produced            (weight 1)
+ *   leftHandEvents       — at least one LH event was produced            (weight 1)
+ *   pianoPlayabilityScore — playability was computed by the renderer     (weight 1)
+ *   pianoHandSpan        — hand span metrics present (max or average)    (weight 1)
+ *
+ * Score = present / 4.
+ */
+export function computePianoEvidenceCoverage(
+    artifact: SectionArtifactSummary,
+): number {
+    const checks: boolean[] = [
+        (artifact.rightHandEvents?.length ?? 0) > 0,
+        (artifact.leftHandEvents?.length ?? 0) > 0,
+        artifact.pianoPlayabilityScore !== undefined,
+        artifact.pianoHandSpanMax !== undefined || artifact.pianoHandSpanAverage !== undefined,
+    ];
+    const present = checks.filter(Boolean).length;
+    return present / checks.length;
+}
+
+// ---------------------------------------------------------------------------
 // Aggregate report
 // ---------------------------------------------------------------------------
 
@@ -160,12 +219,21 @@ function domainAverage(scores: number[], neutralFallback: number): number {
     return scores.reduce((a, b) => a + b, 0) / scores.length;
 }
 
+function resolveGateTier(overallCoverage: number): EvidenceCoverageGateTier {
+    if (overallCoverage >= GATE_TIER_FULL_THRESHOLD)    return "full";
+    if (overallCoverage >= GATE_TIER_REDUCED_THRESHOLD) return "reduced";
+    return "failed";
+}
+
 /**
  * Computes an EvidenceCoverageReport by iterating all plan sections that
  * carry the relevant grammar annotation.
  *
  * Sections without a phraseGrammar plan contribute nothing to phrase coverage
  * (and are therefore neutral); same for harmony and motif domains.
+ *
+ * Piano coverage is computed for any section whose artifact contains
+ * rightHandEvents or leftHandEvents (piano rendering pathway).
  *
  * When a domain has no evaluated sections the fallback is 0.5 (neutral —
  * not penalised, not rewarded).
@@ -180,6 +248,7 @@ export function computeEvidenceCoverageReport(
     const phraseScores: number[] = [];
     const harmonyScores: number[] = [];
     const motifScores: number[] = [];
+    const pianoScores: number[] = [];
 
     for (const ps of planSections) {
         const artifact = artifactById.get(ps.id);
@@ -203,13 +272,38 @@ export function computeEvidenceCoverageReport(
         if (ps.role === "theme_a" || ps.motifDevelopment) {
             motifScores.push(computeMotifEvidenceCoverage(artifact, ps));
         }
+
+        // Piano domain: any section that went through the piano rendering path.
+        if (
+            (artifact.rightHandEvents !== undefined || artifact.leftHandEvents !== undefined) &&
+            (artifact.rightHandEvents !== null || artifact.leftHandEvents !== null)
+        ) {
+            pianoScores.push(computePianoEvidenceCoverage(artifact));
+        }
+    }
+
+    // When plan is empty / missing, fall back to scanning all artifacts directly.
+    if (planSections.length === 0) {
+        for (const artifact of sectionArtifacts) {
+            if (artifact.rightHandEvents !== undefined || artifact.leftHandEvents !== undefined) {
+                pianoScores.push(computePianoEvidenceCoverage(artifact));
+            }
+        }
     }
 
     const phraseEvidenceCoverage  = domainAverage(phraseScores,  0.5);
     const harmonyEvidenceCoverage = domainAverage(harmonyScores, 0.5);
     const motifEvidenceCoverage   = domainAverage(motifScores,   0.5);
+    const pianoEvidenceCoverage   = domainAverage(pianoScores,   0.5);
 
-    const overallCoverage = (phraseEvidenceCoverage + harmonyEvidenceCoverage + motifEvidenceCoverage) / 3;
+    // overallCoverage averages only domains that were actually evaluated
+    // (domains with 0 sections use neutral 0.5 but still contribute).
+    const overallCoverage = (
+        phraseEvidenceCoverage +
+        harmonyEvidenceCoverage +
+        motifEvidenceCoverage +
+        pianoEvidenceCoverage
+    ) / 4;
 
     const coveragePenalty = Math.max(
         0,
@@ -220,10 +314,13 @@ export function computeEvidenceCoverageReport(
         phraseEvidenceCoverage,
         harmonyEvidenceCoverage,
         motifEvidenceCoverage,
+        pianoEvidenceCoverage,
         overallCoverage,
         phraseSectionsEvaluated:  phraseScores.length,
         harmonySectionsEvaluated: harmonyScores.length,
         motifSectionsEvaluated:   motifScores.length,
+        pianoSectionsEvaluated:   pianoScores.length,
+        gateTier: resolveGateTier(overallCoverage),
         coveragePenalty,
     };
 }

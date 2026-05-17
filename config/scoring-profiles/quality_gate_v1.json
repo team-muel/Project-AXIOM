@@ -1,0 +1,11 @@
+{
+  "profile": "quality_gate_v1",
+  "status": "experimental",
+  "description": "Default quality gate thresholds for candidate filtering. Each threshold is an independent minimum — not weights that sum to 1.",
+  "thresholds": {
+    "syntaxValidityMin": 0.90,
+    "sectionContractFitMin": 0.75,
+    "pianoPlayabilityMin": 0.50,
+    "finalCraftScoreMin": 0.65
+  }
+}

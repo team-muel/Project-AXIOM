@@ -6,6 +6,7 @@
  *   2. loadScoringProfile reads + validates a JSON file on disk.
  *   3. Passing a custom profile to computeCraftScoreSummary changes the formula output.
  *   4. Passing a custom profile to computePianoListenabilityScore stamps the profile name.
+ *   5. QUALITY_GATE_V1 built-in + loadQualityGateConfig + wiring into gates.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -18,11 +19,16 @@ const ROOT = path.resolve(__dirname, "..");
 import {
     CLASSICAL_DEFAULT_V1,
     PIANO_LISTENABILITY_V1,
+    QUALITY_GATE_V1,
     validateProfileWeights,
+    validateQualityGateConfig,
     loadScoringProfile,
+    loadQualityGateConfig,
 } from "../dist/core/evaluate/scoringProfile.js";
 import { computeCraftScoreSummary } from "../dist/core/evaluate/craftScoring.js";
 import { computePianoListenabilityScore } from "../dist/core/evaluate/pianoCraftScoring.js";
+import { craftScorePassesHardFilter } from "../dist/core/generate/preferenceModel.js";
+import { pianoPlayabilityGate } from "../dist/core/evaluate/pianoCraftScoring.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -139,4 +145,82 @@ test("SP-09: computePianoListenabilityScore with custom profile stamps custom na
     const arts = [makeSectionArtifact()];
     const result = computePianoListenabilityScore(arts, undefined, customProfile);
     assert.equal(result.scoringProfile, "piano_melody_heavy_v2");
+});
+
+// ─── Quality gate config ──────────────────────────────────────────────────────
+
+test("SP-10: QUALITY_GATE_V1 has all required threshold fields in [0,1]", () => {
+    const t = QUALITY_GATE_V1.thresholds;
+    assert.ok(typeof t.syntaxValidityMin === "number");
+    assert.ok(typeof t.sectionContractFitMin === "number");
+    assert.ok(typeof t.pianoPlayabilityMin === "number");
+    assert.ok(typeof t.finalCraftScoreMin === "number");
+    for (const [k, v] of Object.entries(t)) {
+        assert.ok(v >= 0 && v <= 1, `threshold "${k}" = ${v} not in [0,1]`);
+    }
+});
+
+test("SP-11: loadQualityGateConfig reads quality_gate_v1.json correctly", () => {
+    const cfg = loadQualityGateConfig(
+        path.join(ROOT, "config/scoring-profiles/quality_gate_v1.json"),
+    );
+    assert.equal(cfg.profile, "quality_gate_v1");
+    assert.deepEqual(cfg.thresholds, QUALITY_GATE_V1.thresholds);
+});
+
+test("SP-12: validateQualityGateConfig throws when a threshold is out of [0,1]", () => {
+    const bad = {
+        profile: "bad_gate_v0",
+        status: "experimental",
+        thresholds: { syntaxValidityMin: 1.5 },
+    };
+    assert.throws(() => validateQualityGateConfig(bad), /out of \[0, 1\]/);
+});
+
+test("SP-13: craftScorePassesHardFilter uses qualityGate thresholds when supplied", () => {
+    // Craft score with syntaxValidity = 0.80 passes the built-in floor (0.25)
+    // but fails if the gate raises it to 0.90.
+    const craft = {
+        finalCraftScore: 0.70,
+        syntaxValidity: 0.80,
+        sectionContractFit: 0.80,
+        cadenceStrength: 0.7, tonalReturn: 0.7, motifSurvival: 0.7,
+        voiceIndependence: 0.7, phraseShape: 0.7, registerIdiomaticFit: 0.7,
+        advancedCraftScore: 0.7, dimensionNotes: [],
+    };
+
+    // Without gate: passes (built-in syntaxValidity floor = 0.25)
+    assert.ok(craftScorePassesHardFilter(craft));
+
+    // With QUALITY_GATE_V1 (syntaxValidityMin = 0.90): fails
+    const reasons = [];
+    assert.ok(!craftScorePassesHardFilter(craft, reasons, QUALITY_GATE_V1));
+    assert.ok(reasons.some((r) => r.includes("syntaxValidity")));
+});
+
+test("SP-14: pianoPlayabilityGate uses qualityGate.pianoPlayabilityMin when supplied", () => {
+    // Artifact with pianoPlayabilityScore = 0.60 — passes built-in 0.50, but
+    // fails a custom gate that raises the bar to 0.70.
+    const artifacts = [
+        { sectionId: "s1", role: "theme_a", pianoPlayabilityScore: 0.60 },
+    ];
+
+    const highGate = {
+        profile: "strict_piano_v0",
+        status: "experimental",
+        thresholds: {
+            syntaxValidityMin: 0.90,
+            sectionContractFitMin: 0.75,
+            pianoPlayabilityMin: 0.70,
+            finalCraftScoreMin: 0.65,
+        },
+    };
+
+    // Without gate: passes (default 0.50)
+    assert.ok(pianoPlayabilityGate(artifacts).passed);
+
+    // With strict gate: fails (0.60 < 0.70)
+    const result = pianoPlayabilityGate(artifacts, undefined, highGate);
+    assert.ok(!result.passed);
+    assert.ok(result.reason?.includes("0.600 < threshold 0.700"));
 });

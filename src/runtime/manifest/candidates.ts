@@ -18,6 +18,7 @@ import type {
     SongMeta,
     StructureEvaluationReport,
 } from "../../core/pipeline/types.js";
+import type { CandidateScoringProfiles } from "../../core/evaluate/scoringProfile.js";
 
 export interface StructureCandidateIndexEntry {
     candidateId: string;
@@ -105,6 +106,12 @@ export interface StructureCandidateManifest {
      * exportPianoPreferenceDataset().
      */
     pianoEvidence?: PianoDataLoopEvidence;
+    /**
+     * Scoring and quality gate profiles used when this candidate was evaluated.
+     * Stored so any selection decision can be reproduced exactly — e.g.
+     * "this candidate was chosen under classical_default_v1 + quality_gate_v1".
+     */
+    scoringProfiles?: CandidateScoringProfiles;
     artifacts: {
         midi?: string;
         sectionArtifacts?: string;
@@ -194,6 +201,11 @@ export interface SaveStructureCandidateSnapshotInput {
      * re-reading section artifacts.
      */
     pianoEvidence?: PianoDataLoopEvidence;
+    /**
+     * Scoring and quality gate profiles used during evaluation.
+     * When supplied, stored verbatim in the candidate manifest for reproducibility.
+     */
+    scoringProfiles?: CandidateScoringProfiles;
 }
 
 function cloneJson<T>(value: T): T {
@@ -344,6 +356,7 @@ export function saveStructureCandidateSnapshot(input: SaveStructureCandidateSnap
             : {}),
         ...(input.pianoCraftScore ? { pianoCraftScore: cloneJson(input.pianoCraftScore) } : {}),
         ...(input.pianoEvidence ? { pianoEvidence: cloneJson(input.pianoEvidence) } : {}),
+        ...(input.scoringProfiles ? { scoringProfiles: cloneJson(input.scoringProfiles) } : {}),
         artifacts: {
             midi: input.midiData?.length ? candidateMidiFilePath : undefined,
             sectionArtifacts: input.sectionArtifacts?.length ? candidateSectionArtifactsPath : undefined,

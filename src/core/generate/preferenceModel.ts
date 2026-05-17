@@ -40,6 +40,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { config } from "../../config.js";
 import type { CraftScoreSummary, PianoCraftScoreSummary } from "../pipeline/types.js";
+import { QUALITY_GATE_V1, type QualityGateConfig } from "../evaluate/scoringProfile.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -443,13 +444,28 @@ export function computeRerankerScore(
  *
  * A candidate fails if ANY of the threshold dimensions falls below its floor.
  * The failure reason is written into `failReasons` when provided.
+ *
+ * When a `QualityGateConfig` is supplied its thresholds override the built-in
+ * `CRAFT_HARD_FILTER_THRESHOLDS` constants for the overlapping dimensions
+ * (`syntaxValidityMin` → `syntaxValidity`, `sectionContractFitMin` →
+ * `sectionContractFit`, `finalCraftScoreMin` → `finalCraftScore`).
  */
 export function craftScorePassesHardFilter(
     craft: CraftScoreSummary,
     failReasons?: string[],
+    qualityGate?: QualityGateConfig,
 ): boolean {
+    // Build effective thresholds: start from built-in, then overlay gate config.
+    const effectiveThresholds: Record<string, number> = { ...CRAFT_HARD_FILTER_THRESHOLDS };
+    if (qualityGate) {
+        const t = qualityGate.thresholds;
+        if (t.syntaxValidityMin    !== undefined) effectiveThresholds["syntaxValidity"]    = t.syntaxValidityMin;
+        if (t.sectionContractFitMin !== undefined) effectiveThresholds["sectionContractFit"] = t.sectionContractFitMin;
+        if (t.finalCraftScoreMin   !== undefined) effectiveThresholds["finalCraftScore"]   = t.finalCraftScoreMin;
+    }
+
     let passes = true;
-    for (const [dim, threshold] of Object.entries(CRAFT_HARD_FILTER_THRESHOLDS)) {
+    for (const [dim, threshold] of Object.entries(effectiveThresholds)) {
         const value = (craft as unknown as Record<string, unknown>)[dim];
         if (typeof value === "number" && value < threshold) {
             failReasons?.push(`${dim}=${value.toFixed(3)} < floor ${threshold}`);

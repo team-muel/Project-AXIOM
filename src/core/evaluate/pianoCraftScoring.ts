@@ -9,7 +9,9 @@ import type {
 import { evaluatePianoVoiceLayout } from "./pianoEvaluation.js";
 import {
     PIANO_LISTENABILITY_V1,
+    QUALITY_GATE_V1,
     type PianoListenabilityScoringProfile,
+    type QualityGateConfig,
 } from "./scoringProfile.js";
 
 // pianoCraftScoring.ts — Piano-specific craft evaluator
@@ -507,11 +509,14 @@ export interface PianoPlayabilityGateResult {
 /**
  * Gate 3: Piano playability hard gate.
  *
- * A piano candidate whose pianoPlayabilityScore falls below `threshold` is
+ * A piano candidate whose pianoPlayabilityScore falls below the threshold is
  * unconditionally rejected regardless of melodic or harmonic quality.
  * "Sounds good in MIDI but cannot be played by human hands" must not pass.
  *
- * Default threshold: 0.50 (configurable by caller).
+ * Threshold precedence (highest wins):
+ *   1. Explicit `threshold` parameter (when not undefined)
+ *   2. `qualityGate.thresholds.pianoPlayabilityMin` (when gate supplied)
+ *   3. Built-in default from QUALITY_GATE_V1 (0.50)
  *
  * Evaluation pipeline order:
  *   Gate 1 syntaxValidity → Gate 2 sectionContractFit →
@@ -520,8 +525,12 @@ export interface PianoPlayabilityGateResult {
  */
 export function pianoPlayabilityGate(
     artifacts: SectionArtifactSummary[],
-    threshold = 0.50,
+    threshold?: number,
+    qualityGate?: QualityGateConfig,
 ): PianoPlayabilityGateResult {
+    const effectiveThreshold = threshold
+        ?? (qualityGate ?? QUALITY_GATE_V1).thresholds.pianoPlayabilityMin;
+
     // Collect pianoPlayabilityScore values across sections
     const scores = artifacts
         .map((a) => a.pianoPlayabilityScore)
@@ -537,11 +546,11 @@ export function pianoPlayabilityGate(
 
     // Worst-case: the minimum score across all sections must pass the gate
     const minScore = Math.min(...scores);
-    if (minScore < threshold) {
+    if (minScore < effectiveThreshold) {
         return {
             passed: false,
             pianoPlayabilityScore: minScore,
-            reason: `pianoPlayabilityScore ${minScore.toFixed(3)} < threshold ${threshold.toFixed(3)} — hand span unplayable`,
+            reason: `pianoPlayabilityScore ${minScore.toFixed(3)} < threshold ${effectiveThreshold.toFixed(3)} — hand span unplayable`,
         };
     }
 
@@ -560,9 +569,10 @@ export function pianoPlayabilityGate(
 export function applyPianoPlayabilityGate(
     report: StructureEvaluationReport,
     artifacts: SectionArtifactSummary[],
-    threshold = 0.50,
+    threshold?: number,
+    qualityGate?: QualityGateConfig,
 ): StructureEvaluationReport {
-    const gateResult = pianoPlayabilityGate(artifacts, threshold);
+    const gateResult = pianoPlayabilityGate(artifacts, threshold, qualityGate);
     if (gateResult.passed) return report;
 
     return {

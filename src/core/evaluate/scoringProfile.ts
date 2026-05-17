@@ -117,6 +117,99 @@ export function validateProfileWeights<W extends Record<string, number>>(
     }
 }
 
+// ─── Quality gate config ──────────────────────────────────────────────────────
+
+/**
+ * Per-dimension minimum thresholds used as candidate quality gates.
+ * Unlike scoring weights these do NOT sum to 1 — each is an independent floor.
+ *
+ * Naming convention: `<dimension>Min` to distinguish from score-weight keys.
+ */
+export interface QualityGateThresholds {
+    [key: string]: number;
+    /** Minimum syntaxValidity score for a candidate to pass the gate. */
+    syntaxValidityMin: number;
+    /** Minimum sectionContractFit score. */
+    sectionContractFitMin: number;
+    /** Minimum pianoPlayabilityScore — applied by pianoPlayabilityGate(). */
+    pianoPlayabilityMin: number;
+    /** Minimum finalCraftScore for the overall gate. */
+    finalCraftScoreMin: number;
+}
+
+/**
+ * Versioned quality gate configuration.
+ * Uses `thresholds` (not `weights`) to avoid confusion with scoring profiles.
+ */
+export interface QualityGateConfig {
+    /** Unique, versioned identifier (e.g. "quality_gate_v1"). */
+    profile: string;
+    /** Lifecycle status. */
+    status: ScoringProfileStatus;
+    /** Human-readable description. */
+    description?: string;
+    /** Per-dimension minimum thresholds. */
+    thresholds: QualityGateThresholds;
+}
+
+/** Built-in default — mirrors `config/scoring-profiles/quality_gate_v1.json`. */
+export const QUALITY_GATE_V1: QualityGateConfig = {
+    profile: "quality_gate_v1",
+    status: "experimental",
+    description: "Default quality gate thresholds for candidate filtering.",
+    thresholds: {
+        syntaxValidityMin:    0.90,
+        sectionContractFitMin: 0.75,
+        pianoPlayabilityMin:  0.50,
+        finalCraftScoreMin:   0.65,
+    },
+};
+
+/**
+ * Validates that all threshold values in a QualityGateConfig are in [0, 1].
+ * Throws if any value is out of range.
+ */
+export function validateQualityGateConfig(config: QualityGateConfig): void {
+    for (const [key, value] of Object.entries(config.thresholds)) {
+        if (value < 0 || value > 1) {
+            throw new Error(
+                `QualityGateConfig "${config.profile}": threshold "${key}" = ${value} is out of [0, 1]`,
+            );
+        }
+    }
+}
+
+/**
+ * Loads and validates a quality gate config from a JSON file on disk.
+ * Throws on missing file, parse error, or invalid threshold values.
+ */
+export function loadQualityGateConfig(filePath: string): QualityGateConfig {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const parsed = JSON.parse(raw) as QualityGateConfig;
+    if (!parsed.profile || typeof parsed.thresholds !== "object") {
+        throw new Error(
+            `Invalid quality gate config at "${filePath}": missing "profile" or "thresholds" field`,
+        );
+    }
+    validateQualityGateConfig(parsed);
+    return parsed;
+}
+
+// ─── Candidate scoring profile record ────────────────────────────────────────
+
+/**
+ * Profiles used when evaluating and selecting a specific candidate.
+ * Stored in candidate manifests so any selection decision can be reproduced.
+ */
+export interface CandidateScoringProfiles {
+    /** finalCraftScore weight profile name (e.g. "classical_default_v1"). */
+    scoringProfile?: string;
+    /** pianoListenabilityScore weight profile name (e.g. "piano_listenability_v1"). */
+    pianoProfile?: string;
+    /** Quality gate threshold profile name (e.g. "quality_gate_v1"). */
+    qualityGateProfile?: string;
+}
+
 // ─── File loader ──────────────────────────────────────────────────────────────
 
 /**
