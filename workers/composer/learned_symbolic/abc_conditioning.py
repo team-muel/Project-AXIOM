@@ -97,14 +97,9 @@ def _parse_section_lines(control_lines: list[str]) -> list[dict[str, str]]:
 def build_abc_header(context: ProviderPromptPackingContext) -> str:
     """Build a deterministic ABC header from an AXIOM provider packing context.
 
-    Produces standard ABC fields (X:, T:, M:, L:, Q:, K:), followed by all
-    non-section controlLines preserved verbatim as ``%% <line>`` comment lines,
-    followed by ``%% axiom_section`` comment lines (one per composition section).
-
-    Preserving the control lines as ``%%`` comments lets downstream engines
-    (e.g. ``notagen_native._axiom_header_to_notagen_prompt``) read back
-    ``instrumentation=``, ``form=``, ``key=``, etc. without losing AXIOM's
-    structural plan.
+    Produces standard ABC fields (X:, T:, M:, L:, Q:, K:) followed by
+    %% axiom_section comment lines, one per composition section.  Suitable
+    for prefixing a NotaGen-class model's ABC generation prompt.
 
     Returns a multi-line string ending with a newline.
     """
@@ -117,29 +112,15 @@ def build_abc_header(context: ProviderPromptPackingContext) -> str:
     title = _parse_title(text)
     sections = _parse_section_lines(lines)
 
-    # Use meter= from control lines; fall back to parsing conditioningText, then 4/4.
-    meter = _find_control_value(lines, "meter=") or ""
-    if not meter:
-        m = re.search(r"\b(\d+/\d+)\b", text)
-        meter = m.group(1) if m else "4/4"
-
     header: list[str] = [
         "X:1",
         f"T:{title}",
         f"C:AXIOM plan_signature={plan_sig}",
-        f"M:{meter}",
+        "M:4/4",
         "L:1/8",
         f"Q:1/4={tempo}",
         f"K:{abc_key}",
     ]
-
-    # Preserve all non-section control lines as %% comments so downstream
-    # engines can recover instrumentation, form, key, period, etc.
-    # plan_signature is already encoded in C: above; skip it here.
-    _SKIP_PREFIXES = ("section ", "plan_signature=")
-    for line in lines:
-        if not any(line.startswith(pfx) for pfx in _SKIP_PREFIXES):
-            header.append(f"%% {line}")
 
     for sec in sections:
         parts: list[str] = [

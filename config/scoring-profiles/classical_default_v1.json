@@ -1,0 +1,15 @@
+{
+  "profile": "classical_default_v1",
+  "status": "experimental",
+  "description": "Default craft scoring weights for classical string-trio form. Hard gate in finalCraftScore; shortlist ranking uses advancedCraftScore in addition.",
+  "weights": {
+    "sectionContractFit":   0.15,
+    "cadenceStrength":      0.15,
+    "tonalReturn":          0.15,
+    "motifSurvival":        0.15,
+    "voiceIndependence":    0.15,
+    "phraseShape":          0.10,
+    "registerIdiomaticFit": 0.10,
+    "syntaxValidity":       0.05
+  }
+}

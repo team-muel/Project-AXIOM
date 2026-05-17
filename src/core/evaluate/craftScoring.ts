@@ -13,6 +13,10 @@ import { computeHarmonyGrammarScoreSummary } from "./harmonyGrammarScoring.js";
 import { computeMotifDevelopmentScoreSummary } from "./motifDevelopmentScoring.js";
 import { computeEvidenceCoverageReport } from "./evidenceCoverage.js";
 import { checkHarmonyRealizationContract } from "./harmonyRealizationContract.js";
+import {
+    CLASSICAL_DEFAULT_V1,
+    type CraftScoringProfile,
+} from "./scoringProfile.js";
 
 // craftScoring.ts — role boundary
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1140,7 +1144,9 @@ export function computeCraftScoreSummary(
     sectionArtifacts: SectionArtifactSummary[],
     plan: CompositionPlan | undefined,
     evaluation: StructureEvaluationReport,
+    profile?: CraftScoringProfile,
 ): CraftScoreSummary {
+    const w = (profile ?? CLASSICAL_DEFAULT_V1).weights;
     const syntaxValidity = computeSyntaxValidity(sectionArtifacts, evaluation);
     const contractResult = computeSectionContractFit(sectionArtifacts, plan);
     const cadenceResult = computeCadenceStrength(sectionArtifacts);
@@ -1160,14 +1166,14 @@ export function computeCraftScoreSummary(
 
     const finalCraftScoreRaw = Number(
         (
-            0.15 * sectionContractFit
-            + 0.15 * cadenceStrength
-            + 0.15 * tonalReturn
-            + 0.15 * motifSurvival
-            + 0.15 * voiceIndependence
-            + 0.10 * phraseShape
-            + 0.10 * registerIdiomaticFit
-            + 0.05 * syntaxValidity
+            w.sectionContractFit   * sectionContractFit
+            + w.cadenceStrength    * cadenceStrength
+            + w.tonalReturn        * tonalReturn
+            + w.motifSurvival      * motifSurvival
+            + w.voiceIndependence  * voiceIndependence
+            + w.phraseShape        * phraseShape
+            + w.registerIdiomaticFit * registerIdiomaticFit
+            + w.syntaxValidity     * syntaxValidity
         ).toFixed(4),
     );
 
@@ -1258,5 +1264,6 @@ export function computeCraftScoreSummary(
         evidenceCoverageScore:            Number(coverageReport.overallCoverage.toFixed(4)),
         harmonyContractViolations:        contractReport.requiredViolationCount,
         harmonyContractScore:             Number(contractReport.contractScore.toFixed(4)),
+        scoringProfile:                   (profile ?? CLASSICAL_DEFAULT_V1).profile,
     };
 }

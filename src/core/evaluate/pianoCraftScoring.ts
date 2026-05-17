@@ -7,6 +7,10 @@ import type {
     StructureEvaluationReport,
 } from "../pipeline/types.js";
 import { evaluatePianoVoiceLayout } from "./pianoEvaluation.js";
+import {
+    PIANO_LISTENABILITY_V1,
+    type PianoListenabilityScoringProfile,
+} from "./scoringProfile.js";
 
 // pianoCraftScoring.ts — Piano-specific craft evaluator
 // ──────────────────────────────────────────────────────────────────────────────
@@ -996,6 +1000,8 @@ export interface PianoListenabilityScoreBreakdown {
     textureFormCoherence: number;
     /** Weighted composite (0–1). */
     overall: number;
+    /** Scoring profile used (e.g. "piano_listenability_v1"). */
+    scoringProfile?: string;
 }
 
 /**
@@ -1020,9 +1026,11 @@ export interface PianoListenabilityScoreBreakdown {
 export function computePianoListenabilityScore(
     sectionArtifacts: SectionArtifactSummary[],
     layout?: PianoVoiceLayoutSummary,
+    profile?: PianoListenabilityScoringProfile,
 ): PianoListenabilityScoreBreakdown {
     const resolvedLayout =
         layout ?? sectionArtifacts.find((a) => a.pianoVoiceLayout !== undefined)?.pianoVoiceLayout;
+    const w = (profile ?? PIANO_LISTENABILITY_V1).weights;
 
     const melodyProminence        = computeMelodyProminenceScore(sectionArtifacts);
     const bassRootSupport         = computeBassRootSupportScore(sectionArtifacts);
@@ -1033,13 +1041,13 @@ export function computePianoListenabilityScore(
     const textureFormCoherence    = computeTextureFormCoherence(sectionArtifacts);
 
     const overall = clamp01(
-        0.20 * melodyProminence
-        + 0.18 * bassRootSupport
-        + 0.16 * accompanimentConsistency
-        + 0.15 * registerSpacing
-        + 0.10 * phraseLevelVoicing
-        + 0.12 * pedalBlurRisk
-        + 0.09 * textureFormCoherence,
+        w.melodyProminence         * melodyProminence
+        + w.bassRootSupport        * bassRootSupport
+        + w.accompanimentConsistency * accompanimentConsistency
+        + w.registerSpacing        * registerSpacing
+        + w.phraseLevelVoicing     * phraseLevelVoicing
+        + w.pedalBlurRisk          * pedalBlurRisk
+        + w.textureFormCoherence   * textureFormCoherence,
     );
 
     return {
@@ -1051,5 +1059,6 @@ export function computePianoListenabilityScore(
         pedalBlurRisk:            Number(pedalBlurRisk.toFixed(4)),
         textureFormCoherence:     Number(textureFormCoherence.toFixed(4)),
         overall:                  Number(overall.toFixed(4)),
+        scoringProfile:           (profile ?? PIANO_LISTENABILITY_V1).profile,
     };
 }

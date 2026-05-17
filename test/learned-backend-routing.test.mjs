@@ -3,12 +3,12 @@
  * Learned symbolic backend routing tests — Phase A.
  *
  * Verifies that:
- *   1. Default (no LEARNED_SYMBOLIC_BACKEND) uses template backend and succeeds.
- *   2. LEARNED_SYMBOLIC_BACKEND=template succeeds (explicit template backend).
- *   3. LEARNED_SYMBOLIC_BACKEND=notagen_local returns ok:false with a clear error
- *      (no model available in CI — explicit failure, NOT silent fallback).
- *   4. Worker never returns proposalCandidatePool — TS orchestrator owns the candidate pool.
- *   5. notagen_mock sets generationMode=mock_notagen_abc and warns mock_backend_not_for_quality_eval.
+ *   1. Default (no AXIOM_LEARNED_BACKEND) uses template backend and succeeds.
+ *   2. AXIOM_LEARNED_BACKEND=template succeeds (explicit template backend).
+ *   3. AXIOM_LEARNED_BACKEND=notagen returns ok:false with a clear error
+ *      (no checkpoint available in CI — explicit failure, NOT silent fallback).
+ *   4. candidateCount=2 produces a proposalCandidatePool with 2 entries.
+ *   5. candidateCount=1 (default) does NOT include proposalCandidatePool.
  *   6. Malformed providerRequest (missing required fields) returns validation error.
  */
 import test from "node:test";
@@ -161,12 +161,12 @@ test("backend-routing: default (no env var) uses mock and succeeds", async (t) =
     }
 });
 
-test("backend-routing: LEARNED_SYMBOLIC_BACKEND=template produces valid output", async (t) => {
+test("backend-routing: AXIOM_LEARNED_BACKEND=template produces valid output", async (t) => {
     if (!pythonBin) { t.skip("No Python binary available"); return; }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
     try {
         const result = runLearnedWorker(buildMinimalPayload(tmpDir), {
-            LEARNED_SYMBOLIC_BACKEND: "template",
+            AXIOM_LEARNED_BACKEND: "template",
         });
         assert.equal(result.ok, true, "explicit template should succeed");
         assert.ok(result.proposalMidiPath, "should have proposalMidiPath");
@@ -176,89 +176,68 @@ test("backend-routing: LEARNED_SYMBOLIC_BACKEND=template produces valid output",
     }
 });
 
-test("backend-routing: LEARNED_SYMBOLIC_BACKEND=notagen_local returns ok:false when model unavailable", async (t) => {
+test("backend-routing: AXIOM_LEARNED_BACKEND=notagen returns ok:false when checkpoint unavailable", async (t) => {
     if (!pythonBin) { t.skip("No Python binary available"); return; }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
     try {
         const result = runLearnedWorker(buildMinimalPayload(tmpDir), {
-            LEARNED_SYMBOLIC_BACKEND: "notagen_local",
-            // Intentionally omit NOTAGEN_MODEL_PATH
+            AXIOM_LEARNED_BACKEND: "notagen",
+            // Intentionally omit AXIOM_NOTAGEN_CHECKPOINT_PATH
         });
-        assert.equal(result.ok, false, "notagen_local without model must return ok:false");
+        assert.equal(result.ok, false, "notagen without checkpoint must return ok:false");
         assert.ok(
             typeof result.error === "string" && result.error.length > 0,
             `expected a non-empty error string, got: ${JSON.stringify(result.error)}`
         );
         assert.ok(
             result.error.toLowerCase().includes("notagen") ||
-            result.error.toLowerCase().includes("model"),
-            `error should mention notagen or model, got: ${result.error}`
+            result.error.toLowerCase().includes("checkpoint"),
+            `error should mention notagen or checkpoint, got: ${result.error}`
         );
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 });
 
-test("backend-routing: worker never returns proposalCandidatePool (TS orchestrator owns candidate pool)", async (t) => {
+test("backend-routing: candidateCount=2 produces proposalCandidatePool with 2 entries", async (t) => {
+    if (!pythonBin) { t.skip("No Python binary available"); return; }
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
+    try {
+        const payload = { ...buildMinimalPayload(tmpDir), candidateCount: 2 };
+        const result = runLearnedWorker(payload);
+        assert.equal(result.ok, true, "candidateCount=2 should succeed");
+        assert.ok(
+            Array.isArray(result.proposalCandidatePool),
+            "should have proposalCandidatePool"
+        );
+        assert.equal(
+            result.proposalCandidatePool.length, 2,
+            "should have exactly 2 candidates"
+        );
+        for (const entry of result.proposalCandidatePool) {
+            assert.ok(typeof entry.candidateId === "string", "candidateId must be a string");
+            assert.ok(typeof entry.noteCount === "number", "noteCount must be a number");
+        }
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+});
+
+test("backend-routing: candidateCount=1 (default) does NOT include proposalCandidatePool", async (t) => {
     if (!pythonBin) { t.skip("No Python binary available"); return; }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
     try {
         const result = runLearnedWorker(buildMinimalPayload(tmpDir));
         assert.ok(
             !("proposalCandidatePool" in result),
-            "worker must not return proposalCandidatePool — candidate pool is TS orchestrator responsibility"
+            "single-candidate run should not include proposalCandidatePool"
         );
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
 });
 
-test("backend-routing: notagen_mock sets generationMode=mock_notagen_abc and warns not-for-quality-eval", async (t) => {
-    if (!pythonBin) { t.skip("No Python binary available"); return; }
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
-    try {
-        const result = runLearnedWorker(buildMinimalPayload(tmpDir), {
-            LEARNED_SYMBOLIC_BACKEND: "notagen_mock",
-        });
-        assert.equal(result.ok, true, "notagen_mock should succeed");
-        assert.equal(
-            result.proposalMetadata?.generationMode,
-            "mock_notagen_abc",
-            "generationMode must be mock_notagen_abc, not a real inference mode"
-        );
-        assert.ok(
-            Array.isArray(result.proposalMetadata?.normalizationWarnings) &&
-            result.proposalMetadata.normalizationWarnings.includes("mock_backend_not_for_quality_eval"),
-            "normalizationWarnings must contain mock_backend_not_for_quality_eval"
-        );
-    } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-});
-
-test("backend-routing: NOTAGEN_TIMEOUT_MS=1 causes notagen_local to fail fast with timeout error", async (t) => {
-    if (!pythonBin) { t.skip("No Python binary available"); return; }
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
-    try {
-        // 1 ms timeout — subprocess worker won't even start the model in time.
-        const result = runLearnedWorker(buildMinimalPayload(tmpDir), {
-            LEARNED_SYMBOLIC_BACKEND: "notagen_local",
-            NOTAGEN_TIMEOUT_MS: "1",
-            NOTAGEN_RESAMPLE_BUDGET: "0",
-            // Intentionally omit NOTAGEN_MODEL_PATH so model-load error doesn't
-            // interfere; the timeout or the missing-path error will both produce ok:false.
-        });
-        assert.equal(result.ok, false, "notagen_local with 1ms timeout must return ok:false");
-        assert.ok(
-            typeof result.error === "string" && result.error.length > 0,
-            "must include an error message"
-        );
-    } finally {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
-});
-
-test("backend-routing: malformed providerRequest never crashes worker", async (t) => {
+test("backend-routing: malformed providerRequest returns validation error", async (t) => {
     if (!pythonBin) { t.skip("No Python binary available"); return; }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
     try {

@@ -1,20 +1,4 @@
 # pyright: reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownParameterType=false, reportAttributeAccessIssue=false
-"""compose_learned_symbolic.py — single-candidate learned symbolic worker.
-
-Single-candidate contract
--------------------------
-Each invocation of this script produces exactly ONE composition proposal
-(or ok=False on error).  The TypeScript orchestrator (hybridSymbolicCandidatePool.ts)
-owns candidate pool management: it spawns N separate worker invocations — one per
-slot in learnedCandidateCount + music21BaselineCount — and handles candidate
-comparison, sidecar writing, and reranker input.
-
-This script MUST NOT loop over a candidateCount parameter internally.
-The payload fields that identify a candidate's place in the pool are:
-  candidateIndex   — 0-based slot index (forwarded for seed derivation)
-  candidateVariantKey — human-readable tag (e.g. "learned-3-s2")
-  learnedSampling  — per-candidate sampling params forwarded to the backend
-"""
 import json
 import os
 import sys
@@ -27,11 +11,7 @@ from learned_symbolic.prompt_packing import (
     resolve_form,
     resolve_provider_prompt_packing_context,
     supports_narrow_lane,
-    supports_solo_piano_lane,
 )
-
-STRING_TRIO_SYMBOLIC_LANE = "string_trio_symbolic"
-SOLO_PIANO_SYMBOLIC_LANE = "solo_piano_symbolic"
 
 
 def read_payload() -> dict[str, Any]:
@@ -44,11 +24,37 @@ def read_payload() -> dict[str, Any]:
     return cast(dict[str, Any], payload)
 
 
+def _derive_variant_payload(
+    payload: dict[str, Any], variant_index: int
+) -> dict[str, Any]:
+    """Return a payload copy with a perturbed seed for candidate diversity.
+
+    For variant_index > 0 the outputPath is cleared so the template backend
+    skips MIDI writing — only the best candidate (v0) writes the final MIDI.
+    """
+    import hashlib
+
+    if variant_index == 0:
+        return payload
+    base_seed = payload.get("stableSeed")
+    variant_seed = (
+        int(
+            hashlib.sha256(
+                f"{int(base_seed)}|variant_{variant_index}".encode()
+            ).hexdigest()[:8],
+            16,
+        )
+        if isinstance(base_seed, (int, float))
+        else base_seed
+    )
+    return {**payload, "stableSeed": variant_seed, "outputPath": ""}
+
+
 def _write_feedback_evidence(
     output_path: str,
     plan_signature: str,
     lane: str,
-    result: "LearnedSymbolicBackendResult",
+    candidate_pool: list[dict[str, Any]],
     attempt_index: int,
 ) -> None:
     """Append feedback evidence for future reranker / fine-tuning data collection."""
@@ -64,8 +70,10 @@ def _write_feedback_evidence(
         entry: dict[str, Any] = {
             "planSignature": plan_signature,
             "lane": lane,
-            "noteCount": result.note_count,
-            "measureCount": result.measure_count,
+            "candidatePool": candidate_pool,
+            "selectedCandidateId": candidate_pool[0]["candidateId"]
+            if candidate_pool
+            else "v0",
             "attemptIndex": attempt_index,
             "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
         }
@@ -85,62 +93,17 @@ def _write_feedback_evidence(
         pass  # Evidence write is best-effort; never block the main response.
 
 
-def _resolve_supported_lane(
-    payload: dict[str, Any],
-    plan: dict[str, Any],
-    form: str,
-    context: dict[str, Any] | None,
-) -> tuple[str | None, str | None]:
-    requested_lane = (
-        str(context.get("lane") or "").strip()
-        if context is not None
-        else str(get_prompt_pack(payload).get("lane") or "").strip()
-    )
-
-    if requested_lane == STRING_TRIO_SYMBOLIC_LANE:
-        if supports_narrow_lane(payload, plan, form):
-            return STRING_TRIO_SYMBOLIC_LANE, None
-        return None, (
-            "unsupported learned-symbolic lane 'string_trio_symbolic'; "
-            "requires string_trio miniature composition plan"
-        )
-
-    if requested_lane == SOLO_PIANO_SYMBOLIC_LANE:
-        if supports_solo_piano_lane(payload, plan, form):
-            return SOLO_PIANO_SYMBOLIC_LANE, None
-        return None, (
-            "unsupported learned-symbolic lane 'solo_piano_symbolic'; "
-            "requires compositionPlan.pianoPlan and Piano instrumentation"
-        )
-
-    if requested_lane:
-        return None, f"unsupported learned-symbolic lane '{requested_lane}'"
-
-    if supports_narrow_lane(payload, plan, form):
-        return STRING_TRIO_SYMBOLIC_LANE, None
-    if supports_solo_piano_lane(payload, plan, form):
-        return SOLO_PIANO_SYMBOLIC_LANE, None
-    return None, (
-        "unsupported learned-symbolic lane; requires string_trio miniature "
-        "or solo piano composition plan"
-    )
-
-
-def _summary_instruments_for_lane(lane: str) -> tuple[int, list[str]]:
-    if lane == SOLO_PIANO_SYMBOLIC_LANE:
-        return 1, ["Piano"]
-    return 3, ["Violin", "Viola", "Cello"]
-
-
 def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     plan = as_record(payload.get("compositionPlan")) or {}
     prompt_pack = get_prompt_pack(payload)
     context = resolve_provider_prompt_packing_context(payload, prompt_pack)
     form = resolve_form(payload, plan)
 
-    lane, lane_error = _resolve_supported_lane(payload, plan, form, context)
-    if lane is None:
-        return {"ok": False, "error": lane_error or "unsupported learned-symbolic lane"}
+    if not supports_narrow_lane(payload, plan, form):
+        return {
+            "ok": False,
+            "error": "unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan",
+        }
 
     output_path = str(payload.get("outputPath") or "").strip()
     if not output_path:
@@ -154,64 +117,78 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
     backend = select_backend(payload)
-    result = backend.generate(payload, context)
+    candidate_count = max(1, min(4, int(payload.get("candidateCount") or 1)))
+    candidate_pool: list[dict[str, Any]] = []
+    best_result: LearnedSymbolicBackendResult | None = None
 
-    if not result.ok:
-        # Surface backend errors explicitly — do NOT silently substitute
-        # another backend.  TypeScript has its own music21 fallback for
-        # ok=False worker responses.
-        return {
-            "ok": False,
-            "error": result.error or "backend generation failed",
-        }
+    for variant_index in range(candidate_count):
+        variant_payload = _derive_variant_payload(payload, variant_index)
+        result = backend.generate(variant_payload, context)
+
+        if not result.ok:
+            # Surface backend errors explicitly — do NOT silently substitute
+            # another backend.  TypeScript has its own music21 fallback for
+            # ok=False worker responses.
+            return {
+                "ok": False,
+                "error": result.error or "backend generation failed",
+            }
+
+        candidate_pool.append(
+            {
+                "candidateId": f"v{variant_index}",
+                "variantIndex": variant_index,
+                "noteCount": result.note_count,
+                "measureCount": result.measure_count,
+                "rewriteApplied": result.rewrite_applied,
+            }
+        )
+        if best_result is None:
+            best_result = result
+
+    assert best_result is not None
 
     _write_feedback_evidence(
         output_path=output_path,
         plan_signature=(context["planSignature"] if context is not None else ""),
-        lane=lane,
-        result=result,
+        lane=(
+            context["lane"]
+            if context is not None and context.get("lane")
+            else "string_trio_symbolic"
+        ),
+        candidate_pool=candidate_pool,
         attempt_index=normalized_attempt_index,
     )
 
-    part_count, part_instrument_names = _summary_instruments_for_lane(lane)
-
-    return {
+    response: dict[str, Any] = {
         "ok": True,
-        "proposalMidiPath": result.midi_path,
-        # ABC score text preserved for SFT dataset assembly.
-        # Only present when the backend produces a symbolic ABC representation;
-        # may be None for music21 baseline path.
-        "proposalAbcScore": result.abc_text if isinstance(result.abc_text, str) else None,
+        "proposalMidiPath": best_result.midi_path,
         "proposalSummary": {
-            "measureCount": result.measure_count,
-            "noteCount": result.note_count,
-            "partCount": part_count,
-            "partInstrumentNames": part_instrument_names,
-            "key": result.key_name,
-            "tempo": result.tempo_bpm,
-            "form": result.form,
+            "measureCount": best_result.measure_count,
+            "noteCount": best_result.note_count,
+            "partCount": 3,
+            "partInstrumentNames": ["Violin", "Viola", "Cello"],
+            "key": best_result.key_name,
+            "tempo": best_result.tempo_bpm,
+            "form": best_result.form,
         },
         "proposalMetadata": {
-            "lane": lane,
-            "provider": result.provider,
-            "model": result.model,
-            "generationMode": result.generation_mode,
-            "confidence": result.confidence,
-            "normalizationWarnings": result.warnings,
+            "lane": (
+                context["lane"]
+                if context is not None and context.get("lane")
+                else "string_trio_symbolic"
+            ),
+            "provider": best_result.provider,
+            "model": best_result.model,
+            "generationMode": best_result.generation_mode,
+            "confidence": best_result.confidence,
+            "normalizationWarnings": best_result.warnings,
         },
-        "proposalSections": result.proposal_sections,
-        # Piano voice layout summary — present only for solo_piano_symbolic lane.
-        # Mirrors PianoVoiceLayoutSummary in TypeScript.
-        **({"proposalVoiceLayoutSummary": result.voice_layout_summary}
-           if result.voice_layout_summary is not None else {}),
-        # Piano repair information.
-        # proposalMidiRewritten=True means the MIDI file reflects Python-side
-        # idiom repairs and is safe to deliver to the listener as-is.
-        # proposalRepairActions carries the per-section repair log for dataset export.
-        **({"proposalRepairActions": result.repair_actions}
-           if result.repair_actions else {}),
-        "proposalMidiRewritten": result.midi_rewritten,
+        "proposalSections": best_result.proposal_sections,
     }
+    if len(candidate_pool) > 1:
+        response["proposalCandidatePool"] = candidate_pool
+    return response
 
 
 def main() -> None:

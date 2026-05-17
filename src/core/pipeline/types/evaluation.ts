@@ -150,6 +150,9 @@ export interface CraftScoreSummary {
      * 1.0 = all required fields present. Below 1.0 triggers proportional penalty.
      */
     harmonyContractScore?: number;
+
+    /** Scoring profile used to compute finalCraftScore (e.g. "classical_default_v1"). */
+    scoringProfile?: string;
 }
 
 // ─── Piano-specific craft scoring ────────────────────────────────────────────

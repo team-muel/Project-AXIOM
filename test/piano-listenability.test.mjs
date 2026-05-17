@@ -524,9 +524,10 @@ test("computePianoListenabilityScore: returns object with all 7 fields", () => {
     assert.ok("overall" in result);
 });
 
-test("computePianoListenabilityScore: all dimensions in [0,1]", () => {
+test("computePianoListenabilityScore: all numeric dimensions in [0,1]", () => {
     const result = computePianoListenabilityScore([makeLSSection()]);
     for (const [k, v] of Object.entries(result)) {
+        if (typeof v !== "number") continue; // skip non-numeric fields (e.g. scoringProfile)
         assert.ok(v >= 0 && v <= 1, `${k} out of [0,1]: ${v}`);
     }
 });

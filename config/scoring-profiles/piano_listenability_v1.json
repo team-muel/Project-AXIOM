@@ -1,0 +1,14 @@
+{
+  "profile": "piano_listenability_v1",
+  "status": "experimental",
+  "description": "Listenability scoring weights for solo piano. Prioritises melody salience and bass grounding; phrase-level voicing and pedal clarity are secondary signals.",
+  "weights": {
+    "melodyProminence":         0.20,
+    "bassRootSupport":          0.18,
+    "accompanimentConsistency": 0.16,
+    "registerSpacing":          0.15,
+    "phraseLevelVoicing":       0.10,
+    "pedalBlurRisk":            0.12,
+    "textureFormCoherence":     0.09
+  }
+}
