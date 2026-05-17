@@ -13,6 +13,10 @@ import {
     PREFERENCE_SHORTLIST_SIZE,
     selectPreferredCandidate,
 } from "../../core/generate/preferenceModel.js";
+import {
+    QUALITY_GATE_V1,
+    type QualityGateConfig,
+} from "../../core/evaluate/scoringProfile.js";
 import { logger } from "../../logging/logger.js";
 
 export interface SymbolicAttemptCandidate {
@@ -29,14 +33,15 @@ export interface SymbolicAttemptCandidate {
 export function chooseBetterSymbolicCandidate(
     current: SymbolicAttemptCandidate | undefined,
     next: SymbolicAttemptCandidate,
+    gate?: QualityGateConfig,
 ): SymbolicAttemptCandidate {
     if (!current) {
         return next;
     }
 
-    return compareStructureEvaluationsForCandidateSelection(next.structureEvaluation, current.structureEvaluation) > 0
-        ? next
-        : current;
+    return compareStructureEvaluationsForCandidateSelection(
+        next.structureEvaluation, current.structureEvaluation, gate,
+    ) > 0 ? next : current;
 }
 
 /**
@@ -53,10 +58,14 @@ export function chooseBetterSymbolicCandidate(
  *   3. Pass the shortlist to selectPreferredCandidate(), which applies the
  *      craft hard filter and uses the listenerFeedback preference model.
  *   4. Fall back to the heuristic top candidate if preference selection fails.
+ *
+ * `gate` controls ALL three gate threshold checks (validity, contract, craft).
+ * Defaults to QUALITY_GATE_V1 when not provided.
  */
 export function selectAttemptWinner(
     attemptCandidates: SymbolicAttemptCandidate[],
     songId: string,
+    gate: QualityGateConfig = QUALITY_GATE_V1,
 ): SymbolicAttemptCandidate {
     if (attemptCandidates.length === 0) {
         throw new Error("selectAttemptWinner: empty candidate list");
@@ -70,16 +79,16 @@ export function selectAttemptWinner(
     // the same passed=true group.
     const sorted = [...attemptCandidates]
         .sort((a, b) => compareStructureEvaluationsForCandidateSelection(
-            b.structureEvaluation, a.structureEvaluation,
+            b.structureEvaluation, a.structureEvaluation, gate,
         ));
 
     // ── Gate-tier staircase shortlist ────────────────────────────────────────
-    // Gate 1 (validity): MIDI data must exist AND syntaxValidity >= 0.90
+    // Gate 1 (validity): MIDI data must exist AND syntaxValidity >= gate threshold
     //   AND evaluation.passed === true.
-    // Gate 2 (contract): Gate 1 + sectionContractFit >= 0.75.
-    // Gate 3 (craft):    Gate 2 + cadenceStrength >= 0.55
-    //                             + registerIdiomaticFit >= 0.75
-    //                             + voiceIndependence >= 0.35.
+    // Gate 2 (contract): Gate 1 + sectionContractFit >= gate threshold.
+    // Gate 3 (craft):    Gate 2 + cadenceStrength/registerIdiomaticFit/voiceIndependence
+    //                             >= gate thresholds (generic) or
+    //                             handPlayability/finalPianoScore >= gate thresholds (piano).
     //
     // Prefer the highest non-empty tier as the shortlist base, cascading
     // down to the full sorted list as an ultimate cold-start fallback so
@@ -88,7 +97,7 @@ export function selectAttemptWinner(
     const byTier = (minTier: 1 | 2 | 3) => sorted.filter((c) => {
         if (c.midiData.length === 0) return false;  // Gate 1 prerequisite
         const craft = c.structureEvaluation.craftScoreSummary;
-        return craft != null && candidateGateTier(c.structureEvaluation, craft) >= minTier;
+        return craft != null && candidateGateTier(c.structureEvaluation, craft, gate) >= minTier;
     });
 
     const tier3 = byTier(3);
@@ -106,6 +115,7 @@ export function selectAttemptWinner(
         logger.warn("selectAttemptWinner: no candidate passed any gate — using full sorted list", {
             songId,
             totalCandidates: attemptCandidates.length,
+            gateProfile: gate.profile,
         });
     } else {
         logger.debug("selectAttemptWinner: gate-tier shortlist", {
@@ -115,6 +125,7 @@ export function selectAttemptWinner(
             tier2Count: tier2.length,
             tier1Count: tier1.length,
             totalCandidates: attemptCandidates.length,
+            gateProfile: gate.profile,
         });
     }
 
@@ -156,6 +167,7 @@ export function selectAttemptWinner(
             globalFeedbackSamples: result.globalFeedbackSamples,
             weightSource: result.weightSource,
             filteredOutCount: result.filteredOutIds.length,
+            gateProfile: gate.profile,
         });
         if (result.filteredOutIds.length > 0) {
             logger.warn("Preference model: candidates rejected by craft hard filter", {

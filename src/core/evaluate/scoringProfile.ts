@@ -124,17 +124,40 @@ export function validateProfileWeights<W extends Record<string, number>>(
  * Unlike scoring weights these do NOT sum to 1 — each is an independent floor.
  *
  * Naming convention: `<dimension>Min` to distinguish from score-weight keys.
+ *
+ * Gate 1 (validity):   syntaxValidityMin
+ * Gate 2 (contract):   sectionContractFitMin
+ * Gate 3 generic:      cadenceStrengthMin, registerIdiomaticFitMin, voiceIndependenceMin
+ * Gate 3 piano:        handPlayabilityMin, finalPianoScoreMin
+ * Preference filter:   finalCraftScoreMin
+ * Playability gate:    pianoPlayabilityMin
  */
 export interface QualityGateThresholds {
-    [key: string]: number;
-    /** Minimum syntaxValidity score for a candidate to pass the gate. */
+    [key: string]: number | undefined;
+    // ── Gate 1 ───────────────────────────────────────────────────────────────
+    /** Minimum syntaxValidity score for a candidate to pass the validity gate. */
     syntaxValidityMin: number;
+    // ── Gate 2 ───────────────────────────────────────────────────────────────
     /** Minimum sectionContractFit score. */
     sectionContractFitMin: number;
+    // ── Gate 3 generic ───────────────────────────────────────────────────────
+    /** Minimum cadenceStrength for the generic musical-craft gate. */
+    cadenceStrengthMin?: number;
+    /** Minimum registerIdiomaticFit for the generic musical-craft gate. */
+    registerIdiomaticFitMin?: number;
+    /** Minimum voiceIndependence for the generic musical-craft gate. */
+    voiceIndependenceMin?: number;
+    // ── Gate 3 piano ─────────────────────────────────────────────────────────
+    /** Minimum handPlayability for the piano craft gate (different from pianoPlayabilityMin). */
+    handPlayabilityMin?: number;
+    /** Minimum finalPianoScore for the piano craft gate. */
+    finalPianoScoreMin?: number;
+    // ── Preference hard filter ────────────────────────────────────────────────
+    /** Minimum finalCraftScore for the overall preference filter. */
+    finalCraftScoreMin: number;
+    // ── Piano playability gate (pianoPlayabilityGate) ────────────────────────
     /** Minimum pianoPlayabilityScore — applied by pianoPlayabilityGate(). */
     pianoPlayabilityMin: number;
-    /** Minimum finalCraftScore for the overall gate. */
-    finalCraftScoreMin: number;
 }
 
 /**
@@ -158,19 +181,31 @@ export const QUALITY_GATE_V1: QualityGateConfig = {
     status: "experimental",
     description: "Default quality gate thresholds for candidate filtering.",
     thresholds: {
-        syntaxValidityMin:    0.90,
-        sectionContractFitMin: 0.75,
-        pianoPlayabilityMin:  0.50,
-        finalCraftScoreMin:   0.65,
+        // Gate 1 — validity
+        syntaxValidityMin:      0.90,
+        // Gate 2 — contract
+        sectionContractFitMin:  0.75,
+        // Gate 3 generic — musical craft
+        cadenceStrengthMin:     0.55,
+        registerIdiomaticFitMin: 0.75,
+        voiceIndependenceMin:   0.35,
+        // Gate 3 piano — playability
+        handPlayabilityMin:     0.55,
+        finalPianoScoreMin:     0.50,
+        // Preference hard filter
+        finalCraftScoreMin:     0.65,
+        // Piano playability gate (pianoPlayabilityGate)
+        pianoPlayabilityMin:    0.50,
     },
 };
 
 /**
- * Validates that all threshold values in a QualityGateConfig are in [0, 1].
- * Throws if any value is out of range.
+ * Validates that all present threshold values in a QualityGateConfig are in [0, 1].
+ * Undefined/optional fields are skipped. Throws if any present value is out of range.
  */
 export function validateQualityGateConfig(config: QualityGateConfig): void {
     for (const [key, value] of Object.entries(config.thresholds)) {
+        if (value === undefined) continue;
         if (value < 0 || value > 1) {
             throw new Error(
                 `QualityGateConfig "${config.profile}": threshold "${key}" = ${value} is out of [0, 1]`,

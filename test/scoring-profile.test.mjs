@@ -197,14 +197,21 @@ test("SP-13: craftScorePassesHardFilter uses qualityGate thresholds when supplie
     assert.ok(!craftScorePassesHardFilter(craft, reasons, QUALITY_GATE_V1));
     assert.ok(reasons.some((r) => r.includes("syntaxValidity")));
 });
+
+import {
+    candidateGateTier,
+    compareStructureEvaluationsForCandidateSelection,
+} from "../dist/core/generate/structureSelection.js";
+import {
+    selectAttemptWinner,
+    chooseBetterSymbolicCandidate,
+} from "../dist/runtime/attempts/candidateSelection.js";
 
+// SP-14 restored
 test("SP-14: pianoPlayabilityGate uses qualityGate.pianoPlayabilityMin when supplied", () => {
-    // Artifact with pianoPlayabilityScore = 0.60 — passes built-in 0.50, but
-    // fails a custom gate that raises the bar to 0.70.
     const artifacts = [
         { sectionId: "s1", role: "theme_a", pianoPlayabilityScore: 0.60 },
     ];
-
     const highGate = {
         profile: "strict_piano_v0",
         status: "experimental",
@@ -215,12 +222,130 @@ test("SP-14: pianoPlayabilityGate uses qualityGate.pianoPlayabilityMin when supp
             finalCraftScoreMin: 0.65,
         },
     };
-
-    // Without gate: passes (default 0.50)
     assert.ok(pianoPlayabilityGate(artifacts).passed);
-
-    // With strict gate: fails (0.60 < 0.70)
     const result = pianoPlayabilityGate(artifacts, undefined, highGate);
     assert.ok(!result.passed);
     assert.ok(result.reason?.includes("0.600 < threshold 0.700"));
+});
+
+// ─── Gate-in-runtime-selection tests ─────────────────────────────────────────
+
+function makeCraft(overrides = {}) {
+    return {
+        finalCraftScore: 0.80,
+        advancedCraftScore: 0.70,
+        sectionContractFit: 0.85,
+        cadenceStrength: 0.70,
+        tonalReturn: 0.75,
+        motifSurvival: 0.70,
+        voiceIndependence: 0.60,
+        phraseShape: 0.70,
+        registerIdiomaticFit: 0.80,
+        syntaxValidity: 0.95,
+        ...overrides,
+    };
+}
+
+function makeEval(craftOverrides = {}, evalOverrides = {}) {
+    return {
+        passed: true,
+        score: 0.80,
+        issues: [],
+        strengths: [],
+        craftScoreSummary: makeCraft(craftOverrides),
+        ...evalOverrides,
+    };
+}
+
+function makeCandidate(id, craftOverrides = {}) {
+    const eval_ = makeEval(craftOverrides);
+    return {
+        candidateId: id,
+        structureEvaluation: eval_,
+        midiData: [1, 2, 3],
+        composeResult: { proposalEvidence: null },
+        compositionPlan: { sections: [] },
+        executionPlan: { selectedModels: [] },
+    };
+}
+
+test("SP-15: candidateGateTier returns 0 when custom gate raises syntaxValidityMin above candidate score", () => {
+    const craft = makeCraft({ syntaxValidity: 0.80 }); // below 0.90 strict gate
+    const eval_ = makeEval({ syntaxValidity: 0.80 });
+
+    const strictGate = {
+        profile: "strict_test_gate",
+        status: "experimental",
+        thresholds: {
+            syntaxValidityMin: 0.90,
+            sectionContractFitMin: 0.75,
+            pianoPlayabilityMin: 0.50,
+            finalCraftScoreMin: 0.65,
+        },
+    };
+
+    const tier = candidateGateTier(eval_, craft, strictGate);
+    assert.strictEqual(tier, 0, `Expected tier 0 (fails validity gate), got ${tier}`);
+});
+
+test("SP-16: candidateGateTier returns 3 when custom gate lowers all thresholds below candidate scores", () => {
+    const craft = makeCraft({
+        syntaxValidity: 0.50,
+        sectionContractFit: 0.50,
+        cadenceStrength: 0.30,
+        registerIdiomaticFit: 0.30,
+        voiceIndependence: 0.20,
+    });
+    const eval_ = makeEval({
+        syntaxValidity: 0.50,
+        sectionContractFit: 0.50,
+        cadenceStrength: 0.30,
+        registerIdiomaticFit: 0.30,
+        voiceIndependence: 0.20,
+    }, { passed: true });
+
+    const lenientGate = {
+        profile: "lenient_test_gate",
+        status: "experimental",
+        thresholds: {
+            syntaxValidityMin: 0.40,
+            sectionContractFitMin: 0.40,
+            pianoPlayabilityMin: 0.10,
+            finalCraftScoreMin: 0.10,
+            cadenceStrengthMin: 0.20,
+            registerIdiomaticFitMin: 0.20,
+            voiceIndependenceMin: 0.10,
+        },
+    };
+
+    const tier = candidateGateTier(eval_, craft, lenientGate);
+    assert.strictEqual(tier, 3, `Expected tier 3 (passes all gates with lenient config), got ${tier}`);
+});
+
+test("SP-17: selectAttemptWinner uses QUALITY_GATE_V1 as default and selects highest-scoring candidate", () => {
+    const candidates = [
+        makeCandidate("c-low", {
+            syntaxValidity: 0.95,
+            sectionContractFit: 0.80,
+            cadenceStrength: 0.70,
+            registerIdiomaticFit: 0.80,
+            voiceIndependence: 0.50,
+            finalCraftScore: 0.72,
+        }),
+        makeCandidate("c-high", {
+            syntaxValidity: 0.98,
+            sectionContractFit: 0.90,
+            cadenceStrength: 0.85,
+            registerIdiomaticFit: 0.88,
+            voiceIndependence: 0.65,
+            finalCraftScore: 0.88,
+        }),
+    ];
+
+    // Both candidates pass all gates under QUALITY_GATE_V1 defaults.
+    // The preference model may filter based on craftScorePassesHardFilter,
+    // but the heuristic fallback must select c-high over c-low.
+    const winner = selectAttemptWinner(candidates, "test-song-sp17");
+    assert.strictEqual(winner.candidateId, "c-high",
+        `Expected 'c-high' to win (higher craft scores), got '${winner.candidateId}'`);
 });

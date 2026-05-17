@@ -5,7 +5,12 @@
   "thresholds": {
     "syntaxValidityMin": 0.90,
     "sectionContractFitMin": 0.75,
-    "pianoPlayabilityMin": 0.50,
-    "finalCraftScoreMin": 0.65
+    "cadenceStrengthMin": 0.55,
+    "registerIdiomaticFitMin": 0.75,
+    "voiceIndependenceMin": 0.35,
+    "handPlayabilityMin": 0.55,
+    "finalPianoScoreMin": 0.50,
+    "finalCraftScoreMin": 0.65,
+    "pianoPlayabilityMin": 0.50
   }
 }

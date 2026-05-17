@@ -1,4 +1,5 @@
 import type { CraftScoreSummary, PianoCraftScoreSummary, StructureEvaluationReport } from "../pipeline/types.js";
+import type { QualityGateConfig } from "../evaluate/scoringProfile.js";
 
 // ---------------------------------------------------------------------------
 // Three-gate candidate selection
@@ -81,24 +82,32 @@ export const CANDIDATE_GATE_PIANO_CRAFT: Readonly<{
 /**
  * Gate 1: returns true when the candidate has valid ABC/MIDI structure.
  *
+ * When a `QualityGateConfig` is provided its `syntaxValidityMin` threshold
+ * overrides the built-in `CANDIDATE_GATE_VALIDITY` constant.
+ *
  * Note: "MIDI exists" (midiData.length > 0) is an orchestrator-level check
  * that must be done separately before calling this function.
  */
 export function passesValidityGate(
     evaluation: StructureEvaluationReport,
     craft: CraftScoreSummary,
+    gate?: QualityGateConfig,
 ): boolean {
-    return evaluation.passed === true
-        && craft.syntaxValidity >= CANDIDATE_GATE_VALIDITY.syntaxValidity;
+    const threshold = gate?.thresholds.syntaxValidityMin ?? CANDIDATE_GATE_VALIDITY.syntaxValidity;
+    return evaluation.passed === true && craft.syntaxValidity >= threshold;
 }
 
 /**
  * Gate 2: returns true when the candidate satisfies the section-contract
  * requirements (section count, measure counts, final section presence).
  * Requires Gate 1 to pass first.
+ *
+ * When a `QualityGateConfig` is provided its `sectionContractFitMin` overrides
+ * the built-in `CANDIDATE_GATE_CONTRACT` constant.
  */
-export function passesContractGate(craft: CraftScoreSummary): boolean {
-    return craft.sectionContractFit >= CANDIDATE_GATE_CONTRACT.sectionContractFit;
+export function passesContractGate(craft: CraftScoreSummary, gate?: QualityGateConfig): boolean {
+    const threshold = gate?.thresholds.sectionContractFitMin ?? CANDIDATE_GATE_CONTRACT.sectionContractFit;
+    return craft.sectionContractFit >= threshold;
 }
 
 /**
@@ -106,12 +115,17 @@ export function passesContractGate(craft: CraftScoreSummary): boolean {
  * thresholds (cadence resolution, idiomatic register, voice independence).
  * Requires Gates 1 + 2 to pass first.
  * Not used for piano lane — use passesPianoCraftGate() instead.
+ *
+ * When a `QualityGateConfig` is provided its `cadenceStrengthMin`,
+ * `registerIdiomaticFitMin`, `voiceIndependenceMin` override the built-in
+ * `CANDIDATE_GATE_CRAFT` constants for the relevant dimensions.
  */
-export function passesCraftGate(craft: CraftScoreSummary): boolean {
+export function passesCraftGate(craft: CraftScoreSummary, gate?: QualityGateConfig): boolean {
+    const t = gate?.thresholds;
     return (
-        craft.cadenceStrength    >= CANDIDATE_GATE_CRAFT.cadenceStrength
-        && craft.registerIdiomaticFit >= CANDIDATE_GATE_CRAFT.registerIdiomaticFit
-        && craft.voiceIndependence    >= CANDIDATE_GATE_CRAFT.voiceIndependence
+        craft.cadenceStrength     >= (t?.cadenceStrengthMin     ?? CANDIDATE_GATE_CRAFT.cadenceStrength)
+        && craft.registerIdiomaticFit >= (t?.registerIdiomaticFitMin ?? CANDIDATE_GATE_CRAFT.registerIdiomaticFit)
+        && craft.voiceIndependence    >= (t?.voiceIndependenceMin    ?? CANDIDATE_GATE_CRAFT.voiceIndependence)
     );
 }
 
@@ -123,11 +137,15 @@ export function passesCraftGate(craft: CraftScoreSummary): boolean {
  * performed regardless of how good the harmony or melody sounds.
  *
  * Requires Gates 1 + 2 to pass first.
+ *
+ * When a `QualityGateConfig` is provided its `handPlayabilityMin` and
+ * `finalPianoScoreMin` override the built-in `CANDIDATE_GATE_PIANO_CRAFT` constants.
  */
-export function passesPianoCraftGate(piano: PianoCraftScoreSummary): boolean {
+export function passesPianoCraftGate(piano: PianoCraftScoreSummary, gate?: QualityGateConfig): boolean {
+    const t = gate?.thresholds;
     return (
-        piano.handPlayability >= CANDIDATE_GATE_PIANO_CRAFT.handPlayability
-        && piano.finalPianoScore  >= CANDIDATE_GATE_PIANO_CRAFT.finalPianoScore
+        piano.handPlayability >= (t?.handPlayabilityMin ?? CANDIDATE_GATE_PIANO_CRAFT.handPlayability)
+        && piano.finalPianoScore  >= (t?.finalPianoScoreMin  ?? CANDIDATE_GATE_PIANO_CRAFT.finalPianoScore)
     );
 }
 
@@ -144,24 +162,28 @@ export function passesPianoCraftGate(piano: PianoCraftScoreSummary): boolean {
  * that an unplayable piano piece never reaches Tier 3 even if its generic
  * craft dimensions look acceptable.
  *
+ * When a `QualityGateConfig` is provided it is threaded through all gate
+ * functions so that threshold overrides apply consistently.
+ *
  * The orchestrator uses this tier to build the preference shortlist, preferring
  * the highest non-empty tier with a staircase fallback to all candidates.
  */
 export function candidateGateTier(
     evaluation: StructureEvaluationReport,
     craft: CraftScoreSummary,
+    gate?: QualityGateConfig,
 ): 0 | 1 | 2 | 3 {
-    if (!passesValidityGate(evaluation, craft)) return 0;
-    if (!passesContractGate(craft)) return 1;
+    if (!passesValidityGate(evaluation, craft, gate)) return 0;
+    if (!passesContractGate(craft, gate)) return 1;
 
     // Piano lane: use piano-specific Gate 3 when available
     const piano = evaluation.pianoCraftScoreSummary;
     if (piano) {
-        return passesPianoCraftGate(piano) ? 3 : 2;
+        return passesPianoCraftGate(piano, gate) ? 3 : 2;
     }
 
     // Generic lane
-    if (!passesCraftGate(craft)) return 2;
+    if (!passesCraftGate(craft, gate)) return 2;
     return 3;
 }
 
@@ -197,7 +219,10 @@ export function craftScorePassesQualityGate(craft: CraftScoreSummary): boolean {
     );
 }
 
-export function scoreStructureEvaluationForCandidateSelection(evaluation: StructureEvaluationReport): number {
+export function scoreStructureEvaluationForCandidateSelection(
+    evaluation: StructureEvaluationReport,
+    gate?: QualityGateConfig,
+): number {
     const baseScore = evaluation.score ?? 0;
     const sectionFindings = evaluation.sectionFindings ?? [];
     const weakestSections = evaluation.weakestSections ?? [];
@@ -274,7 +299,7 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
     // ──────────────────────────────────────────────────────────────────────────
     const craft = evaluation.craftScoreSummary;
     const piano = evaluation.pianoCraftScoreSummary;
-    const tier = craft ? candidateGateTier(evaluation, craft) : 0;
+    const tier = craft ? candidateGateTier(evaluation, craft, gate) : 0;
     const gateTierBonus = tier === 3 ? 900 : tier === 2 ? 500 : tier === 1 ? 200 : 0;
 
     // Piano lane: use finalPianoScore as the dimension bonus signal.
@@ -290,8 +315,9 @@ export function scoreStructureEvaluationForCandidateSelection(evaluation: Struct
     // Gate 3) due to low handPlayability, add an extra penalty proportional
     // to the shortfall so that barely-failing piano candidates rank below
     // passing ones even within Tier 2.
+    const handPlayabilityFloor = gate?.thresholds.handPlayabilityMin ?? CANDIDATE_GATE_PIANO_CRAFT.handPlayability;
     const pianoPlayabilityPenalty = piano && tier < 3
-        ? Math.max(0, CANDIDATE_GATE_PIANO_CRAFT.handPlayability - piano.handPlayability) * 120
+        ? Math.max(0, handPlayabilityFloor - piano.handPlayability) * 120
         : 0;
 
     const contractPenalty = craft && craft.sectionContractFit < 0.5
@@ -423,10 +449,11 @@ function resolveStructureSelectionTieBreak(
 export function compareStructureEvaluationsForCandidateSelection(
     left: StructureEvaluationReport,
     right: StructureEvaluationReport,
+    gate?: QualityGateConfig,
 ): number {
     const rankDelta = Number((
-        scoreStructureEvaluationForCandidateSelection(left)
-        - scoreStructureEvaluationForCandidateSelection(right)
+        scoreStructureEvaluationForCandidateSelection(left, gate)
+        - scoreStructureEvaluationForCandidateSelection(right, gate)
     ).toFixed(4));
 
     if (Math.abs(rankDelta) > STRUCTURE_SELECTION_RANK_TOLERANCE) {
