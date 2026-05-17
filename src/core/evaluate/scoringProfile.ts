@@ -100,6 +100,45 @@ export const PIANO_LISTENABILITY_V1: PianoListenabilityScoringProfile = {
     },
 };
 
+// ─── Piano craft scoring profile ─────────────────────────────────────────────
+//
+// Covers the 9 playability/craft dimensions that compose finalPianoScore.
+// Separate from listenability: this is the gate-lane profile (playable first),
+// listenability is the ranking-lane profile (appealing second).
+
+export interface PianoCraftWeights {
+    [key: string]: number;
+    handPlayability:               number;
+    melodicClarity:                number;
+    bassCoherence:                 number;
+    voicingIdiomaticFit:           number;
+    accompanimentPatternCoherence: number;
+    registerSpacing:               number;
+    handIndependence:              number;
+    pedalPlausibility:             number;
+    difficultyFit:                 number;
+}
+
+export type PianoCraftScoringProfile = ScoringProfile<PianoCraftWeights>;
+
+/** Built-in default — mirrors `config/scoring-profiles/piano_craft_v1.json`. */
+export const PIANO_CRAFT_V1: PianoCraftScoringProfile = {
+    profile: "piano_craft_v1",
+    status: "experimental",
+    description: "Craft scoring weights for solo piano finalPianoScore.",
+    weights: {
+        handPlayability:               0.20,
+        melodicClarity:                0.15,
+        bassCoherence:                 0.15,
+        voicingIdiomaticFit:           0.12,
+        accompanimentPatternCoherence: 0.12,
+        registerSpacing:               0.10,
+        handIndependence:              0.08,
+        pedalPlausibility:             0.05,
+        difficultyFit:                 0.03,
+    },
+};
+
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 /**
@@ -241,6 +280,8 @@ export interface CandidateScoringProfiles {
     scoringProfile?: string;
     /** pianoListenabilityScore weight profile name (e.g. "piano_listenability_v1"). */
     pianoProfile?: string;
+    /** finalPianoScore craft weight profile name (e.g. "piano_craft_v1"). */
+    pianoCraftProfile?: string;
     /** Quality gate threshold profile name (e.g. "quality_gate_v1"). */
     qualityGateProfile?: string;
 }
@@ -284,6 +325,25 @@ export function resolvePianoListenabilityScoringProfile(
 }
 
 /**
+ * Resolves a piano craft profile name to its built-in profile object.
+ *
+ * Returns the matching built-in constant for known names, or falls back to
+ * PIANO_CRAFT_V1.  No file I/O — safe for the hot evaluation path.
+ *
+ * @param name  Profile identifier, e.g. "piano_craft_v1".
+ */
+export function resolvePianoCraftScoringProfile(
+    name?: string,
+): PianoCraftScoringProfile {
+    switch (name) {
+        case PIANO_CRAFT_V1.profile:
+            return PIANO_CRAFT_V1;
+        default:
+            return PIANO_CRAFT_V1;
+    }
+}
+
+/**
  * Resolves a quality gate profile name to its built-in config object.
  *
  * Returns the matching built-in constant for known names, or falls back to
@@ -307,8 +367,9 @@ export function resolveQualityGateConfig(name?: string): QualityGateConfig {
  * any custom profiles.  These mirror the v1 built-in constants.
  */
 export const DEFAULT_CANDIDATE_SCORING_PROFILES: CandidateScoringProfiles = {
-    scoringProfile:   CLASSICAL_DEFAULT_V1.profile,
-    pianoProfile:     PIANO_LISTENABILITY_V1.profile,
+    scoringProfile:     CLASSICAL_DEFAULT_V1.profile,
+    pianoProfile:       PIANO_LISTENABILITY_V1.profile,
+    pianoCraftProfile:  PIANO_CRAFT_V1.profile,
     qualityGateProfile: QUALITY_GATE_V1.profile,
 } as const;
 

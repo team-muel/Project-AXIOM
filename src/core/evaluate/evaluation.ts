@@ -40,6 +40,7 @@ import { applyPianoPlayabilityGate, computePianoCraftScoreSummary } from "./pian
 import {
     type CandidateScoringProfiles,
     resolveCraftScoringProfile,
+    resolvePianoCraftScoringProfile,
     resolveQualityGateConfig,
 } from "./scoringProfile.js";
 
@@ -6293,10 +6294,15 @@ export function buildStructureEvaluation(result: CritiqueResult, options?: Struc
     // falls below the gate threshold must fail unconditionally before craft
     // scoring (Gate 4).  Non-piano compositions are unaffected.
     if (options?.compositionPlan?.pianoPlan && sectionArtifacts?.length) {
+        const pianoCraftProfile = resolvePianoCraftScoringProfile(
+            options?.scoringProfiles?.pianoCraftProfile,
+        );
         baseReport.pianoCraftScoreSummary = computePianoCraftScoreSummary(
             sectionArtifacts,
             options.compositionPlan,
             baseReport,
+            undefined,
+            pianoCraftProfile,
         );
         const qualityGate = resolveQualityGateConfig(options?.scoringProfiles?.qualityGateProfile);
         return applyPianoPlayabilityGate(baseReport, sectionArtifacts, undefined, qualityGate);

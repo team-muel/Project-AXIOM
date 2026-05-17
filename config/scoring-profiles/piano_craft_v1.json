@@ -1,0 +1,16 @@
+{
+  "profile": "piano_craft_v1",
+  "status": "experimental",
+  "description": "Craft scoring weights for solo piano finalPianoScore. Covers playability and technical idiomaticness; not listenability (see piano_listenability_v1). handPlayability gates unplayable output; melodicClarity and bassCoherence are the primary quality signals.",
+  "weights": {
+    "handPlayability":               0.20,
+    "melodicClarity":                0.15,
+    "bassCoherence":                 0.15,
+    "voicingIdiomaticFit":           0.12,
+    "accompanimentPatternCoherence": 0.12,
+    "registerSpacing":               0.10,
+    "handIndependence":              0.08,
+    "pedalPlausibility":             0.05,
+    "difficultyFit":                 0.03
+  }
+}

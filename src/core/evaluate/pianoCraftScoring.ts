@@ -8,8 +8,10 @@ import type {
 } from "../pipeline/types.js";
 import { evaluatePianoVoiceLayout } from "./pianoEvaluation.js";
 import {
+    PIANO_CRAFT_V1,
     PIANO_LISTENABILITY_V1,
     QUALITY_GATE_V1,
+    type PianoCraftScoringProfile,
     type PianoListenabilityScoringProfile,
     type QualityGateConfig,
 } from "./scoringProfile.js";
@@ -592,12 +594,16 @@ export function applyPianoPlayabilityGate(
  *
  * Call instead of (or alongside) computeCraftScoreSummary() when the
  * orchestration family is "solo_piano".
+ *
+ * @param craftProfile  Piano craft weight profile (defaults to PIANO_CRAFT_V1).
+ *                      Pass to enable per-run weight variation and manifest traceability.
  */
 export function computePianoCraftScoreSummary(
     sectionArtifacts: SectionArtifactSummary[],
     plan: CompositionPlan | undefined,
     _evaluation: StructureEvaluationReport,
     layout?: PianoVoiceLayoutSummary,
+    craftProfile?: PianoCraftScoringProfile,
 ): PianoCraftScoreSummary {
     const resolvedLayout: PianoVoiceLayoutSummary | undefined =
         layout ??
@@ -623,17 +629,18 @@ export function computePianoCraftScoreSummary(
     const pedalPlausibility            = clamp01(pedalResult.score);
     const difficultyFit                = clamp01(diffResult.score);
 
+    const w = (craftProfile ?? PIANO_CRAFT_V1).weights;
     const finalPianoScore = Number(
         (
-            0.20 * handPlayability
-            + 0.15 * melodicClarity
-            + 0.15 * bassCoherence
-            + 0.12 * voicingIdiomaticFit
-            + 0.12 * accompanimentPatternCoherence
-            + 0.10 * registerSpacing
-            + 0.08 * handIndependence
-            + 0.05 * pedalPlausibility
-            + 0.03 * difficultyFit
+            w.handPlayability               * handPlayability
+            + w.melodicClarity              * melodicClarity
+            + w.bassCoherence               * bassCoherence
+            + w.voicingIdiomaticFit         * voicingIdiomaticFit
+            + w.accompanimentPatternCoherence * accompanimentPatternCoherence
+            + w.registerSpacing             * registerSpacing
+            + w.handIndependence            * handIndependence
+            + w.pedalPlausibility           * pedalPlausibility
+            + w.difficultyFit               * difficultyFit
         ).toFixed(4),
     );
 
