@@ -1262,6 +1262,7 @@ export function computeCraftScoreSummary(
         harmonyEvidenceCoverage:          Number(coverageReport.harmonyEvidenceCoverage.toFixed(4)),
         motifEvidenceCoverage:            Number(coverageReport.motifEvidenceCoverage.toFixed(4)),
         evidenceCoverageScore:            Number(coverageReport.overallCoverage.toFixed(4)),
+        evidenceCoverageGateTier:         coverageReport.gateTier,
         harmonyContractViolations:        contractReport.requiredViolationCount,
         harmonyContractScore:             Number(contractReport.contractScore.toFixed(4)),
         scoringProfile:                   (profile ?? CLASSICAL_DEFAULT_V1).profile,

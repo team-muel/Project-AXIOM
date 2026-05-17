@@ -134,6 +134,13 @@ export interface CraftScoreSummary {
     motifEvidenceCoverage?: number;
     /** Average of the three domain coverage scores (0–1); below 0.5 triggers a finalCraftScore penalty */
     evidenceCoverageScore?: number;
+    /**
+     * Gate tier derived from evidenceCoverageScore:
+     *   "full"    overallCoverage >= 0.75 — permits Tier 3
+     *   "reduced" overallCoverage >= 0.50 — caps at Tier 2
+     *   "failed"  overallCoverage <  0.50 — caps at Tier 0 (unevaluable)
+     */
+    evidenceCoverageGateTier?: "full" | "reduced" | "failed";
 
     // ── Harmony realization contract ──────────────────────────────────────────
     // Per-field contract violations in sections that carry a harmonyGrammar plan.

@@ -173,8 +173,28 @@ export function candidateGateTier(
     craft: CraftScoreSummary,
     gate?: QualityGateConfig,
 ): 0 | 1 | 2 | 3 {
+    // Evidence coverage hard cap — must be checked FIRST.
+    //
+    // "failed"  (overallCoverage < 0.50): the generator produced so little
+    //   observable evidence that grammar scorers can only return neutral 0.5
+    //   fallbacks.  The candidate is effectively unevaluable — cap at Tier 0
+    //   to prevent it from polluting the shortlist.
+    //
+    // "reduced" (0.50 ≤ overallCoverage < 0.75): meaningful scoring is possible
+    //   but coverage gaps remain.  Allow Tiers 1–2 but block Tier 3 so that
+    //   fully-evidenced candidates are always preferred over partially-evidenced
+    //   ones at the same structural score level.
+    //
+    // "full"    (overallCoverage >= 0.75): no cap applied.
+    const ecGateTier = craft.evidenceCoverageGateTier ?? "full";
+    if (ecGateTier === "failed") return 0;
+
     if (!passesValidityGate(evaluation, craft, gate)) return 0;
     if (!passesContractGate(craft, gate)) return 1;
+
+    // Evidence "reduced" cap: even if the structural gates pass, the candidate
+    // cannot reach Tier 3 when coverage is below the full threshold.
+    if (ecGateTier === "reduced") return 2;
 
     // Piano lane: use piano-specific Gate 3 when available
     const piano = evaluation.pianoCraftScoreSummary;
