@@ -349,3 +349,59 @@ test("SP-17: selectAttemptWinner uses QUALITY_GATE_V1 as default and selects hig
     assert.strictEqual(winner.candidateId, "c-high",
         `Expected 'c-high' to win (higher craft scores), got '${winner.candidateId}'`);
 });
+
+// ─── Profile propagation tests ────────────────────────────────────────────────
+
+import {
+    resolveCraftScoringProfile,
+    resolvePianoListenabilityScoringProfile,
+    resolveQualityGateConfig as resolveGateConfig,
+    DEFAULT_CANDIDATE_SCORING_PROFILES,
+} from "../dist/core/evaluate/scoringProfile.js";
+import { buildStructureEvaluation } from "../dist/core/evaluate/evaluation.js";
+
+test("SP-18: resolveCraftScoringProfile returns CLASSICAL_DEFAULT_V1 for known name and unknown name", () => {
+    const known = resolveCraftScoringProfile("classical_default_v1");
+    assert.strictEqual(known.profile, "classical_default_v1");
+    assert.deepStrictEqual(known.weights, CLASSICAL_DEFAULT_V1.weights);
+
+    const unknown = resolveCraftScoringProfile("nonexistent_profile");
+    assert.strictEqual(unknown.profile, "classical_default_v1",
+        "Unknown profile should fall back to CLASSICAL_DEFAULT_V1");
+
+    const undef = resolveCraftScoringProfile(undefined);
+    assert.strictEqual(undef.profile, "classical_default_v1",
+        "undefined should fall back to CLASSICAL_DEFAULT_V1");
+});
+
+test("SP-19: buildStructureEvaluation uses scoringProfiles.scoringProfile to stamp craftScoreSummary", () => {
+    // Minimal critique result — passes validity so craft scoring runs
+    const critiqueResult = { pass: true, issues: [], strengths: [] };
+
+    const artifacts = [{
+        sectionId: "s1",
+        role: "theme_a",
+        measuresCount: 8,
+        melodyEvents: [
+            { pitch: 60, durationTicks: 480, velocity: 80, startTick: 0 },
+            { pitch: 62, durationTicks: 480, velocity: 80, startTick: 480 },
+        ],
+        accompanimentEvents: [],
+    }];
+
+    const result = buildStructureEvaluation(critiqueResult, {
+        sectionArtifacts: artifacts,
+        scoringProfiles: {
+            scoringProfile: "classical_default_v1",
+            qualityGateProfile: "quality_gate_v1",
+        },
+    });
+
+    // craftScoreSummary must be populated and profile name stamped
+    assert.ok(result.craftScoreSummary, "craftScoreSummary should be computed");
+    assert.strictEqual(
+        result.craftScoreSummary.scoringProfile,
+        "classical_default_v1",
+        "craftScoreSummary.scoringProfile should match the supplied profile",
+    );
+});

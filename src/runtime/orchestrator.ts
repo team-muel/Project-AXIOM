@@ -801,6 +801,8 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             longSpanForm: candidateCompositionPlan?.longSpanForm,
                             orchestration: candidateCompositionPlan?.orchestration,
                             classicalKnowledge: candidateCompositionPlan?.classicalKnowledge ?? candidateVariant.request.classicalKnowledge,
+                            compositionPlan: candidateCompositionPlan,
+                            scoringProfiles: candidateExecutionPlan.scoringProfiles,
                         });
                         const candidateQualityPolicy = manifest.qualityControl?.policy ?? resolveQualityPolicy(candidateVariant.request, candidateExecutionPlan);
                         const candidateRetryNeeded = shouldRetryStructureAttempt(
@@ -857,6 +859,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             midiData: candidate.midiData,
                             abcText: candidateComposeResult.proposalEvidence?.abcText,
                             evaluatedAt: manifest.updatedAt,
+                            scoringProfiles: candidate.executionPlan.scoringProfiles,
                         });
 
                     if (composeResult?.isRendered || effectiveExecutionPlan.workflow === "audio_only") {
@@ -1016,6 +1019,8 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             longSpanForm: branchCompositionPlan?.longSpanForm,
                             orchestration: branchCompositionPlan?.orchestration,
                             classicalKnowledge: branchCompositionPlan?.classicalKnowledge ?? branchRequest.classicalKnowledge,
+                            compositionPlan: branchCompositionPlan,
+                            scoringProfiles: branchExecutionPlan.scoringProfiles,
                         });
                         const branchQualityPolicy = manifest.qualityControl?.policy ?? resolveQualityPolicy(branchRequest, branchExecutionPlan);
 
@@ -1059,6 +1064,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             midiData: branchCandidate.midiData,
                             abcText: branchComposeResult.proposalEvidence?.abcText,
                             evaluatedAt: manifest.updatedAt,
+                            scoringProfiles: branchCandidate.executionPlan.scoringProfiles,
                         });
 
                     const attemptWinner = selectAttemptWinner(attemptCandidates, manifest.songId);
@@ -1301,6 +1307,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                     midiData: resolvedCandidate.midiData,
                     abcText: composeResult.proposalEvidence?.abcText,
                     evaluatedAt: manifest.updatedAt,
+                    scoringProfiles: resolvedCandidate.executionPlan.scoringProfiles,
                 });
                 runStructureRerankerShadowScoring(manifest.songId);
 

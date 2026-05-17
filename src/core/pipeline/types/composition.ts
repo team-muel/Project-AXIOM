@@ -10,6 +10,7 @@ import type { LocalizedPianoRewriteSpec, PianoPlan } from "./piano.js";
 import type { AudioEvaluationReport, ComposeEvaluationPolicy, ComposeQualityPolicy, RevisionDirective, StructureEvaluationReport } from "./evaluation.js";
 import type { LearnedSamplingParams, LocalizedRewriteSpec, ModelBinding } from "./learned.js";
 import type { SongMeta } from "./manifest.js";
+import type { CandidateScoringProfiles } from "../../evaluate/scoringProfile.js";
 
 export interface ArtifactPaths {
     midi?: string;
@@ -150,6 +151,13 @@ export interface ComposeExecutionPlan {
     workflow: ComposeWorkflow;
     composeWorker: ComposeWorkerName;
     selectedModels: ModelBinding[];
+    /**
+     * Scoring profiles used for evaluating and selecting candidates in this
+     * execution.  Stored on the plan so every evaluation step (craftScore,
+     * pianoScore, gate check) and the candidate manifest use the same profiles.
+     * Defaults to DEFAULT_CANDIDATE_SCORING_PROFILES when not specified.
+     */
+    scoringProfiles?: CandidateScoringProfiles;
 }
 
 export interface SymbolicCompositionProfile {

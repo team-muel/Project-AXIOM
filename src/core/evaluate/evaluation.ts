@@ -36,7 +36,12 @@ import type {
     TonalityMode,
 } from "../pipeline/types.js";
 import { computeCraftScoreSummary } from "./craftScoring.js";
-import { applyPianoPlayabilityGate } from "./pianoCraftScoring.js";
+import { applyPianoPlayabilityGate, computePianoCraftScoreSummary } from "./pianoCraftScoring.js";
+import {
+    type CandidateScoringProfiles,
+    resolveCraftScoringProfile,
+    resolveQualityGateConfig,
+} from "./scoringProfile.js";
 
 interface StructureEvaluationOptions {
     sections?: SectionPlan[];
@@ -47,6 +52,12 @@ interface StructureEvaluationOptions {
     orchestration?: OrchestrationPlan;
     classicalKnowledge?: ClassicalKnowledgePlan;
     compositionPlan?: CompositionPlan;
+    /**
+     * Scoring profiles to use for this evaluation pass.
+     * Controls which craft weight profile, piano profile, and quality gate are
+     * applied.  Defaults to built-in v1 constants when not supplied.
+     */
+    scoringProfiles?: CandidateScoringProfiles;
 }
 
 type StructureSectionFinding = NonNullable<StructureEvaluationReport["sectionFindings"]>[number];
@@ -6268,19 +6279,27 @@ export function buildStructureEvaluation(result: CritiqueResult, options?: Struc
 
     const sectionArtifacts = options?.sectionArtifacts;
     if (sectionArtifacts?.length) {
+        const craftProfile = resolveCraftScoringProfile(options?.scoringProfiles?.scoringProfile);
         baseReport.craftScoreSummary = computeCraftScoreSummary(
             sectionArtifacts,
             options?.compositionPlan,
             baseReport,
+            craftProfile,
         );
     }
 
-    // Gate 3 — Piano playability hard gate.
+    // Piano path: compute full piano craft score and apply the playability gate.
     // When the plan targets piano solo, a section whose pianoPlayabilityScore
-    // falls below 0.50 must fail unconditionally before craft scoring (Gate 4).
-    // Non-piano compositions are unaffected.
+    // falls below the gate threshold must fail unconditionally before craft
+    // scoring (Gate 4).  Non-piano compositions are unaffected.
     if (options?.compositionPlan?.pianoPlan && sectionArtifacts?.length) {
-        return applyPianoPlayabilityGate(baseReport, sectionArtifacts);
+        baseReport.pianoCraftScoreSummary = computePianoCraftScoreSummary(
+            sectionArtifacts,
+            options.compositionPlan,
+            baseReport,
+        );
+        const qualityGate = resolveQualityGateConfig(options?.scoringProfiles?.qualityGateProfile);
+        return applyPianoPlayabilityGate(baseReport, sectionArtifacts, undefined, qualityGate);
     }
 
     return baseReport;

@@ -245,6 +245,73 @@ export interface CandidateScoringProfiles {
     qualityGateProfile?: string;
 }
 
+// ─── Built-in profile resolvers ──────────────────────────────────────────────
+
+/**
+ * Resolves a craft scoring profile name to its built-in profile object.
+ *
+ * Returns the matching built-in constant for known names, or falls back to
+ * CLASSICAL_DEFAULT_V1.  No file I/O — safe to call in the hot evaluation path.
+ *
+ * @param name  Profile identifier, e.g. "classical_default_v1".
+ */
+export function resolveCraftScoringProfile(name?: string): CraftScoringProfile {
+    switch (name) {
+        case CLASSICAL_DEFAULT_V1.profile:
+            return CLASSICAL_DEFAULT_V1;
+        default:
+            return CLASSICAL_DEFAULT_V1;
+    }
+}
+
+/**
+ * Resolves a piano listenability profile name to its built-in profile object.
+ *
+ * Returns the matching built-in constant for known names, or falls back to
+ * PIANO_LISTENABILITY_V1.  No file I/O.
+ *
+ * @param name  Profile identifier, e.g. "piano_listenability_v1".
+ */
+export function resolvePianoListenabilityScoringProfile(
+    name?: string,
+): PianoListenabilityScoringProfile {
+    switch (name) {
+        case PIANO_LISTENABILITY_V1.profile:
+            return PIANO_LISTENABILITY_V1;
+        default:
+            return PIANO_LISTENABILITY_V1;
+    }
+}
+
+/**
+ * Resolves a quality gate profile name to its built-in config object.
+ *
+ * Returns the matching built-in constant for known names, or falls back to
+ * QUALITY_GATE_V1.  No file I/O.
+ *
+ * @param name  Profile identifier, e.g. "quality_gate_v1".
+ */
+export function resolveQualityGateConfig(name?: string): QualityGateConfig {
+    switch (name) {
+        case QUALITY_GATE_V1.profile:
+            return QUALITY_GATE_V1;
+        default:
+            return QUALITY_GATE_V1;
+    }
+}
+
+// ─── Default candidate profiles ───────────────────────────────────────────────
+
+/**
+ * Default scoring profiles applied when an execution plan does not specify
+ * any custom profiles.  These mirror the v1 built-in constants.
+ */
+export const DEFAULT_CANDIDATE_SCORING_PROFILES: CandidateScoringProfiles = {
+    scoringProfile:   CLASSICAL_DEFAULT_V1.profile,
+    pianoProfile:     PIANO_LISTENABILITY_V1.profile,
+    qualityGateProfile: QUALITY_GATE_V1.profile,
+} as const;
+
 // ─── File loader ──────────────────────────────────────────────────────────────
 
 /**

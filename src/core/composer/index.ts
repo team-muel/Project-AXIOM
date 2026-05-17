@@ -16,6 +16,7 @@ import type {
     SectionTransformSummary,
     SongMeta,
 } from "../pipeline/types.js";
+import { DEFAULT_CANDIDATE_SCORING_PROFILES } from "../evaluate/scoringProfile.js";
 import { coerceComposeWorkflowForForm, isAudioFirstForm } from "../plan/formTemplates.js";
 import { summarizeClassicalKnowledgePlan } from "../music/classicalKnowledge.js";
 import { defaultModelBindings } from "../music/modelBindings.js";
@@ -200,6 +201,7 @@ export function buildExecutionPlan(request: ComposeRequest): ComposeExecutionPla
         workflow,
         composeWorker: resolveComposeWorkerName(workflow, selectedModels),
         selectedModels,
+        scoringProfiles: DEFAULT_CANDIDATE_SCORING_PROFILES,
     };
 }
 
