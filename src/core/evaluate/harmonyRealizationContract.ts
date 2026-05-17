@@ -214,3 +214,92 @@ export function checkHarmonyRealizationContract(
         sectionCount,
     };
 }
+
+// ---------------------------------------------------------------------------
+// Revision directives — turning violations into actionable repair instructions
+// ---------------------------------------------------------------------------
+//
+// buildHarmonyRepairDirectives() converts a HarmonyRealizationContractReport
+// into a list of RevisionDirectives that the composition pipeline can use to
+// guide the next generation attempt.
+//
+// Each directive pairs a field-level contract violation with a concrete
+// RepairAction string so that the planner / worker / renderer knows exactly
+// what to fix rather than just receiving a numeric penalty.
+//
+// RepairAction vocabulary:
+//   strengthen_cadence              — worker must annotate cadential motion
+//   clarify_harmonic_color          — worker must emit at least one harmonic cue
+//   regenerate_harmony_realization  — renderer must regenerate the harmony summary
+//   enforce_tonicization_window     — worker must produce tonicization windows
+//   enforce_prolongation_mode       — worker must honour the planned prolongation mode
+// ---------------------------------------------------------------------------
+
+/** Concrete action the next generation pass should take to fix a violation. */
+export type RepairAction =
+    | "strengthen_cadence"
+    | "clarify_harmonic_color"
+    | "regenerate_harmony_realization"
+    | "enforce_tonicization_window"
+    | "enforce_prolongation_mode";
+
+/**
+ * A single repair instruction derived from a HarmonyContractViolation.
+ * Directives are consumed by the composition pipeline to steer the next
+ * generation attempt toward producing the missing evidence.
+ */
+export interface RevisionDirective {
+    /** Section that must be repaired. */
+    sectionId: string;
+    /** Role of the section (e.g. "theme_a", "development"). */
+    sectionRole: string;
+    /** Which harmony evidence field is absent. */
+    field: HarmonyContractField;
+    /** Whether this was a hard-required or plan-conditional field. */
+    severity: HarmonyContractSeverity;
+    /** Concrete action the next attempt should take. */
+    action: RepairAction;
+    /** Human-readable explanation sourced from the original violation. */
+    reason: string;
+}
+
+/** Map from a missing contract field to the canonical repair action. */
+const FIELD_TO_ACTION: Record<HarmonyContractField, RepairAction> = {
+    cadenceApproach:            "strengthen_cadence",
+    harmonicColorCues:          "clarify_harmonic_color",
+    harmonicRealizationSummary: "regenerate_harmony_realization",
+    tonicizationWindows:        "enforce_tonicization_window",
+    prolongationMode:           "enforce_prolongation_mode",
+};
+
+/**
+ * Converts all violations in a `HarmonyRealizationContractReport` into
+ * `RevisionDirective[]` that the pipeline can relay to the next generation
+ * attempt.
+ *
+ * Required violations appear before conditional violations so that the most
+ * critical repairs are addressed first.  Within each severity group, the
+ * order follows the violation list (i.e. section order in the plan).
+ *
+ * Returns an empty array when the report has no violations.
+ */
+export function buildHarmonyRepairDirectives(
+    report: HarmonyRealizationContractReport,
+): RevisionDirective[] {
+    if (report.violations.length === 0) return [];
+
+    // Sort: required first, then conditional — preserving relative order within groups
+    const sorted = [
+        ...report.violations.filter((v) => v.severity === "required"),
+        ...report.violations.filter((v) => v.severity === "conditional"),
+    ];
+
+    return sorted.map((v): RevisionDirective => ({
+        sectionId:   v.sectionId,
+        sectionRole: v.sectionRole,
+        field:       v.field,
+        severity:    v.severity,
+        action:      FIELD_TO_ACTION[v.field],
+        reason:      v.reason,
+    }));
+}
