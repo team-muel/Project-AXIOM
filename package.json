@@ -31,6 +31,8 @@
         "benchmark:soundfont:playlist": "node scripts/generate-soundfont-benchmark-playlist.mjs",
         "benchmark:notagen-ablation": "node scripts/benchmark-notagen-control-ablation.mjs",
         "benchmark:notagen-ablation:json": "node scripts/benchmark-notagen-control-ablation.mjs --json",
+        "benchmark:notagen-ablation:scores": "node scripts/benchmark-notagen-control-ablation.mjs --scores-from=outputs",
+        "benchmark:notagen-ablation:scores:json": "node scripts/benchmark-notagen-control-ablation.mjs --scores-from=outputs --json",
         "analyze:score-feedback": "node scripts/analyze-score-feedback-correlation.mjs --root=outputs --out=outputs/_system/score-feedback-correlation.json --csv",
         "export:sft-dataset": "node scripts/export-sft-dataset.mjs --out=outputs/_system/sft-dataset.jsonl",
         "export:notagen-sft": "node scripts/export-notagen-sft-dataset.mjs --root=outputs",
