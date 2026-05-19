@@ -95,8 +95,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
-import os
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -187,7 +185,7 @@ def _load_dpo_pairs(
     min_score_gap: float = 0.05,
     allowed_reasons: set[str] | None = None,
     verbose: bool = False,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """Load and filter DPO pairs; return list of {chosen, rejected, meta} dicts."""
     if not jsonl_path.is_file():
         sys.exit(f"ERROR: DPO JSONL not found: {jsonl_path}")
@@ -268,7 +266,7 @@ def _load_model_and_tokenizer(
     lora_r: int,
     lora_alpha: int,
 ) -> tuple[Any, Any]:
-    from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: PLC0415
+    from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: PLC0415  # type: ignore[import]
 
     # When SFT adapter is provided, load base model first, then apply adapter
     base_model_path = model_name_or_path
@@ -295,12 +293,12 @@ def _load_model_and_tokenizer(
 
     if sft_adapter_path:
         _require("peft", "pip install peft")
-        from peft import PeftModel  # noqa: PLC0415
+        from peft import PeftModel  # noqa: PLC0415  # type: ignore[import]
         print(f"Loading SFT adapter: {sft_adapter_path}")
         model = PeftModel.from_pretrained(model, sft_adapter_path, is_trainable=True)
     elif mode == "lora":
         _require("peft", "pip install peft")
-        from peft import LoraConfig, TaskType, get_peft_model  # noqa: PLC0415
+        from peft import LoraConfig, TaskType, get_peft_model  # noqa: PLC0415  # type: ignore[import]
         lora_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
             r=lora_r,
@@ -323,7 +321,7 @@ def _load_model_and_tokenizer(
 
 def _compute_log_probs(model: Any, input_ids: Any, labels: Any) -> Any:
     """Compute per-token log probabilities for a sequence batch."""
-    import torch  # noqa: PLC0415
+    import torch  # noqa: PLC0415  # type: ignore[import]
     with torch.no_grad() if not model.training else torch.enable_grad():  # type: ignore[attr-defined]
         outputs = model(input_ids=input_ids, labels=labels)
     # Return negative loss as log-likelihood proxy (summed over non-masked tokens)
@@ -344,8 +342,8 @@ def _dpo_loss(
     Minimal DPO loss for a single (chosen, rejected) pair.
     L = -log sigmoid(beta * (log pi(y_w|x)/pi_ref(y_w|x) - log pi(y_l|x)/pi_ref(y_l|x)))
     """
-    import torch  # noqa: PLC0415
-    import torch.nn.functional as F  # noqa: PLC0415
+    import torch  # noqa: PLC0415  # type: ignore[import]
+    import torch.nn.functional as F  # noqa: PLC0415  # type: ignore[import]
 
     policy_log_prob_chosen   = _compute_log_probs(policy_model, chosen_ids,   chosen_labels)
     policy_log_prob_rejected = _compute_log_probs(policy_model, rejected_ids, rejected_labels)
@@ -387,7 +385,7 @@ def _train_dpo(
     supports gradient accumulation, mixed precision, and multi-GPU.
     This implementation prioritizes clarity and correctness over throughput.
     """
-    import torch  # noqa: PLC0415
+    import torch  # noqa: PLC0415  # type: ignore[import]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)

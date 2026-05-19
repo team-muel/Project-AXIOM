@@ -77,7 +77,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -217,7 +216,7 @@ def _load_model_and_tokenizer(
     lora_r: int,
     lora_alpha: int,
 ) -> tuple[Any, Any]:
-    from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: PLC0415
+    from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: PLC0415  # type: ignore[import]
 
     print(f"Loading tokenizer: {model_name}")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -229,7 +228,7 @@ def _load_model_and_tokenizer(
 
     if mode == "lora":
         _require("peft", "pip install peft")
-        from peft import LoraConfig, TaskType, get_peft_model  # noqa: PLC0415
+        from peft import LoraConfig, TaskType, get_peft_model  # noqa: PLC0415  # type: ignore[import]
 
         lora_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
@@ -262,10 +261,10 @@ def _train(
     output_dir: Path,
     verbose: bool,
 ) -> dict[str, Any]:
-    from transformers import DataCollatorForLanguageModeling, Trainer, TrainingArguments  # noqa: PLC0415
+    from transformers import DataCollatorForLanguageModeling, Trainer, TrainingArguments  # noqa: PLC0415  # type: ignore[import]
 
     try:
-        from datasets import Dataset  # noqa: PLC0415
+        from datasets import Dataset  # noqa: PLC0415  # type: ignore[import]
     except ImportError:
         sys.exit("ERROR: datasets is required. Install with: pip install datasets")
 

@@ -1,0 +1,10 @@
+{
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "basic",
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "none",
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
