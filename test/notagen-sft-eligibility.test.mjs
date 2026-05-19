@@ -48,6 +48,49 @@ const THRESHOLDS = {
     pianoListenabilityScore: 0.50,
 };
 
+const SFT_TIER_THRESHOLDS = {
+    gold: {
+        finalCraftScore:         0.82,
+        advancedCraftScore:      0.75,
+        harmonyContractScore:    0.80,
+        evidenceCoverageScore:   0.70,
+        pianoListenabilityScore: 0.70,
+    },
+    silver: {
+        finalCraftScore:         0.75,
+        advancedCraftScore:      0.68,
+        harmonyContractScore:    0.70,
+        evidenceCoverageScore:   0.70,
+        pianoListenabilityScore: 0.50,
+    },
+};
+const SFT_TIER_WEIGHTS = { gold: 1.0, silver: 0.6, bronze: 0.3 };
+
+function computeSftTier(scores) {
+    const fcs = scores.finalCraftScore ?? 0;
+    const acs = scores.advancedCraftScore ?? 0;
+    const hcs = scores.harmonyContractScore;
+    const ecs = scores.evidenceCoverageScore ?? 0;
+    const pls = scores.pianoListenabilityScore;
+    const isPiano = scores.isPianoCandidate;
+
+    const g = SFT_TIER_THRESHOLDS.gold;
+    const goldFails =
+        fcs < g.finalCraftScore
+        || acs < g.advancedCraftScore
+        || ecs < g.evidenceCoverageScore
+        || (hcs !== undefined && hcs < g.harmonyContractScore)
+        || (isPiano && pls !== undefined && pls < g.pianoListenabilityScore);
+    if (!goldFails) return "gold";
+
+    const s = SFT_TIER_THRESHOLDS.silver;
+    const silverFails =
+        fcs < s.finalCraftScore
+        || acs < s.advancedCraftScore
+        || ecs < s.evidenceCoverageScore;
+    return silverFails ? "bronze" : "silver";
+}
+
 function buildInstruction(pr) {
     if (!pr) return null;
     const txt = toTrimmed(pr.conditioningText);
@@ -129,11 +172,22 @@ function computeEligibility(cm, { includeMock } = { includeMock: false }) {
             reasons.push(`below_pianoListenabilityScore(${scores.pianoListenabilityScore?.toFixed(3)}<${THRESHOLDS.pianoListenabilityScore})`);
     }
 
-    const eligibleForSft = reasons.length === 0;
+    // P0: human rejection hard gate — must come BEFORE eligibleForSft determination
     const cal = cm?.curatorCalibration ?? null;
     const fb  = cm?.listenerFeedback  ?? null;
-    const humanRating = toFinite(cal?.qualityRating ?? fb?.appeal);
+    const humanRating  = toFinite(cal?.qualityRating ?? fb?.appeal);
+    const humanRejected = humanRating !== undefined && humanRating <= 2;
     const humanApproved = humanRating !== undefined && humanRating >= 4;
+
+    if (humanRejected) reasons.push("human_rejected");
+
+    const eligibleForSft = reasons.length === 0;
+
+    // P1: human anchor eligibility
+    const hasStructuralFailure = reasons.some(
+        (r) => r === "no_abc_text" || r === "no_control_lines" || r === "mock_excluded",
+    );
+    const eligibleAsHumanAnchor = humanApproved && !hasStructuralFailure && !eligibleForSft;
 
     let eligibilitySource;
     if (eligibleForSft && humanApproved)  eligibilitySource = "hybrid";
@@ -149,15 +203,21 @@ function computeEligibility(cm, { includeMock } = { includeMock: false }) {
             + (scores.evidenceCoverageScore ?? 0) * 0.25
         ) / 1.0);
         confidenceScore = Math.min(1.0, base + (humanApproved ? 0.10 : 0.0));
+    } else if (eligibleAsHumanAnchor) {
+        confidenceScore = Math.min(1.0, humanRating / 5);
     }
 
     return {
         eligibleForSft,
+        eligibleAsHumanAnchor,
         eligibleForPreference: eligibleForSft && cm?.selected === true,
         eligibilitySource,
+        humanRejected,
         reasons,
         confidenceScore: Math.round(confidenceScore * 1000) / 1000,
         scores,
+        sftTier: eligibleForSft ? computeSftTier(scores) : null,
+        sampleWeight: eligibleForSft ? SFT_TIER_WEIGHTS[computeSftTier(scores)] : 0,
     };
 }
 
@@ -385,4 +445,120 @@ describe("CandidateTrainingEligibility (NSE)", () => {
         assert.equal(EXPECTED_LABEL, "axiom_curated_pass");
     });
 
+    // ── P0: human rejection hard block ──────────────────────────────────────
+
+    it("NSE-17: humanRating=2 → hard block regardless of critic pass", () => {
+        const cm = makeCandidate({ curatorCalibration: { qualityRating: 2 } });
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, false, "humanRating=2 must block SFT");
+        assert.ok(result.humanRejected, "humanRejected should be true");
+        assert.ok(result.reasons.includes("human_rejected"), "reason should include human_rejected");
+        assert.equal(result.confidenceScore, 0, "confidence must be 0 for rejected pair");
+    });
+
+    it("NSE-18: humanRating=1 → hard block (listenerFeedback.appeal)", () => {
+        const cm = makeCandidate({ listenerFeedback: { appeal: 1 } });
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, false, "humanRating=1 must block SFT");
+        assert.ok(result.humanRejected);
+        assert.ok(result.reasons.includes("human_rejected"));
+    });
+
+    // ── P1: human anchor eligibility ────────────────────────────────────────
+
+    it("NSE-19: humanRating=5, critic fails → eligibleAsHumanAnchor=true, not eligibleForSft", () => {
+        const cm = makeCandidate({
+            curatorCalibration: { qualityRating: 5 },
+        });
+        // Degrade scores to fail critic
+        cm.structureEvaluation.craftScoreSummary.finalCraftScore = 0.40;
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, false, "critic fail should block main SFT");
+        assert.equal(result.eligibleAsHumanAnchor, true, "human approval should enable anchor");
+        assert.equal(result.eligibilitySource, "human_curated");
+        assert.ok(result.confidenceScore > 0, "anchor confidence should be derived from human rating");
+        assert.ok(result.confidenceScore <= 1.0);
+        // confidenceScore = min(1, 5/5) = 1.0
+        assert.equal(result.confidenceScore, 1.0);
+    });
+
+    it("NSE-20: humanRating=4, no abcText (structural failure) → eligibleAsHumanAnchor=false", () => {
+        const cm = makeCandidate({
+            curatorCalibration: { qualityRating: 4 },
+            proposalEvidence: {
+                generationMode: "notagen_local",
+                providerRequest: { conditioningText: "Baroque", controlLines: ["key: C"] },
+                // abcText intentionally absent
+            },
+        });
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, false);
+        assert.equal(result.eligibleAsHumanAnchor, false,
+            "structural failure (no_abc_text) must prevent anchor eligibility");
+    });
+
+    // ── SFT Tier classification ───────────────────────────────────────────────
+
+    it("NSE-21: gold tier — all gold thresholds met → sftTier=gold, sampleWeight=1.0", () => {
+        const cm = makeCandidate({
+            structureEvaluation: {
+                craftScoreSummary: {
+                    finalCraftScore:       0.85,
+                    advancedCraftScore:    0.80,
+                    harmonyContractScore:  0.85,
+                    evidenceCoverageScore: 0.78,
+                },
+            },
+        });
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, true);
+        assert.equal(result.sftTier, "gold", "should be gold when all gold thresholds met");
+        assert.equal(result.sampleWeight, 1.0);
+    });
+
+    it("NSE-22: silver tier — silver thresholds met but not gold → sftTier=silver, sampleWeight=0.6", () => {
+        const cm = makeCandidate({
+            structureEvaluation: {
+                craftScoreSummary: {
+                    finalCraftScore:       0.77,   // ≥0.75 (silver) but <0.82 (gold)
+                    advancedCraftScore:    0.70,   // ≥0.68 (silver) but <0.75 (gold)
+                    harmonyContractScore:  0.80,
+                    evidenceCoverageScore: 0.72,   // ≥0.70 (silver) but doesn't meet gold advanced
+                },
+            },
+        });
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, true);
+        assert.equal(result.sftTier, "silver", "should be silver when gold threshold missed");
+        assert.equal(result.sampleWeight, 0.6);
+    });
+
+    it("NSE-23: bronze tier — only base gate passes → sftTier=bronze, sampleWeight=0.3", () => {
+        // Passes base gate (finalCraft≥0.70, advanced≥0.60, evidence≥0.55) but not silver
+        const cm = makeCandidate({
+            structureEvaluation: {
+                craftScoreSummary: {
+                    finalCraftScore:       0.73,   // passes base, fails silver (0.75)
+                    advancedCraftScore:    0.65,   // passes base, fails silver (0.68)
+                    harmonyContractScore:  0.75,
+                    evidenceCoverageScore: 0.60,   // passes base (0.55), fails silver (0.70)
+                },
+            },
+        });
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, true);
+        assert.equal(result.sftTier, "bronze");
+        assert.equal(result.sampleWeight, 0.3);
+    });
+
+    it("NSE-24: not eligible → sftTier=null, sampleWeight=0", () => {
+        const cm = makeCandidate();
+        cm.structureEvaluation.craftScoreSummary.finalCraftScore = 0.50; // below base gate
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, false);
+        assert.equal(result.sftTier, null);
+        assert.equal(result.sampleWeight, 0);
+    });
+
 });
+
