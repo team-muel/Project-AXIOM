@@ -25,6 +25,12 @@ import "../mcp-transport.test.mjs";
 import "../ready-status.test.mjs";
 import "../overseer-last-report.test.mjs";
 
+// ─── Feedback (subprocess-based) ─────────────────────────────────────────────
+// candidate-feedback-api uses runNodeEval (subprocess) — placed here, not in unit suite
+import "../candidate-feedback-api.test.mjs";
+// piano-listenability-repair uses runNodeEval (subprocess) — placed here, not in piano suite
+import "../piano-listenability-repair.test.mjs";
+
 // ─── Multi-model planner ──────────────────────────────────────────────────────
 import "../multimodel-planner.test.mjs";
 import "../multimodel-execution.test.mjs";

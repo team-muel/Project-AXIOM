@@ -944,6 +944,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                             sectionArtifacts: parent.candidate.composeResult.sectionArtifacts?.map((entry) => ({ ...entry })),
                             plannerVersion: parent.candidate.request.plannerVersion ?? parent.candidate.compositionPlan?.version,
                             ...(learnedRewriteSpec ? { localizedRewriteSpec: learnedRewriteSpec } : {}),
+                            ...(parent.localizedPianoRewriteSpec ? { localizedPianoRewriteSpec: parent.localizedPianoRewriteSpec } : {}),
                         }, parent.revisionDirectives, symbolicAttempt);
                         const branchRequest = ensureComposeRequestMetadata(
                             materializeCompositionSketch({

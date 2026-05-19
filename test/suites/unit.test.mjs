@@ -36,3 +36,4 @@ import "../hybrid-symbolic-candidate-pool.test.mjs";
 import "../learned-multi-candidate.test.mjs";
 import "../harmony-repair-directives.test.mjs";
 import "../localized-rewrite-harmony-repair.test.mjs";
+// NOTE: candidate-feedback-api.test.mjs uses runNodeEval → lives in core.test.mjs

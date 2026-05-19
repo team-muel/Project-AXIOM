@@ -1,6 +1,7 @@
-import type { ComposeRequest, RevisionDirective } from "../../core/pipeline/types.js";
+import type { ComposeRequest, RevisionDirective, LocalizedPianoRewriteSpec } from "../../core/pipeline/types.js";
 import { buildStructureRevisionDirectives } from "../../core/evaluate/quality.js";
 import { buildHarmonyContractRevisionDirectives } from "../../core/evaluate/harmonyRealizationContract.js";
+import { buildPianoListenabilityRepairDirectives } from "../../core/evaluate/pianoListenabilityRepair.js";
 import { compareStructureEvaluationsForCandidateSelection } from "../../core/generate/structureSelection.js";
 import { buildHybridSymbolicSelectionReason } from "../../core/generate/hybridSymbolicCandidatePool.js";
 import type { SymbolicAttemptCandidate } from "./candidateSelection.js";
@@ -8,6 +9,13 @@ import type { SymbolicAttemptCandidate } from "./candidateSelection.js";
 export interface LocalizedRewriteBranchParent {
     candidate: SymbolicAttemptCandidate;
     revisionDirectives: RevisionDirective[];
+    /**
+     * When present, the piano listenability evaluator found one or more
+     * dimensions below threshold.  The orchestrator attaches this spec to the
+     * branch `ComposeRequest` so the piano-lane adapter can embed it as an
+     * `<AXIOM_PIANO_REWRITE>` control block in the generation prompt.
+     */
+    localizedPianoRewriteSpec?: LocalizedPianoRewriteSpec;
 }
 
 export function buildLearnedRerankerPromotionStopReason(
@@ -69,9 +77,32 @@ export function collectSameAttemptLocalizedRewriteParents(
                     )
                     : [];
 
-            return { candidate, revisionDirectives: [...sectionedDirectives, ...harmonyDirectives] };
+            // Piano listenability repair: when pianoCraftScoreSummary is present
+            // and any dimension falls below threshold, build a LocalizedPianoRewriteSpec
+            // that will be injected into the branch ComposeRequest by the orchestrator.
+            const pianoCraftSummary = candidate.structureEvaluation.pianoCraftScoreSummary;
+            const pianoDirectives = pianoCraftSummary
+                ? buildPianoListenabilityRepairDirectives(pianoCraftSummary)
+                : [];
+            const localizedPianoRewriteSpec: LocalizedPianoRewriteSpec | undefined =
+                pianoDirectives.length > 0
+                    ? {
+                        rewriteSectionIds: (candidate.composeResult.sectionArtifacts ?? []).map(
+                            (a) => a.sectionId,
+                        ),
+                        keepSectionIds: [],
+                        reason: pianoDirectives.map((d) => d.reason).join("; "),
+                        directives: pianoDirectives,
+                    }
+                    : undefined;
+
+            return {
+                candidate,
+                revisionDirectives: [...sectionedDirectives, ...harmonyDirectives],
+                localizedPianoRewriteSpec,
+            };
         })
-        .filter((entry) => entry.revisionDirectives.length > 0)
+        .filter((entry) => entry.revisionDirectives.length > 0 || entry.localizedPianoRewriteSpec !== undefined)
         .sort((left, right) => compareStructureEvaluationsForCandidateSelection(
             right.candidate.structureEvaluation,
             left.candidate.structureEvaluation,
