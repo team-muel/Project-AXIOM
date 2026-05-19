@@ -153,6 +153,34 @@ test("SPR-07: unknown profile name falls back silently to built-in default", () 
     assert.strictEqual(pianoCraft.profile, "piano_craft_v1");
 });
 
+// ─── SPR-09: piano_listenability_v2 disk load ────────────────────────────────
+
+test("SPR-09: resolvePianoListenabilityScoringProfile('piano_listenability_v2') loads from disk", () => {
+    clearProfileRegistry();
+    const profile = resolvePianoListenabilityScoringProfile("piano_listenability_v2");
+    assert.strictEqual(profile.profile, "piano_listenability_v2");
+
+    // Weights must sum to 1.00 (±0.005)
+    const sum = Object.values(profile.weights).reduce((a, b) => a + b, 0);
+    assert.ok(
+        Math.abs(sum - 1.0) <= 0.005,
+        `piano_listenability_v2 weights sum to ${sum.toFixed(4)}, expected 1.00`,
+    );
+
+    // Must differ from v1 (tuned weights)
+    assert.notDeepStrictEqual(profile.weights, PIANO_LISTENABILITY_V1.weights);
+
+    // melodyProminence and bassRootSupport must be higher in v2 (per design intent)
+    assert.ok(
+        profile.weights.melodyProminence > PIANO_LISTENABILITY_V1.weights.melodyProminence,
+        "v2 melodyProminence should exceed v1",
+    );
+    assert.ok(
+        profile.weights.bassRootSupport > PIANO_LISTENABILITY_V1.weights.bassRootSupport,
+        "v2 bassRootSupport should exceed v1",
+    );
+});
+
 // ─── SPR-08: clearProfileRegistry() resets cache ─────────────────────────────
 
 test("SPR-08: clearProfileRegistry() allows re-loading an updated profile from disk", () => {

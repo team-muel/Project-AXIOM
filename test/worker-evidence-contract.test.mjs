@@ -222,7 +222,7 @@ function makeProposalResponse(sectionJson) {
     }`;
 }
 
-async function runNormalizerTest(code) {
+async function runNormalizerTest(code, sectionJson) {
     const tmpDir = makeTmpDir();
     // Need a real MIDI file for the normalizer to accept
     const midiPath = path.join(tmpDir, "test.mid");
@@ -236,7 +236,7 @@ async function runNormalizerTest(code) {
     const evalCode = `
 import fs from "node:fs";
 const MIDI_PATH = ${JSON.stringify(midiPath)};
-const response = ${makeProposalResponse(makeProposalSection())};
+const response = ${makeProposalResponse(sectionJson ?? makeProposalSection())};
 ${code}
 `;
     const { stdout } = await runNodeEval(evalCode, { cwd: repoRoot, env: { OUTPUT_DIR: tmpDir } });
@@ -299,4 +299,160 @@ console.log(JSON.stringify({
 `);
     assert.ok(result.hasCapturedMotif, "capturedMotif should be present after normalization");
     assert.deepEqual(result.motif, [3, 2, 2]);
+});
+
+// ─── WEC-09~13: Strict evidence contract tests ────────────────────────────────
+
+test("WEC-09: normalizer passes phrasePeaks to SectionArtifactSummary", async () => {
+    const result = await runNormalizerTest(`
+import { normalizeLearnedSymbolicResponse } from "./dist/core/composer/learnedNormalizer.js";
+const req = { prompt: "test", compositionPlan: null };
+const plan = { composeWorker: "learned_symbolic", workflow: "learned_symbolic", selectedModels: [] };
+const pack = { version: "1.0", planSignature: "sig", styleCue: { key: "C major", tempo: 96 } };
+const normalized = normalizeLearnedSymbolicResponse(response, req, "song-1", plan, pack);
+const section = normalized.sectionArtifacts[0];
+console.log(JSON.stringify({
+    hasPhrasePeaks: Array.isArray(section.phrasePeaks) && section.phrasePeaks.length > 0,
+    peaks: section.phrasePeaks,
+}));
+`, makeProposalSection({ phrasePeaks: [2, 4] }));
+    assert.ok(result.hasPhrasePeaks, "phrasePeaks should be present after normalization");
+    assert.deepEqual(result.peaks, [2, 4]);
+});
+
+test("WEC-10: normalizer passes cadenceApproach to SectionArtifactSummary", async () => {
+    const result = await runNormalizerTest(`
+import { normalizeLearnedSymbolicResponse } from "./dist/core/composer/learnedNormalizer.js";
+const req = { prompt: "test", compositionPlan: null };
+const plan = { composeWorker: "learned_symbolic", workflow: "learned_symbolic", selectedModels: [] };
+const pack = { version: "1.0", planSignature: "sig", styleCue: { key: "C major", tempo: 96 } };
+const normalized = normalizeLearnedSymbolicResponse(response, req, "song-1", plan, pack);
+const section = normalized.sectionArtifacts[0];
+console.log(JSON.stringify({ cadenceApproach: section.cadenceApproach }));
+`, makeProposalSection({ cadenceApproach: "dominant" }));
+    assert.equal(result.cadenceApproach, "dominant", "cadenceApproach should be present after normalization");
+});
+
+test("WEC-11: normalizer passes all 5 core evidence fields simultaneously", async () => {
+    const result = await runNormalizerTest(`
+import { normalizeLearnedSymbolicResponse } from "./dist/core/composer/learnedNormalizer.js";
+const req = { prompt: "test", compositionPlan: null };
+const plan = { composeWorker: "learned_symbolic", workflow: "learned_symbolic", selectedModels: [] };
+const pack = { version: "1.0", planSignature: "sig", styleCue: { key: "C major", tempo: 96 } };
+const normalized = normalizeLearnedSymbolicResponse(response, req, "song-1", plan, pack);
+const s = normalized.sectionArtifacts[0];
+console.log(JSON.stringify({
+    hasPhrasePeaks: Array.isArray(s.phrasePeaks) && s.phrasePeaks.length > 0,
+    hasCadenceApproach: s.cadenceApproach !== undefined,
+    hasColorCues: Array.isArray(s.harmonicColorCues) && s.harmonicColorCues.length > 0,
+    hasHRS: s.harmonicRealizationSummary !== undefined,
+    hasCapturedMotif: Array.isArray(s.capturedMotif) && s.capturedMotif.length > 0,
+    cadenceApproach: s.cadenceApproach,
+}));
+`, makeProposalSection({ phrasePeaks: [3, 6], cadenceApproach: "plagal" }));
+    assert.ok(result.hasPhrasePeaks,     "phrasePeaks must pass through");
+    assert.ok(result.hasCadenceApproach, "cadenceApproach must pass through");
+    assert.ok(result.hasColorCues,       "harmonicColorCues must pass through");
+    assert.ok(result.hasHRS,             "harmonicRealizationSummary must pass through");
+    assert.ok(result.hasCapturedMotif,   "capturedMotif must pass through");
+    assert.equal(result.cadenceApproach, "plagal");
+});
+
+// ─── WEC-12~13: Python piano projection evidence tests ────────────────────────
+
+const workerComposerDir = path.join(repoRoot, "workers", "composer");
+
+async function runPianoProjectionHelper(pythonBin, code) {
+    const { stdout } = await execFileAsync(
+        pythonBin,
+        ["-c", `
+import sys, os, json
+sys.path.insert(0, r'${workerComposerDir.replace(/\\/g, "\\\\")}')
+${code}
+`],
+        { timeout: 10_000 },
+    );
+    return stdout.trim();
+}
+
+test("WEC-12: piano projection produces rightHandEvents and leftHandEvents per section", async (t) => {
+    const py = await pythonAvailable();
+    if (!py) {
+        t.skip("Python not available — skipping Python-dependent test");
+        return;
+    }
+    const out = await runPianoProjectionHelper(py, `
+from learned_symbolic.piano_projection import project_piano_section
+section = {
+    "id": "s1", "role": "theme_a", "measures": 4,
+    "key": "C major", "phraseFunction": "antecedent",
+}
+melody_events = [
+    {"kind": "note", "midi": 64, "quarterLength": 1.0, "role": "lead"},
+    {"kind": "note", "midi": 67, "quarterLength": 1.0, "role": "lead"},
+    {"kind": "note", "midi": 69, "quarterLength": 1.0, "role": "lead"},
+    {"kind": "note", "midi": 71, "quarterLength": 1.0, "role": "lead"},
+]
+acc_events = [
+    {"kind": "note", "midi": 48, "quarterLength": 2.0, "role": "bass"},
+    {"kind": "note", "midi": 50, "quarterLength": 2.0, "role": "bass"},
+]
+result = project_piano_section(section, 0, melody_events, acc_events)
+assert "rightHandEvents" in result, f"Missing rightHandEvents: {list(result.keys())}"
+assert "leftHandEvents" in result, f"Missing leftHandEvents: {list(result.keys())}"
+assert len(result["rightHandEvents"]) > 0, "rightHandEvents must be non-empty for lead events"
+assert len(result["leftHandEvents"]) > 0, "leftHandEvents must be non-empty for bass events"
+print(json.dumps({
+    "rhCount": len(result["rightHandEvents"]),
+    "lhCount": len(result["leftHandEvents"]),
+    "hasMeasures": len(result.get("rightHandMeasures", [])) > 0,
+}))
+`);
+    const data = JSON.parse(out);
+    assert.ok(data.rhCount > 0, "rightHandEvents should be non-empty for lead melody");
+    assert.ok(data.lhCount > 0, "leftHandEvents should be non-empty for bass events");
+    assert.ok(data.hasMeasures, "rightHandMeasures should be populated");
+});
+
+test("WEC-13: enrich_proposal_sections_with_piano_layout adds pianoVoiceLayout per section", async (t) => {
+    const py = await pythonAvailable();
+    if (!py) {
+        t.skip("Python not available — skipping Python-dependent test");
+        return;
+    }
+    const out = await runPianoProjectionHelper(py, `
+from learned_symbolic.piano_projection import enrich_proposal_sections_with_piano_layout
+sections = [
+    {
+        "sectionId": "s1", "role": "theme_a", "measureCount": 4,
+        "tonalCenter": "C major", "phraseFunction": "antecedent",
+        "leadEvents": [
+            {"kind": "note", "midi": 64, "quarterLength": 1.0, "role": "lead"},
+            {"kind": "note", "midi": 67, "quarterLength": 1.0, "role": "lead"},
+        ],
+        "supportEvents": [
+            {"kind": "note", "midi": 48, "quarterLength": 2.0, "role": "bass"},
+        ],
+    }
+]
+enriched, global_layout, warnings = enrich_proposal_sections_with_piano_layout(sections)
+assert len(enriched) == 1, f"Expected 1 section, got {len(enriched)}"
+s = enriched[0]
+assert "rightHandEvents" in s, f"Missing rightHandEvents"
+assert "leftHandEvents" in s, f"Missing leftHandEvents"
+assert "pianoVoiceLayout" in s, f"Missing pianoVoiceLayout"
+layout = s["pianoVoiceLayout"]
+assert isinstance(layout, dict) and layout, f"pianoVoiceLayout must be a non-empty dict"
+print(json.dumps({
+    "hasRHE": "rightHandEvents" in s,
+    "hasLHE": "leftHandEvents" in s,
+    "hasPVL": "pianoVoiceLayout" in s,
+    "layoutKeys": list(layout.keys()),
+}))
+`);
+    const data = JSON.parse(out);
+    assert.ok(data.hasRHE, "enriched section must have rightHandEvents");
+    assert.ok(data.hasLHE, "enriched section must have leftHandEvents");
+    assert.ok(data.hasPVL, "enriched section must have pianoVoiceLayout");
+    assert.ok(data.layoutKeys.length > 0, "pianoVoiceLayout must have fields");
 });

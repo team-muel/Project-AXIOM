@@ -1,0 +1,14 @@
+{
+  "profile": "piano_listenability_v2",
+  "status": "experimental",
+  "description": "Experimental v2 listenability weights for solo piano. Increases melody salience (melodyProminence) and bass grounding (bassRootSupport) over v1; strengthens the pedalBlurRisk weight so high pedal-blur risk incurs a larger penalty. Calibration pending — tuning intended for post-feedback adjustment via create-score-profile-from-correlation.mjs.",
+  "weights": {
+    "melodyProminence":         0.25,
+    "bassRootSupport":          0.22,
+    "accompanimentConsistency": 0.14,
+    "registerSpacing":          0.12,
+    "phraseLevelVoicing":       0.08,
+    "pedalBlurRisk":            0.12,
+    "textureFormCoherence":     0.07
+  }
+}
