@@ -128,7 +128,14 @@ def build_notagen_input_string(provider_request: dict[str, Any]) -> str:
     Raises:
         ValueError: If any required field is missing or malformed.
     """
-    from .localized_rewrite import build_rewrite_prompt_block
+    try:
+        from .localized_rewrite import build_rewrite_prompt_block
+    except ImportError:
+        import os as _os
+        _sys_path_prefix = _os.path.dirname(_os.path.abspath(__file__))
+        if _sys_path_prefix not in sys.path:
+            sys.path.insert(0, _sys_path_prefix)
+        from localized_rewrite import build_rewrite_prompt_block  # type: ignore[no-redef]
 
     conditioning_text, control_lines = _validate_provider_request(provider_request)
 
@@ -171,6 +178,20 @@ def build_notagen_input_string(provider_request: dict[str, Any]) -> str:
             lines.append("")
             lines.append(rewrite_block)
 
+    # Append [AXIOM_REPAIR] block when harmony-contract repair directives are present
+    repair_block = provider_request.get("repairBlock")
+    if isinstance(repair_block, str) and repair_block.strip():
+        lines.append("")
+        lines.append(repair_block.strip())
+
+    # Append [AXIOM_MOTIF_GRAPH] block when a plan-time global motif graph is present.
+    # Provides the generator with the full dramatic arc of motif development so motif
+    # placements are intentional rather than discovered only at evaluation time.
+    motif_graph_block = provider_request.get("motifGraphBlock")
+    if isinstance(motif_graph_block, str) and motif_graph_block.strip():
+        lines.append("")
+        lines.append(motif_graph_block.strip())
+
     return "\n".join(lines) + "\n"
 
 
@@ -194,6 +215,10 @@ def _main() -> None:
     except (ValueError, json.JSONDecodeError) as exc:
         sys.stderr.write(f"abc_prompt error: {exc}\n")
         sys.exit(1)
+
+
+# Alias kept for test compatibility and external tooling.
+build_abc_prompt = build_notagen_input_string
 
 
 if __name__ == "__main__":

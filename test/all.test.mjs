@@ -58,3 +58,8 @@ import "./motif-development.test.mjs";
 import "./piano-listenability.test.mjs";
 import "./scoring-profile.test.mjs";
 import "./evidence-coverage.test.mjs";
+import "./candidate-feedback-api.test.mjs";
+import "./worker-evidence-contract.test.mjs";
+import "./harmony-repair-prompt.test.mjs";
+import "./motif-graph-prompt.test.mjs";
+import "./piano-listenability-repair.test.mjs";

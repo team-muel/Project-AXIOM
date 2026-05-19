@@ -1,6 +1,8 @@
 import type {
     CompositionPlan,
     HarmonyGrammarPlan,
+    RevisionDirective as PipelineRevisionDirective,
+    RevisionDirectiveKind,
     SectionArtifactSummary,
     SectionPlan,
 } from "../pipeline/types.js";
@@ -265,11 +267,11 @@ export interface RevisionDirective {
 
 /** Map from a missing contract field to the canonical repair action. */
 const FIELD_TO_ACTION: Record<HarmonyContractField, RepairAction> = {
-    cadenceApproach:            "strengthen_cadence",
-    harmonicColorCues:          "clarify_harmonic_color",
+    cadenceApproach: "strengthen_cadence",
+    harmonicColorCues: "clarify_harmonic_color",
     harmonicRealizationSummary: "regenerate_harmony_realization",
-    tonicizationWindows:        "enforce_tonicization_window",
-    prolongationMode:           "enforce_prolongation_mode",
+    tonicizationWindows: "enforce_tonicization_window",
+    prolongationMode: "enforce_prolongation_mode",
 };
 
 /**
@@ -295,11 +297,64 @@ export function buildHarmonyRepairDirectives(
     ];
 
     return sorted.map((v): RevisionDirective => ({
-        sectionId:   v.sectionId,
+        sectionId: v.sectionId,
         sectionRole: v.sectionRole,
-        field:       v.field,
-        severity:    v.severity,
-        action:      FIELD_TO_ACTION[v.field],
-        reason:      v.reason,
+        field: v.field,
+        severity: v.severity,
+        action: FIELD_TO_ACTION[v.field],
+        reason: v.reason,
+    }));
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline conversion — mapping repair directives to RevisionDirective format
+// ---------------------------------------------------------------------------
+//
+// buildHarmonyContractRevisionDirectives() is the bridge between the domain-
+// specific HarmonyRealizationContract repair vocabulary and the general-purpose
+// RevisionDirective[] type consumed by the localized rewrite loop.
+//
+// Priority assignments:
+//   required violations   → 90  (below strengthen_cadence at 98 but above
+//                                 most structural directives)
+//   conditional violations → 70  (informational; influences but does not gate)
+// ---------------------------------------------------------------------------
+
+/** Maps each RepairAction to the matching RevisionDirectiveKind for the pipeline. */
+const ACTION_TO_PIPELINE_KIND: Record<RepairAction, RevisionDirectiveKind> = {
+    strengthen_cadence:             "strengthen_cadence",
+    clarify_harmonic_color:         "clarify_harmonic_color",
+    regenerate_harmony_realization: "regenerate_harmony_realization",
+    enforce_tonicization_window:    "enforce_tonicization_window",
+    enforce_prolongation_mode:      "enforce_prolongation_mode",
+};
+
+const REPAIR_PRIORITY: Record<HarmonyContractSeverity, number> = {
+    required:    90,
+    conditional: 70,
+};
+
+/**
+ * Checks the harmony realization contract for the given section artifacts
+ * and plan, then converts every violation into a pipeline `RevisionDirective`
+ * that the localized rewrite loop can consume directly.
+ *
+ * Required violations appear before conditional ones (higher priority score)
+ * so the rewrite pass addresses hard failures first.
+ *
+ * Returns an empty array when there are no contract violations.
+ */
+export function buildHarmonyContractRevisionDirectives(
+    sectionArtifacts: SectionArtifactSummary[],
+    plan: CompositionPlan | undefined,
+): PipelineRevisionDirective[] {
+    const report = checkHarmonyRealizationContract(sectionArtifacts, plan);
+    const repairDirectives = buildHarmonyRepairDirectives(report);
+
+    return repairDirectives.map((r): PipelineRevisionDirective => ({
+        kind:       ACTION_TO_PIPELINE_KIND[r.action],
+        priority:   REPAIR_PRIORITY[r.severity],
+        reason:     r.reason,
+        sectionIds: [r.sectionId],
     }));
 }

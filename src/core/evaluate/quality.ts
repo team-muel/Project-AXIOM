@@ -3745,6 +3745,10 @@ const LEARNED_REWRITE_DIRECTIVE_KINDS: ReadonlySet<RevisionDirectiveKind> = new 
     "clarify_harmonic_color",
     "reduce_large_leaps",
     "increase_rhythm_variety",
+    // Harmony-contract repair kinds — must flow through so repairBlock is generated
+    "regenerate_harmony_realization",
+    "enforce_tonicization_window",
+    "enforce_prolongation_mode",
 ]);
 
 /**

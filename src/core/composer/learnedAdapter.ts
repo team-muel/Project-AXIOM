@@ -3,6 +3,7 @@ import type {
     ComposeExecutionPlan,
     ComposeRequest,
     ExpressionGuidance,
+    GlobalMotifGraph,
     HarmonicPlan,
     InstrumentAssignment,
     LearnedSamplingParams,
@@ -94,6 +95,12 @@ export interface LearnedSymbolicPromptPack {
     /** Present when compositionPlan.pianoPlan is set; carries piano IR for prompt formatting, projection, and fine-tuning datasets. */
     pianoPlan?: PianoPlan;
     motifPolicy?: MotifTransformPolicy;
+    /**
+     * Plan-time global motif graph: carries the full dramatic arc of motif development so
+     * that generators follow the narrative blueprint.  Populated from
+     * `compositionPlan.globalMotifGraph` when present.
+     */
+    globalMotifGraph?: GlobalMotifGraph;
     sketchSummary?: {
         motifDraftCount: number;
         cadenceOptionCount: number;
@@ -463,6 +470,9 @@ export function buildLearnedSymbolicPromptPack(request: ComposeRequest): Learned
             : {}),
         ...(normalizedRequest.compositionPlan?.motifPolicy
             ? { motifPolicy: cloneJsonValue(normalizedRequest.compositionPlan.motifPolicy) }
+            : {}),
+        ...(normalizedRequest.compositionPlan?.globalMotifGraph
+            ? { globalMotifGraph: cloneJsonValue(normalizedRequest.compositionPlan.globalMotifGraph) }
             : {}),
         ...(sketchSummary ? { sketchSummary } : {}),
         ...(narrativeNotes.length ? { narrativeNotes } : {}),

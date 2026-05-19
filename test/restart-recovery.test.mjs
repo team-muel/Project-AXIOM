@@ -129,7 +129,7 @@ test("restores running MusicGen compose job with same songId and completes from 
             runtimeStage: job.manifest?.runtime?.stage,
             composePhase: job.manifest?.runtime?.compose?.phase,
         }));
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 500));
         const finalJobs = listJobs().map((job) => ({
             jobId: job.jobId,
             status: job.status,

@@ -4,6 +4,7 @@ import { logger } from "./logging/logger.js";
 import healthRouter from "./routes/health.js";
 import composeRouter from "./routes/compose.js";
 import autonomyRouter from "./routes/autonomy.js";
+import feedbackRouter from "./routes/feedback.js";
 import mcpHttpRouter from "./routes/mcpHttp.js";
 import overseerRouter from "./routes/overseer.js";
 import { recoverAutonomyRuntimeOnStartup } from "./ops/autonomy/controller.js";
@@ -18,6 +19,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(healthRouter);
 app.use(composeRouter);
 app.use(autonomyRouter);
+app.use(feedbackRouter);
 app.use(mcpHttpRouter);
 app.use(overseerRouter);
 

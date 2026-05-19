@@ -173,7 +173,81 @@ AXIOM 내부 `craftScoring.ts`가 계산하는 점수와 사람 평가 항목의
 
 ---
 
-## 7. 현재 갭과 목표
+## 8. Score-Feedback Calibration Workflow
+
+자동 점수와 사람 평가 사이의 상관관계를 측정해 scoring profile 가중치를 실증적으로 보정하는 절차.
+
+### 8.1 워크플로우 단계
+
+```
+1. 후보 생성
+   └─ AXIOM이 곡을 생성하고 candidate manifest에 craftScore를 기록한다.
+
+2. 사람 평가 입력
+   └─ 5.2절의 rubric을 참고해 각 후보에 appeal, coherence,
+      memorability, emotionalImpact 점수(1–5)를 candidate-manifest.json의
+      listenerFeedback 필드에 기록한다.
+
+3. 상관관계 분석
+   └─ npm run analyze:score-feedback
+
+4. strong/weak signal 확인
+   └─ outputs/_system/score-feedback-correlation.json 의 summary.strongSignal /
+      weakOrNoise 목록과 calibrationRecommendations를 읽는다.
+
+5. scoring profile v2 작성
+   └─ strong signal 차원의 가중치를 높이고 weak 차원을 낮춘
+      config/scoring-profiles/classical_default_v2.json (또는 새 버전)을 작성한다.
+      AXIOM_SCORING_PROFILE=classical_default_v2 으로 실험 실행 후 비교한다.
+```
+
+### 8.2 명령 옵션
+
+```bash
+# 기본 실행 (JSON + CSV 출력)
+npm run analyze:score-feedback
+
+# 출력 파일만 지정하고 최소 샘플 수 변경
+node scripts/analyze-score-feedback-correlation.mjs \
+  --root=outputs \
+  --out=outputs/_system/score-feedback-correlation.json \
+  --csv \
+  --min-samples=5
+```
+
+| 옵션 | 기본값 | 설명 |
+|------|--------|------|
+| `--root=<dir>` | `outputs` | 후보 manifest를 탐색할 루트 디렉토리 |
+| `--out=<file>` | stdout | JSON 리포트를 저장할 경로 |
+| `--csv` | — | JSON 옆에 CSV 산점도 데이터도 저장 |
+| `--min-samples=<n>` | `3` | 상관계수를 계산할 최소 쌍 수 |
+
+### 8.3 출력 해석
+
+`summary.rankedByAppealCorrelation` — `appeal`과의 Pearson r 순으로 정렬된 모든 차원.
+
+| 구간 | 의미 | 권고 행동 |
+|------|------|-----------|
+| `\|r\| ≥ 0.5` (`strongSignal`) | 강한 상관 → 신뢰할 수 있는 신호 | 가중치 상향 검토 |
+| `0.2 ≤ \|r\| < 0.5` (`moderateSignal`) | 중간 상관 → 더 많은 데이터 수집 후 판단 | 유지 |
+| `\|r\| < 0.2` (`weakOrNoise`) | 약하거나 노이즈 → 이 차원의 가중치 낮춤 고려 | 가중치 하향 또는 제거 |
+
+> **주의**: 상관관계 분석은 `n ≥ 10`일 때 통계적으로 신뢰할 수 있다.  
+> 샘플이 적을 때 `calibrationRecommendations` 메시지가 수집 필요를 안내한다.
+
+### 8.4 listenerFeedback 필드 형식
+
+`outputs/<songId>/candidates/<candidateId>/candidate-manifest.json`에 다음 필드를 추가한다:
+
+```json
+"listenerFeedback": {
+  "appeal":          4,
+  "coherence":       3,
+  "memorability":    3,
+  "emotionalImpact": 4
+}
+```
+
 
 | 영역 | 현재 | 목표 |
 |------|------|------|

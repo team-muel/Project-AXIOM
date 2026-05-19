@@ -72,6 +72,13 @@ export interface ListenerFeedback {
     notes?: string;
     /** Id of another candidate this piece was compared against */
     comparisonCandidateId?: string;
+    /**
+     * CandidateId that the listener prefers over the piece receiving this feedback.
+     * When present, records a pairwise preference: preferredOver > this candidate.
+     */
+    preferredOver?: string;
+    /** Human-readable reason this candidate was rejected or ranked lower */
+    rejectionReason?: string;
 }
 
 export interface ReviewFeedback {

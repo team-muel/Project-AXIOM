@@ -35,7 +35,10 @@ export type RevisionDirectiveKind =
     | "clarify_phrase_rhetoric"
     | "clarify_texture_plan"
     | "clarify_narrative_arc"
-    | "rebalance_recap_release";
+    | "rebalance_recap_release"
+    | "regenerate_harmony_realization"
+    | "enforce_tonicization_window"
+    | "enforce_prolongation_mode";
 
 export interface RevisionDirective {
     kind: RevisionDirectiveKind;

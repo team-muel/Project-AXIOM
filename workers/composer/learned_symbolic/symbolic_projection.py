@@ -1,6 +1,20 @@
 from typing import Any, NotRequired, TypedDict, cast
+import os as _os
+import sys as _sys
+
+# Ensure section_evidence.py is importable regardless of how this module is
+# invoked (subprocess, package import, or direct script execution).
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
 
 from music21 import key as key_module
+
+from section_evidence import (
+    derive_cadence_approach,
+    derive_captured_motif,
+    derive_harmonic_color_cues,
+    derive_harmonic_realization_summary,
+    derive_phrase_peaks,
+)
 
 LEAD_RANGE = (62, 93)
 COUNTERLINE_RANGE = (48, 81)
@@ -41,6 +55,12 @@ class SectionMaterial(TypedDict):
     supportEvents: list[dict[str, Any]]
     noteHistory: list[int]
     transform: NotRequired[dict[str, Any]]
+    # Evidence contract fields — always derived, never None
+    phrasePeaks: NotRequired[list[int]]
+    cadenceApproach: NotRequired[str]
+    harmonicColorCues: NotRequired[list[dict[str, Any]]]
+    harmonicRealizationSummary: NotRequired[dict[str, Any]]
+    capturedMotif: NotRequired[list[int]]
 
 
 class ProjectedSectionMaterial(SectionMaterial):
@@ -309,6 +329,19 @@ def build_material_from_seed(
 
     if not material["leadEvents"] or not material["supportEvents"]:
         return None
+
+    # Derive evidence fields from reconstructed seed material
+    harmonic_plan_seed = as_record(section.get("harmonicPlan")) or {}
+    cadence_app = derive_cadence_approach(role, phrase_function, harmonic_plan_seed)
+    material["phrasePeaks"] = derive_phrase_peaks(material["noteHistory"], measure_count)
+    material["cadenceApproach"] = cadence_app
+    material["harmonicColorCues"] = derive_harmonic_color_cues(
+        harmonic_plan_seed, role, measure_count, cadence_app
+    )
+    material["harmonicRealizationSummary"] = derive_harmonic_realization_summary(
+        material["sectionId"], harmonic_plan_seed, measure_count, len(material["noteHistory"])
+    )
+    material["capturedMotif"] = derive_captured_motif(material["noteHistory"])
 
     return material
 
@@ -775,6 +808,20 @@ def build_section_material(
         "violinMeasures": violin_measures,
         "violaMeasures": viola_measures,
         "celloMeasures": cello_measures,
+        # Evidence contract fields — derived from generated material
+        "phrasePeaks": derive_phrase_peaks(note_history, measure_count),
+        "cadenceApproach": derive_cadence_approach(role, phrase_function, harmonic_plan),
+        "harmonicColorCues": derive_harmonic_color_cues(
+            harmonic_plan, role, measure_count,
+            derive_cadence_approach(role, phrase_function, harmonic_plan),
+        ),
+        "harmonicRealizationSummary": derive_harmonic_realization_summary(
+            str(section.get("id") or f"section-{section_index + 1}"),
+            harmonic_plan,
+            measure_count,
+            len(note_history),
+        ),
+        "capturedMotif": derive_captured_motif(note_history),
     }
 
 
@@ -889,6 +936,15 @@ def apply_targeted_rewrite(
         "generatedNoteCount": generated_note_count,
         "sourceNoteCount": generated_note_count,
     }
+    # Refresh evidence fields after rewrite so they reflect the modified notes
+    cadence_app = derive_cadence_approach(
+        material["role"], material.get("phraseFunction"), {}
+    )
+    material["phrasePeaks"] = derive_phrase_peaks(
+        material["noteHistory"], material["measureCount"]
+    )
+    material["cadenceApproach"] = cadence_app
+    material["capturedMotif"] = derive_captured_motif(material["noteHistory"])
 
 
 def _to_response_section(material: ProjectedSectionMaterial) -> SectionMaterial:
@@ -904,6 +960,11 @@ def _to_response_section(material: ProjectedSectionMaterial) -> SectionMaterial:
     }
     if "transform" in material:
         response_section["transform"] = material["transform"]
+    # Pass through evidence contract fields
+    for evidence_key in ("phrasePeaks", "cadenceApproach", "harmonicColorCues",
+                         "harmonicRealizationSummary", "capturedMotif"):
+        if evidence_key in material:
+            response_section[evidence_key] = material[evidence_key]  # type: ignore[literal-required]
     return response_section
 
 

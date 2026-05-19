@@ -18,6 +18,7 @@
  */
 
 import fs from "node:fs";
+import path from "node:path";
 
 // ─── Status ──────────────────────────────────────────────────────────────────
 
@@ -289,75 +290,65 @@ export interface CandidateScoringProfiles {
 // ─── Built-in profile resolvers ──────────────────────────────────────────────
 
 /**
- * Resolves a craft scoring profile name to its built-in profile object.
+ * Resolves a craft scoring profile by name.
  *
- * Returns the matching built-in constant for known names, or falls back to
- * CLASSICAL_DEFAULT_V1.  No file I/O — safe to call in the hot evaluation path.
+ * Lookup order:
+ *   1. Built-in constants (no I/O)
+ *   2. In-memory cache (from a prior disk load)
+ *   3. config/scoring-profiles/{name}.json (loaded, validated, cached)
+ *   4. CLASSICAL_DEFAULT_V1 fallback (silent)
  *
- * @param name  Profile identifier, e.g. "classical_default_v1".
+ * When `name` is undefined, the AXIOM_SCORING_PROFILE env var is used.
+ * If neither is set, CLASSICAL_DEFAULT_V1 is returned.
  */
 export function resolveCraftScoringProfile(name?: string): CraftScoringProfile {
-    switch (name) {
-        case CLASSICAL_DEFAULT_V1.profile:
-            return CLASSICAL_DEFAULT_V1;
-        default:
-            return CLASSICAL_DEFAULT_V1;
-    }
+    const effectiveName = name ?? process.env.AXIOM_SCORING_PROFILE;
+    if (!effectiveName) return CLASSICAL_DEFAULT_V1;
+    if (effectiveName === CLASSICAL_DEFAULT_V1.profile) return CLASSICAL_DEFAULT_V1;
+    return tryLoadCraftProfileFromDisk(effectiveName) ?? CLASSICAL_DEFAULT_V1;
 }
 
 /**
- * Resolves a piano listenability profile name to its built-in profile object.
+ * Resolves a piano listenability profile by name.
  *
- * Returns the matching built-in constant for known names, or falls back to
- * PIANO_LISTENABILITY_V1.  No file I/O.
- *
- * @param name  Profile identifier, e.g. "piano_listenability_v1".
+ * Lookup order: built-in → cache → disk → PIANO_LISTENABILITY_V1 fallback.
+ * When `name` is undefined, AXIOM_PIANO_PROFILE env var is used.
  */
 export function resolvePianoListenabilityScoringProfile(
     name?: string,
 ): PianoListenabilityScoringProfile {
-    switch (name) {
-        case PIANO_LISTENABILITY_V1.profile:
-            return PIANO_LISTENABILITY_V1;
-        default:
-            return PIANO_LISTENABILITY_V1;
-    }
+    const effectiveName = name ?? process.env.AXIOM_PIANO_PROFILE;
+    if (!effectiveName) return PIANO_LISTENABILITY_V1;
+    if (effectiveName === PIANO_LISTENABILITY_V1.profile) return PIANO_LISTENABILITY_V1;
+    return tryLoadPianoProfileFromDisk(effectiveName) ?? PIANO_LISTENABILITY_V1;
 }
 
 /**
- * Resolves a piano craft profile name to its built-in profile object.
+ * Resolves a piano craft profile by name.
  *
- * Returns the matching built-in constant for known names, or falls back to
- * PIANO_CRAFT_V1.  No file I/O — safe for the hot evaluation path.
- *
- * @param name  Profile identifier, e.g. "piano_craft_v1".
+ * Lookup order: built-in → cache → disk → PIANO_CRAFT_V1 fallback.
+ * When `name` is undefined, AXIOM_PIANO_CRAFT_PROFILE env var is used.
  */
 export function resolvePianoCraftScoringProfile(
     name?: string,
 ): PianoCraftScoringProfile {
-    switch (name) {
-        case PIANO_CRAFT_V1.profile:
-            return PIANO_CRAFT_V1;
-        default:
-            return PIANO_CRAFT_V1;
-    }
+    const effectiveName = name ?? process.env.AXIOM_PIANO_CRAFT_PROFILE;
+    if (!effectiveName) return PIANO_CRAFT_V1;
+    if (effectiveName === PIANO_CRAFT_V1.profile) return PIANO_CRAFT_V1;
+    return tryLoadPianoCraftProfileFromDisk(effectiveName) ?? PIANO_CRAFT_V1;
 }
 
 /**
- * Resolves a quality gate profile name to its built-in config object.
+ * Resolves a quality gate config by name.
  *
- * Returns the matching built-in constant for known names, or falls back to
- * QUALITY_GATE_V1.  No file I/O.
- *
- * @param name  Profile identifier, e.g. "quality_gate_v1".
+ * Lookup order: built-in → cache → disk → QUALITY_GATE_V1 fallback.
+ * When `name` is undefined, AXIOM_GATE_PROFILE env var is used.
  */
 export function resolveQualityGateConfig(name?: string): QualityGateConfig {
-    switch (name) {
-        case QUALITY_GATE_V1.profile:
-            return QUALITY_GATE_V1;
-        default:
-            return QUALITY_GATE_V1;
-    }
+    const effectiveName = name ?? process.env.AXIOM_GATE_PROFILE;
+    if (!effectiveName) return QUALITY_GATE_V1;
+    if (effectiveName === QUALITY_GATE_V1.profile) return QUALITY_GATE_V1;
+    return tryLoadGateConfigFromDisk(effectiveName) ?? QUALITY_GATE_V1;
 }
 
 // ─── Default candidate profiles ───────────────────────────────────────────────
@@ -391,4 +382,97 @@ export function loadScoringProfile<W extends Record<string, number>>(
     }
     validateProfileWeights(parsed);
     return parsed;
+}
+
+// ─── Profile registry ─────────────────────────────────────────────────────────
+//
+// Extends built-in constants with file-based loading from the profile directory.
+//
+// Lookup order for every resolver:
+//   1. Built-in constants (no I/O — always available; returned directly)
+//   2. In-memory cache (populated on first successful disk load)
+//   3. config/scoring-profiles/{name}.json (validated on load, then cached)
+//   4. Default built-in fallback (silent — never throws)
+//
+// Environment variables:
+//   AXIOM_SCORING_PROFILES_DIR  — override profile directory (default: config/scoring-profiles/)
+//   AXIOM_SCORING_PROFILE       — default craft profile name when none is specified
+//   AXIOM_PIANO_PROFILE         — default piano listenability profile name
+//   AXIOM_PIANO_CRAFT_PROFILE   — default piano craft profile name
+//   AXIOM_GATE_PROFILE          — default quality gate profile name
+
+function resolveProfileDir(): string {
+    return process.env.AXIOM_SCORING_PROFILES_DIR
+        ?? path.join(process.cwd(), "config", "scoring-profiles");
+}
+
+const craftProfileCache   = new Map<string, CraftScoringProfile>();
+const pianoProfileCache   = new Map<string, PianoListenabilityScoringProfile>();
+const pianoCraftCache     = new Map<string, PianoCraftScoringProfile>();
+const gateConfigCache     = new Map<string, QualityGateConfig>();
+
+/**
+ * Clears all in-memory profile caches.
+ * Intended for tests and hot-reload scenarios where profile files may change.
+ */
+export function clearProfileRegistry(): void {
+    craftProfileCache.clear();
+    pianoProfileCache.clear();
+    pianoCraftCache.clear();
+    gateConfigCache.clear();
+}
+
+function tryLoadCraftProfileFromDisk(name: string): CraftScoringProfile | undefined {
+    const cached = craftProfileCache.get(name);
+    if (cached) return cached;
+    try {
+        const filePath = path.join(resolveProfileDir(), `${name}.json`);
+        const loaded = loadScoringProfile<CraftScoringWeights>(filePath);
+        const profile = loaded as CraftScoringProfile;
+        craftProfileCache.set(name, profile);
+        return profile;
+    } catch {
+        return undefined;
+    }
+}
+
+function tryLoadPianoProfileFromDisk(name: string): PianoListenabilityScoringProfile | undefined {
+    const cached = pianoProfileCache.get(name);
+    if (cached) return cached;
+    try {
+        const filePath = path.join(resolveProfileDir(), `${name}.json`);
+        const loaded = loadScoringProfile<PianoListenabilityWeights>(filePath);
+        const profile = loaded as PianoListenabilityScoringProfile;
+        pianoProfileCache.set(name, profile);
+        return profile;
+    } catch {
+        return undefined;
+    }
+}
+
+function tryLoadPianoCraftProfileFromDisk(name: string): PianoCraftScoringProfile | undefined {
+    const cached = pianoCraftCache.get(name);
+    if (cached) return cached;
+    try {
+        const filePath = path.join(resolveProfileDir(), `${name}.json`);
+        const loaded = loadScoringProfile<PianoCraftWeights>(filePath);
+        const profile = loaded as PianoCraftScoringProfile;
+        pianoCraftCache.set(name, profile);
+        return profile;
+    } catch {
+        return undefined;
+    }
+}
+
+function tryLoadGateConfigFromDisk(name: string): QualityGateConfig | undefined {
+    const cached = gateConfigCache.get(name);
+    if (cached) return cached;
+    try {
+        const filePath = path.join(resolveProfileDir(), `${name}.json`);
+        const config = loadQualityGateConfig(filePath);
+        gateConfigCache.set(name, config);
+        return config;
+    } catch {
+        return undefined;
+    }
 }

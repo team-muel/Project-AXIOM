@@ -106,6 +106,67 @@ def build_rewrite_prompt_block(
     return "\n".join(lines)
 
 
+# ─── Harmony-contract repair block ───────────────────────────────────────────
+
+HARMONY_REPAIR_ACTION_SPEC: dict[str, dict[str, str]] = {
+    "strengthen_cadence": {
+        "field": "cadenceApproach",
+        "instruction": "Make dominant preparation explicit before the final arrival.",
+    },
+    "clarify_harmonic_color": {
+        "field": "harmonicColorCues",
+        "instruction": "Introduce explicit chromatic inflection to enrich local harmonic color.",
+    },
+    "regenerate_harmony_realization": {
+        "field": "harmonicRealizationSummary",
+        "instruction": "Regenerate harmonic realization: revise chord voicings and harmonic rhythm.",
+    },
+    "enforce_tonicization_window": {
+        "field": "tonicizationWindows",
+        "instruction": "Realize a clear local tonicization window before recap.",
+    },
+    "enforce_prolongation_mode": {
+        "field": "prolongationMode",
+        "instruction": "Sustain tonic prolongation through the entire section.",
+    },
+}
+
+HARMONY_REPAIR_KINDS: frozenset[str] = frozenset(HARMONY_REPAIR_ACTION_SPEC.keys())
+
+
+def build_repair_prompt_block(
+    directives: list[dict[str, Any]],
+) -> str | None:
+    """Build a ``[AXIOM_REPAIR]`` block from harmony-contract directive hints.
+
+    Args:
+        directives: List of directive hint dicts with keys ``sectionId``, ``kind``,
+                    and ``reason``.  Only entries whose ``kind`` is in
+                    ``HARMONY_REPAIR_KINDS`` are emitted.
+
+    Returns:
+        A ``[AXIOM_REPAIR]...[/AXIOM_REPAIR]`` string, or ``None`` if no
+        harmony-repair entries are found.
+    """
+    entries = [d for d in (directives or []) if str(d.get("kind") or "") in HARMONY_REPAIR_KINDS]
+    if not entries:
+        return None
+
+    lines: list[str] = ["[AXIOM_REPAIR]"]
+    for entry in entries:
+        kind = str(entry.get("kind") or "")
+        section_id = str(entry.get("sectionId") or "")
+        spec = HARMONY_REPAIR_ACTION_SPEC.get(kind, {})
+        instruction = spec.get("instruction") or str(entry.get("reason") or kind).strip()
+        field = spec.get("field") or kind
+        lines.append(f"section={section_id}")
+        lines.append(f"action={kind}")
+        lines.append(f"field={field}")
+        lines.append(f"instruction={instruction}")
+    lines.append("[/AXIOM_REPAIR]")
+    return "\n".join(lines)
+
+
 def assemble_rewritten_abc(
     keep_section_artifacts: list[dict[str, Any]],
     rewritten_proposal_sections: list[dict[str, Any]],

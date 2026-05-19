@@ -1,0 +1,15 @@
+{
+  "profile": "classical_default_v2",
+  "status": "experimental",
+  "description": "Experimental v2 craft scoring weights with higher cadence and tonal-return emphasis. Reduces syntaxValidity and sectionContractFit weight in favour of musical expression dimensions.",
+  "weights": {
+    "sectionContractFit":   0.12,
+    "cadenceStrength":      0.20,
+    "tonalReturn":          0.18,
+    "motifSurvival":        0.15,
+    "voiceIndependence":    0.13,
+    "phraseShape":          0.10,
+    "registerIdiomaticFit": 0.09,
+    "syntaxValidity":       0.03
+  }
+}

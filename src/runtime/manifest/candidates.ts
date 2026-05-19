@@ -491,11 +491,29 @@ export function saveListenerFeedbackToSelectedCandidate(
     if (!selectedId) {
         return;
     }
+    saveListenerFeedbackToCandidate(songId, selectedId, feedback, internalScores);
+}
 
-    const candidateManifestPath = structureCandidateManifestPath(songId, selectedId);
+/**
+ * Saves listener feedback to any structure candidate manifest by candidateId,
+ * regardless of whether the candidate is selected.  This is the canonical
+ * low-level writer; {@link saveListenerFeedbackToSelectedCandidate} delegates here.
+ *
+ * Supports pairwise preference signals via `feedback.preferredOver` and
+ * rejection rationale via `feedback.rejectionReason`.
+ *
+ * @returns the updated manifest, or null when the manifest file is missing.
+ */
+export function saveListenerFeedbackToCandidate(
+    songId: string,
+    candidateId: string,
+    feedback: ListenerFeedback,
+    internalScores?: Record<string, number>,
+): StructureCandidateManifest | null {
+    const candidateManifestPath = structureCandidateManifestPath(songId, candidateId);
     const candidateManifest = readJsonFile<StructureCandidateManifest>(candidateManifestPath);
     if (!candidateManifest) {
-        return;
+        return null;
     }
 
     candidateManifest.listenerFeedback = cloneJson(feedback);
@@ -545,4 +563,5 @@ export function saveListenerFeedbackToSelectedCandidate(
     }
 
     writeJsonFile(candidateManifestPath, candidateManifest);
+    return candidateManifest;
 }

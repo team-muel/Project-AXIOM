@@ -1,5 +1,6 @@
 import type { ComposeRequest, RevisionDirective } from "../../core/pipeline/types.js";
 import { buildStructureRevisionDirectives } from "../../core/evaluate/quality.js";
+import { buildHarmonyContractRevisionDirectives } from "../../core/evaluate/harmonyRealizationContract.js";
 import { compareStructureEvaluationsForCandidateSelection } from "../../core/generate/structureSelection.js";
 import { buildHybridSymbolicSelectionReason } from "../../core/generate/hybridSymbolicCandidatePool.js";
 import type { SymbolicAttemptCandidate } from "./candidateSelection.js";
@@ -59,7 +60,16 @@ export function collectSameAttemptLocalizedRewriteParents(
                 targetStructureScore,
                 candidate.request,
             ).filter((directive) => (directive.sectionIds?.length ?? 0) > 0);
-            return { candidate, revisionDirectives: sectionedDirectives };
+
+            const harmonyDirectives =
+                (candidate.structureEvaluation.craftScoreSummary?.harmonyContractViolations ?? 0) > 0
+                    ? buildHarmonyContractRevisionDirectives(
+                        candidate.composeResult.sectionArtifacts ?? [],
+                        candidate.compositionPlan,
+                    )
+                    : [];
+
+            return { candidate, revisionDirectives: [...sectionedDirectives, ...harmonyDirectives] };
         })
         .filter((entry) => entry.revisionDirectives.length > 0)
         .sort((left, right) => compareStructureEvaluationsForCandidateSelection(

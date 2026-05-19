@@ -1,4 +1,4 @@
-import type { LocalizedRewriteSpec, LearnedSamplingParams, ModelBinding, PianoPlan, PianoSectionPlan, LocalizedPianoRewriteSpec, PianoRevisionDirective } from "../pipeline/types.js";
+import type { LocalizedRewriteSpec, LocalizedRewriteDirectiveHint, LearnedSamplingParams, ModelBinding, PianoPlan, PianoSectionPlan, LocalizedPianoRewriteSpec, PianoRevisionDirective, GlobalMotifGraph } from "../pipeline/types.js";
 import { SOLO_PIANO_SYMBOLIC_LANE, STRING_TRIO_SYMBOLIC_LANE } from "../generate/learnedSymbolicContract.js";
 import type {
     LearnedSymbolicPromptPack,
@@ -38,6 +38,23 @@ export interface LearnedNotagenProviderRequest {
     pianoRewriteSpec?: LocalizedPianoRewriteSpec;
     /** Rendered `<AXIOM_PIANO_REWRITE>` block derived from pianoRewriteSpec. Passed after the main control block. */
     pianoRewriteBlock?: string;
+    /**
+     * Rendered `[AXIOM_REPAIR]` block for harmony-contract repair directives.
+     * Generated when `rewriteSpec.directives` contains harmony-specific repair kinds
+     * (`strengthen_cadence`, `clarify_harmonic_color`, `regenerate_harmony_realization`,
+     * `enforce_tonicization_window`, `enforce_prolongation_mode`).
+     * Appended to the prompt after `<AXIOM_REWRITE>` so the model receives per-section
+     * structured repair instructions.
+     */
+    repairBlock?: string;
+    /**
+     * Rendered `[AXIOM_MOTIF_GRAPH]` block derived from the plan-time GlobalMotifGraph.
+     * Carries the full dramatic arc of motif development — source section, required returns,
+     * and per-section transform + dramatic function — so the generator can intentionally
+     * place motif occurrences rather than discovering them only at evaluation time.
+     * Appended to the prompt after `[AXIOM_REPAIR]` when a GlobalMotifGraph is present.
+     */
+    motifGraphBlock?: string;
 }
 
 function normalizeText(value: string | undefined): string {
@@ -239,10 +256,119 @@ const DIRECTIVE_KIND_TO_REWRITE_TARGETS: Record<string, string[]> = {
     clarify_harmonic_color: ["enrich local harmonic color", "introduce chromatic inflection", "vary chord qualities"],
     reduce_large_leaps: ["reduce melodic leaps", "smooth melodic contour", "improve voice leading"],
     increase_rhythm_variety: ["diversify rhythm cells", "introduce contrasting note values", "vary rhythmic texture"],
+    regenerate_harmony_realization: ["regenerate harmonic realization", "revise chord voicings", "adjust harmonic rhythm"],
+    enforce_tonicization_window: ["realize local tonicization window", "establish secondary dominant before arrival", "clarify tonal goal"],
+    enforce_prolongation_mode: ["sustain tonic prolongation throughout section", "avoid premature harmonic motion", "hold tonal center"],
+};
+
+/** Harmony-contract repair kinds that generate a structured `[AXIOM_REPAIR]` block. */
+const HARMONY_REPAIR_KINDS: ReadonlySet<string> = new Set([
+    "strengthen_cadence",
+    "clarify_harmonic_color",
+    "regenerate_harmony_realization",
+    "enforce_tonicization_window",
+    "enforce_prolongation_mode",
+]);
+
+/** Per-action field name and instruction text for `[AXIOM_REPAIR]` entries. */
+const HARMONY_REPAIR_ACTION_SPEC: Record<string, { field: string; instruction: string }> = {
+    strengthen_cadence: {
+        field: "cadenceApproach",
+        instruction: "Make dominant preparation explicit before the final arrival.",
+    },
+    clarify_harmonic_color: {
+        field: "harmonicColorCues",
+        instruction: "Introduce explicit chromatic inflection to enrich local harmonic color.",
+    },
+    regenerate_harmony_realization: {
+        field: "harmonicRealizationSummary",
+        instruction: "Regenerate harmonic realization: revise chord voicings and harmonic rhythm.",
+    },
+    enforce_tonicization_window: {
+        field: "tonicizationWindows",
+        instruction: "Realize a clear local tonicization window before recap.",
+    },
+    enforce_prolongation_mode: {
+        field: "prolongationMode",
+        instruction: "Sustain tonic prolongation through the entire section.",
+    },
 };
 
 /**
- * Build an `<AXIOM_REWRITE>` block for the NotaGen prompt from a `LocalizedRewriteSpec`.
+ * Build a `[AXIOM_REPAIR]` block from harmony-contract repair directive hints.
+ *
+ * Only hints whose `kind` is in `HARMONY_REPAIR_KINDS` are emitted.
+ * Each hint produces a `section=`, `action=`, `field=`, `instruction=` entry.
+ *
+ * Returns `undefined` if no harmony repair hints are present.
+ */
+export function buildHarmonyRepairBlock(directives: LocalizedRewriteDirectiveHint[]): string | undefined {
+    const entries = directives.filter((d) => HARMONY_REPAIR_KINDS.has(d.kind));
+    if (entries.length === 0) return undefined;
+
+    const lines: string[] = ["[AXIOM_REPAIR]"];
+    for (const entry of entries) {
+        const spec = HARMONY_REPAIR_ACTION_SPEC[entry.kind];
+        const instruction = spec?.instruction ?? entry.reason;
+        const field = spec?.field ?? entry.kind;
+        lines.push(`section=${entry.sectionId}`);
+        lines.push(`action=${entry.kind}`);
+        lines.push(`field=${field}`);
+        lines.push(`instruction=${instruction}`);
+    }
+    lines.push("[/AXIOM_REPAIR]");
+    return lines.join("\n");
+}
+
+/**
+ * Build a `[AXIOM_MOTIF_GRAPH]` block from the plan-time `GlobalMotifGraph`.
+ *
+ * Emits the source motif id, source section, required return sections, and per-section
+ * transform + dramatic function so the generator can intentionally place motif occurrences.
+ *
+ * Format:
+ * ```
+ * [AXIOM_MOTIF_GRAPH]
+ * source=theme_a
+ * motif_id=theme_a
+ * required_returns=recap:s3,outro:s4
+ * s1: transform=original dramatic_function=exposition
+ * s2: transform=fragmentation dramatic_function=destabilization
+ * s3: transform=sequence dramatic_function=intensification required=true
+ * [/AXIOM_MOTIF_GRAPH]
+ * ```
+ *
+ * Returns `undefined` when the graph has no transform path.
+ */
+export function buildMotifGraphBlock(graph: GlobalMotifGraph): string | undefined {
+    if (!graph.transformPath.length) return undefined;
+
+    const lines: string[] = ["[AXIOM_MOTIF_GRAPH]"];
+    lines.push(`source=${graph.sourceSectionId}`);
+    lines.push(`motif_id=${graph.motifId}`);
+
+    if (graph.requiredReturns.length > 0) {
+        // Emit required_returns as id list
+        lines.push(`required_returns=${graph.requiredReturns.join(",")}`);
+    }
+
+    for (const node of graph.transformPath) {
+        let entry = `${node.sectionId}: transform=${node.transform} dramatic_function=${node.dramaticFunction}`;
+        if (node.required) entry += " required=true";
+        if (node.harmonicContext) entry += ` harmonic_context=${node.harmonicContext.replace(/\s+/g, "_")}`;
+        if (node.fragmentSpec) entry += ` fragment_start=${node.fragmentSpec.start} fragment_length=${node.fragmentSpec.length}`;
+        lines.push(entry);
+    }
+
+    lines.push("[/AXIOM_MOTIF_GRAPH]");
+    return lines.join("\n");
+}
+
+/**
+ * Build an `<AXIOM_REWRITE>` block from a `LocalizedRewriteSpec`.
+ *
+ * Emits a structured rewrite control block that instructs the learned symbolic
+ * generator to rewrite only the specified sections while preserving the rest.
  */
 export function buildRewriteBlock(spec: LocalizedRewriteSpec): string {
     const targets = new Set<string>();
@@ -449,5 +575,17 @@ export function buildLearnedNotagenProviderRequest(
                 pianoRewriteBlock: buildPianoRewriteBlock(opts.localizedPianoRewriteSpec),
             }
             : {}),
+        ...((() => {
+            const repairBlock = opts?.localizedRewriteSpec
+                ? buildHarmonyRepairBlock(opts.localizedRewriteSpec.directives)
+                : undefined;
+            return repairBlock ? { repairBlock } : {};
+        })()),
+        ...((() => {
+            const motifGraphBlock = promptPack.globalMotifGraph
+                ? buildMotifGraphBlock(promptPack.globalMotifGraph)
+                : undefined;
+            return motifGraphBlock ? { motifGraphBlock } : {};
+        })()),
     };
 }

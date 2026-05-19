@@ -117,6 +117,16 @@ export function normalizeLearnedSymbolicResponse(
             ? { rightHandEvents: normalizeLearnedProposalEvents(section.rightHandEvents) } : {}),
         ...(Array.isArray(section.leftHandEvents) && section.leftHandEvents.length > 0
             ? { leftHandEvents: normalizeLearnedProposalEvents(section.leftHandEvents) } : {}),
+        // Evidence contract fields derived by section_evidence.py (always populated by worker)
+        ...(Array.isArray(section.harmonicColorCues) && section.harmonicColorCues.length > 0
+            ? { harmonicColorCues: section.harmonicColorCues.map((c) => ({ ...c })) }
+            : {}),
+        ...(section.harmonicRealizationSummary !== undefined
+            ? { harmonicRealizationSummary: { ...section.harmonicRealizationSummary } }
+            : {}),
+        ...(Array.isArray(section.capturedMotif) && section.capturedMotif.length > 0
+            ? { capturedMotif: [...section.capturedMotif] }
+            : {}),
     }));
     const sectionTransforms = (response.proposalSections ?? [])
         .filter((section): section is LearnedSymbolicProposalSection & { transform: SectionTransformSummary } => Boolean(section.transform))

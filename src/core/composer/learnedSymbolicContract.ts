@@ -1,4 +1,4 @@
-import type { SectionTransformSummary, TonicizationWindow } from "../pipeline/types.js";
+import type { HarmonicColorCue, SectionHarmonicRealizationSummary, SectionTransformSummary, TonicizationWindow } from "../pipeline/types.js";
 
 export interface LearnedSymbolicProposalEvent {
     kind: "note" | "chord" | "rest";
@@ -33,6 +33,10 @@ export interface LearnedSymbolicProposalSection {
     secondaryLineMotif?: number[];
     rhythmicDensity?: number;
     tonicizationWindows?: TonicizationWindow[];
+    // Evidence contract fields derived by section_evidence.py
+    harmonicColorCues?: HarmonicColorCue[];
+    harmonicRealizationSummary?: Omit<SectionHarmonicRealizationSummary, "sectionId">;
+    capturedMotif?: number[];
     // Piano-specific projection fields (solo_piano_symbolic lane only)
     pianoVoiceLayout?: Record<string, unknown>;
     rightHandEvents?: LearnedSymbolicProposalEvent[];

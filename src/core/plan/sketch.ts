@@ -736,7 +736,10 @@ export function materializeCompositionSketch(request: ComposeRequest): ComposeRe
     const harmonyGrammarMap = applyHarmonyGrammarToSections(plan.sections);
     // Build the plan-time global motif graph first so buildMotifDevelopmentPlan
     // can use dramatic-function-aware transforms instead of role heuristics.
-    const globalMotifGraph = buildGlobalMotifGraph(plan.sections, sketch.motifDrafts);
+    // Preserve the plan-level graph when already set (e.g. explicitly provided
+    // by the planner); derive from the sketch only when missing.
+    const globalMotifGraph = plan.globalMotifGraph
+        ?? buildGlobalMotifGraph(plan.sections, sketch.motifDrafts);
     // Build motif development plans, preferring the global graph when available.
     const motifDevelopmentMap = buildMotifDevelopmentPlan(plan.sections, sketch.motifDrafts, globalMotifGraph);
 

@@ -1,0 +1,1731 @@
+
+> axiom@0.1.0 pretest
+> npm run build
+
+
+> axiom@0.1.0 build
+> tsc
+
+
+> axiom@0.1.0 test
+> node --test test/all.test.mjs
+
+(node:31752) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✖ restores running MusicGen compose job with same songId and completes from existing output (1148.4695ms)
+✔ restoreQueueState marks non-COMPOSE symbolic jobs for recovery with the same songId (884.0922ms)
+✔ restoreQueueState hydrates expression-plan sidecar into recovered composition plans (865.6826ms)
+✔ blocks trigger when active run lock exists (1212.4555ms)
+✔ blocks trigger when daily cap is reached (668.847ms)
+{"timestamp":"2026-05-18T02:16:42.573Z","level":"info","message":"Critiquing","songId":"balanced-song"}
+{"timestamp":"2026-05-18T02:16:42.580Z","level":"info","message":"Critique passed","songId":"balanced-song","noteCount":9}
+{"timestamp":"2026-05-18T02:16:42.583Z","level":"info","message":"Critiquing","songId":"repetitive-song"}
+{"timestamp":"2026-05-18T02:16:42.587Z","level":"warn","message":"Critique failed","songId":"repetitive-song","issues":["Excessive repetition: pitch 67 repeated 8+ times in track 1","Limited pitch-class variety: 2 unique classes in lead track","Rhythm is too uniform: 1 unique note lengths in lead track","Final melodic note does not resolve to the tonic triad for key C major"]}
+{"timestamp":"2026-05-18T02:16:42.591Z","level":"info","message":"Critiquing","songId":"leaping-song"}
+{"timestamp":"2026-05-18T02:16:42.593Z","level":"warn","message":"Critique failed","songId":"leaping-song","issues":["Too many wide leaps: 8/8 melodic intervals exceed an octave","Large leaps are not balanced by stepwise recovery","Final melodic note does not resolve to the tonic triad for key C major"]}
+{"timestamp":"2026-05-18T02:16:42.596Z","level":"info","message":"Critiquing","songId":"section-song"}
+{"timestamp":"2026-05-18T02:16:42.602Z","level":"info","message":"Critique passed","songId":"section-song","noteCount":14}
+{"timestamp":"2026-05-18T02:16:42.642Z","level":"info","message":"Critiquing","songId":"tension-song"}
+{"timestamp":"2026-05-18T02:16:42.645Z","level":"warn","message":"Critique failed","songId":"tension-song","issues":["Too many wide leaps: 7/11 melodic intervals exceed an octave","Large leaps are not balanced by stepwise recovery","Section tension arc diverges from the planned energy contour"]}
+{"timestamp":"2026-05-18T02:16:42.650Z","level":"info","message":"Critiquing","songId":"modulating-close"}
+{"timestamp":"2026-05-18T02:16:42.660Z","level":"info","message":"Critique passed","songId":"modulating-close","noteCount":8}
+{"timestamp":"2026-05-18T02:16:42.664Z","level":"info","message":"Critiquing","songId":"narrative-strong"}
+{"timestamp":"2026-05-18T02:16:42.667Z","level":"info","message":"Critique passed","songId":"narrative-strong","noteCount":27}
+{"timestamp":"2026-05-18T02:16:42.673Z","level":"info","message":"Critiquing","songId":"narrative-weak-recap"}
+{"timestamp":"2026-05-18T02:16:42.675Z","level":"warn","message":"Critique failed","songId":"narrative-weak-recap","issues":["Recap does not clearly recall earlier thematic material."]}
+{"timestamp":"2026-05-18T02:16:42.677Z","level":"info","message":"Critiquing","songId":"harmonic-weak"}
+{"timestamp":"2026-05-18T02:16:42.680Z","level":"warn","message":"Critique failed","songId":"harmonic-weak","issues":["Rhythm is too uniform: 1 unique note lengths in lead track","Parallel perfect intervals weaken the global outer-voice motion.","Cadential bass motion does not consistently support the planned tonal closes."]}
+{"timestamp":"2026-05-18T02:16:42.685Z","level":"info","message":"Critiquing","songId":"harmonic-route-strong"}
+{"timestamp":"2026-05-18T02:16:42.690Z","level":"warn","message":"Critique failed","songId":"harmonic-route-strong","issues":["Rhythm is too uniform: 1 unique note lengths in lead track","Recap does not clearly recall earlier thematic material."]}
+{"timestamp":"2026-05-18T02:16:42.692Z","level":"info","message":"Critiquing","songId":"harmonic-route-weak"}
+{"timestamp":"2026-05-18T02:16:42.695Z","level":"warn","message":"Critique failed","songId":"harmonic-route-weak","issues":["Rhythm is too uniform: 1 unique note lengths in lead track","Modulation path does not land convincingly in related tonal areas.","Dominant preparation is weak before major tonal arrivals.","Recap does not re-establish the opening tonic strongly enough.","Piece-level harmonic route is not yet coherent enough."]}
+{"timestamp":"2026-05-18T02:16:42.698Z","level":"info","message":"Critiquing","songId":"form-harmonic-fit"}
+{"timestamp":"2026-05-18T02:16:42.701Z","level":"warn","message":"Critique failed","songId":"form-harmonic-fit","issues":["Rhythm is too uniform: 1 unique note lengths in lead track","Final melodic note does not resolve to the tonic triad for key C major"]}
+✔ blocks trigger when pending approval manifest exists (648.7735ms)
+✔ passes balanced cadential melody in C major (11.7544ms)
+✔ rejects repetitive line with weak cadence (6.8432ms)
+✔ rejects melody with too many unresolved wide leaps (5.299ms)
+✔ critique reports weakest sections without changing top-level pass behavior (11.7706ms)
+✔ buildStructureEvaluation preserves section findings from critique (4.9088ms)
+✔ buildStructureEvaluation derives compact long-span operator status from structure metrics (1.0833ms)
+✔ buildStructureEvaluation lowers global score when one weak section is far behind the rest (0.8701ms)
+✔ buildStructureEvaluation enriches section findings with artifact-aware register and cadence diagnostics (25.9556ms)
+✔ critique flags section tension-arc mismatch against planned contour (7.485ms)
+✔ critique respects a planned local tonal center for the closing cadence (14.2304ms)
+✔ critique reports strong development and recap narrative metrics when sections transform and recall a theme (8.344ms)
+✔ critique flags recap sections that fail to recall the earlier theme (4.3573ms)
+✔ critique flags exposed parallel perfects and weak cadential bass support (7.3994ms)
+✔ critique accumulates piece-level harmonic route strength across modulation, preparation, and recap return (7.4393ms)
+✔ critique flags weak piece-level harmonic route when modulation and recap tonality drift (5.7007ms)
+✔ critique uses form templates to score section-level harmonic role fit (10.7813ms)
+✔ resolveFormTemplate matches sonata aliases (0.3354ms)
+✔ buildFallbackSectionsForForm creates a sonata skeleton with secondary-key theme_b (1.0154ms)
+✔ validateFormSectionFit rejects malformed sonata ordering and tonal return (0.6925ms)
+✔ coerceComposeWorkflowForForm keeps sonata requests symbolic-first (0.2935ms)
+✔ ensureClassicalKnowledgePlan derives a classical-theory contract from a composition plan (4.007ms)
+✔ normalizeClassicalKnowledgePlan preserves unsupported notation marks as intent (2.1145ms)
+✔ normalizeComposeRequestInput hydrates compositionPlan.classicalKnowledge (21.4488ms)
+✔ buildStructureEvaluation audits classical knowledge contract and revision directives (20.4013ms)
+✔ resolveQualityPolicy defaults symbolic workflows to auto revision (0.5548ms)
+✔ buildRecommendedQualityPolicy varies defaults by form and workflow (0.3248ms)
+✔ buildStructureRevisionDirectives prioritizes cadence and leap fixes (0.4034ms)
+✔ buildStructureRevisionDirectives maps harmonic voice-leading issues to harmony repair directives (0.4994ms)
+✔ buildStructureRevisionDirectives maps piece-level harmonic route issues to stabilization directives (0.4594ms)
+✔ shouldRetryStructureAttempt reacts to low scores and failures (0.8636ms)
+✔ shouldRetryStructureAttempt retries explicit long-span plans when the planned return remains weak (0.526ms)
+✔ shouldRetryStructureAttempt relaxes soft-only retries for experimental plans (0.5127ms)
+✔ shouldRetryStructureAttempt accepts near-target soft failures immediately only for veiled experimental plans (0.537ms)
+✔ shouldRetryStructureAttempt retries uneven passing drafts once section-aware scoring drops below target (0.6597ms)
+✔ applyRevisionDirectives reshapes plan and prompt hash (5.6384ms)
+✔ applyRevisionDirectives annotates harmonic stabilization in section plans (0.7127ms)
+✔ applyRevisionDirectives re-anchors recap tonal center during harmonic stabilization (1.033ms)
+✔ applyRevisionDirectives recenters targeted section register from artifact drift direction (0.8699ms)
+✔ applyRevisionDirectives preserves explicit plagal cadence when strengthening a targeted close (0.6179ms)
+✔ buildStructureRevisionDirectives deprioritizes conservative cadence fixes for experimental hidden plans (0.5674ms)
+✔ buildStructureRevisionDirectives treats tension contour divergence as a soft revision signal (0.5164ms)
+✔ buildStructureRevisionDirectives targets the weakest harmonic section (1.56ms)
+✔ buildStructureRevisionDirectives prefers the most severe cadence section by metric severity (0.8036ms)
+✔ buildStructureRevisionDirectives boosts stabilize_harmony for severe tonal and modulation drift (0.9526ms)
+✔ buildStructureRevisionDirectives keeps exact source-issue targets ahead of unrelated weakest sections (0.5581ms)
+✔ buildAudioRevisionDirectives maps weak narrative audio metrics to development and recap fixes (2.4717ms)
+✔ buildAudioRevisionDirectives maps rendered tonal-return collapse to harmony stabilization (1.2453ms)
+✔ buildAudioRevisionDirectives adds dedicated long-span divergence repair when render collapses after symbolic hold (3.4935ms)
+✔ summarizeLongSpanDivergence pairs symbolic and rendered section evidence when both long-span layers are weak (1.29ms)
+✔ summarizeLongSpanDivergence marks cross-section paired weakness when symbolic and rendered weak points diverge (0.6456ms)
+✔ buildAudioRevisionDirectives carries paired symbolic section evidence when both long-span layers are weak (2.0664ms)
+✔ buildAudioRevisionDirectives targets both sections for cross-section long-span divergence (1.1488ms)
+✔ buildAudioRevisionDirectives adds companion directives for secondary long-span focuses (1.4886ms)
+✔ buildAudioRevisionDirectives localizes rendered-styled disagreement to the inconsistent section (0.7942ms)
+✔ buildAudioRevisionDirectives prefers audio section findings when choosing target sectionIds (0.5737ms)
+✔ buildAudioRevisionDirectives maps weak tempo-motion evidence to localized tempo shaping (0.6693ms)
+✔ buildAudioRevisionDirectives maps weak phrase-breath evidence to localized phrase repair (0.5115ms)
+✔ buildAudioRevisionDirectives maps weak ornament hold evidence to localized hold shaping (1.307ms)
+✔ buildAudioRevisionDirectives maps weak harmonic realization evidence to localized harmonic repair (0.548ms)
+✔ shouldRetryAudioAttempt only retries symbolic workflows with weak narrative audio metrics (0.5946ms)
+✔ shouldRetryAudioAttempt retries when rendered tonal return collapses (0.1861ms)
+✔ shouldRetryAudioAttempt retries actionable long-span divergence even when audio pass holds (0.4126ms)
+✔ shouldRetryAudioAttempt retries when tempo-motion realization is weak (0.3781ms)
+✔ shouldRetryAudioAttempt retries when phrase-breath realization is weak (0.3219ms)
+✔ shouldRetryAudioAttempt retries when ornament hold realization is weak (0.1675ms)
+✔ applyRevisionDirectives keeps experimental hidden closes suggestive (6.4631ms)
+✔ applyRevisionDirectives reshapes development and recap from audio narrative directives (1.8964ms)
+✔ applyRevisionDirectives differentiates audio route repair from tonal return repair (1.0483ms)
+✔ applyRevisionDirectives only mutates targeted sections when directive scope is set (0.5817ms)
+✔ materializeCompositionSketch preserves pipeline hash stability while planner sketches affect hashes (4.1217ms)
+✔ computePromptHash changes when structured expression guidance changes (1.3527ms)
+✔ computePromptHash changes when phrase, texture, or harmonic deepening guidance changes (0.9571ms)
+✔ computePromptHash changes when phrase-breath guidance changes (2.6976ms)
+✔ computePromptHash changes when harmonic-color guidance changes (3.191ms)
+✔ computePromptHash changes when long-span form guidance changes (1.3773ms)
+✔ buildStructureRevisionDirectives maps weak long-span metrics to planned development and return zones (2.346ms)
+✔ applyRevisionDirectives localizes long-span repair to the planned development and return zones (1.023ms)
+✔ buildStructureEvaluation surfaces expression-plan drift from section artifacts (1.2275ms)
+✔ buildStructureRevisionDirectives targets the weakest expression section (0.9744ms)
+✔ buildStructureEvaluation surfaces phrase and texture drift from section artifacts (9.9852ms)
+✔ buildStructureEvaluation penalizes static counterline behavior even when texture labels survive (1.9567ms)
+✔ buildStructureEvaluation derives contrary-motion texture evidence from role-tagged accompaniment events (2.9377ms)
+✔ buildStructureEvaluation scores weak imitative survival from source-motif relation and motion (2.738ms)
+✔ buildStructureEvaluation prefers secondary-line motif evidence for strong imitative survival (1.8651ms)
+✔ buildStructureEvaluation derives part-level imitation evidence from role-tagged accompaniment events (2.5941ms)
+✔ buildStructureRevisionDirectives targets the weakest phrase and texture section (0.7219ms)
+✔ buildStructureRevisionDirectives targets imitative sections even when only imitation survival is weak (0.5802ms)
+✔ buildStructureEvaluation reports string-trio orchestration metrics from role-tagged section artifacts (5.5702ms)
+✔ buildStructureRevisionDirectives localizes weak string-trio balance and conversation sections (4.176ms)
+✔ buildStructureRevisionDirectives localizes weak string-trio doubling sections (2.0848ms)
+✔ buildStructureEvaluation scores string-trio handoff rotation between adjacent sections (7.218ms)
+✔ buildStructureRevisionDirectives localizes weak string-trio handoff sections (2.1534ms)
+✔ buildStructureEvaluation scores string-trio texture rotation between adjacent sections (2.882ms)
+✔ buildStructureRevisionDirectives localizes weak string-trio texture rotation sections (2.8528ms)
+✔ buildStructureEvaluation localizes phrase-pressure and tonicization failures from realized section artifacts (10.1458ms)
+✔ buildStructureRevisionDirectives targets phrase-pressure and harmonic-motion failures (0.8467ms)
+✔ applyRevisionDirectives raises targeted phrase pressure and repairs static prolongation (1.0174ms)
+✔ buildStructureEvaluation surfaces harmonic-color drift from section artifacts (1.1812ms)
+✔ buildStructureRevisionDirectives targets harmonic-color failures (0.7676ms)
+✔ applyRevisionDirectives restores targeted harmonic-color cues (1.3355ms)
+✔ applyRevisionDirectives strengthens targeted section expression cues (0.9256ms)
+✔ applyRevisionDirectives reinforces targeted phrase rhetoric and texture cues (4.5955ms)
+✔ applyRevisionDirectives reinforces targeted tempo-motion cues from audio evidence (1.9828ms)
+✔ applyRevisionDirectives synthesizes targeted fermata repair from audio evidence (1.2198ms)
+✔ scoreStructureEvaluationForCandidateSelection penalizes weak sections and tension mismatch (0.8743ms)
+✔ buildStructureRevisionDirectives targets register drift and cadence-approach mismatches from artifact-aware evaluation (0.5702ms)
+✔ scoreStructureEvaluationForCandidateSelection prefers candidates with stronger register and cadence-plan fit (0.3882ms)
+✔ scoreStructureEvaluationForCandidateSelection prefers candidates with stronger string-trio orchestration fit (0.367ms)
+✔ compareStructureEvaluationsForCandidateSelection breaks near ties with section stability (1.4708ms)
+✔ reports stale autonomy lock in operational summary (964.2676ms)
+✔ manual reconcile clears stale lock and updates control state (721.4466ms)
+✔ mcp pause and resume write operator audit metadata (706.2106ms)
+✔ mcp autonomy ops tool exposes operations summary (735.0811ms)
+✔ autonomy ops surfaces long-span divergence when render collapses after symbolic hold (988.6506ms)
+✔ approval feedback updates preferences summary and autonomy ops exposes recent feedback highlights (842.6502ms)
+✔ previewAutonomyPlan exposes planner plan summary (533.9491ms)
+✔ previewAutonomyPlan preserves extended expression vocabulary from planner output (596.9432ms)
+✔ previewAutonomyPlan preserves planner-requested candidateCount for Stage B search budgets (490.3903ms)
+✔ previewAutonomyPlan preserves phrase-breath contract from planner output (473.9649ms)
+✔ previewAutonomyPlan preserves harmonic deepening contract from planner output (961.3967ms)
+✔ previewAutonomyPlan preserves long-span form contract from planner output (493.9889ms)
+✔ previewAutonomyPlan derives string-trio orchestration summary from planner output (453.305ms)
+✔ previewAutonomyPlan preserves tempo-motion vocabulary from planner output (430.0085ms)
+✔ previewAutonomyPlan preserves ornament vocabulary from planner output (435.6646ms)
+✔ previewAutonomyPlan selects the strongest candidate across novelty and completeness (476.5394ms)
+✔ previewAutonomyPlan extracts richer fallback cues from freeform planner text (462.777ms)
+✔ previewAutonomyPlan scores novelty against recent plan signatures (441.6426ms)
+✔ previewAutonomyPlan preserves planner expression defaults and section guidance (439.2629ms)
+✔ previewAutonomyPlan derives fallback expression guidance when planner omits it (430.5536ms)
+✔ triggerAutonomyRun returns planner plan summary (675.616ms)
+✔ triggerAutonomyRun carries long-span summary in planner plan summary (874.4814ms)
+✔ previewAutonomyPlan repairs malformed sonata plans into symbolic-first summaries (447.9688ms)
+✔ updateAutonomyPreferencesFromManifest stores reflection and style memory (456.0022ms)
+✔ triggerAutonomyRun blocks near-duplicate plan signatures even when prompt hash differs (651.4624ms)
+{"timestamp":"2026-05-18T02:16:58.389Z","level":"warn","message":"Learned symbolic proposal normalization warning","songId":"learned-normalizer-probe","warning":"section_alignment=approximate"}
+✔ materializeCompositionSketch applies autonomy memory bias for motif returns, tension arcs, register centers, cadence approaches, bass motion, and section style (226.0272ms)
+✔ buildExecutionPlan keeps structure-first workflows on music21 (2.9166ms)
+✔ normalizeComposeRequestInput accepts multimodel compose payload (6.9002ms)
+✔ normalizeComposeRequestInput infers Stage B S4 base candidate count when localized rewrite branches are requested (0.3662ms)
+✔ normalizeComposeRequestInput accepts a custom mixed search budget with three whole-piece candidates and one rewrite branch (0.2776ms)
+✔ normalizeComposeRequestInput rejects out-of-range candidateCount (0.2413ms)
+✔ normalizeComposeRequestInput rejects localized rewrite branches when the whole-piece candidate budget is too small (0.2113ms)
+✔ normalizeComposeRequestInput rejects deprecated sonification input and points callers to compositionProfile (0.2701ms)
+✔ normalizeComposeRequestInput coerces sonata requests to symbolic-first workflow (1.7032ms)
+✔ normalizeComposeRequestInput preserves long-span form guidance for sonata plans (1.4929ms)
+✔ normalizeComposeRequestInput derives string-trio orchestration guidance from instrumentation and texture (1.7528ms)
+✔ normalizeComposeRequestInput rejects malformed sonata plans (0.793ms)
+✔ buildExecutionPlan forces sonata audio requests onto a symbolic-first worker (0.4822ms)
+✔ buildExecutionPlan selects learned_symbolic for learned structure bindings on symbolic workflows (0.3356ms)
+✔ learned symbolic prompt pack freezes plan signature while keeping retry context explicit (19.3172ms)
+✔ notagen provider request keeps backbone conditioning stable while surfacing retry control lines (2.3717ms)
+﹣ learned_symbolic worker rejects malformed providerRequest before generation (0.1145ms) # SKIP
+﹣ learned_symbolic worker rejects providerRequest lane mismatches before generation (0.0942ms) # SKIP
+﹣ learned_symbolic worker records role collapse warnings for seeded trio artifacts (0.0754ms) # SKIP
+﹣ learned_symbolic worker accepts hyphenated flat tonal centers in the fixed counterline benchmark (0.0727ms) # SKIP
+﹣ learned_symbolic worker shapes cadential closures with varied durations in the fixed cadence benchmark (0.0725ms) # SKIP
+﹣ learned_symbolic worker materializes trio handoffs and wider dialogue spacing in the fixed counterline benchmark (0.2287ms) # SKIP
+✔ fixed string trio benchmark pack keeps stable plan-signature coverage for retry probes (15.5821ms)
+✔ learned normalizer maps proposal responses into AXIOM compose results (13.0429ms)
+✔ learned contract validator rejects malformed provider responses before normalization (2.8761ms)
+﹣ learned_symbolic worker produces a normalized string trio miniature candidate (0.14ms) # SKIP
+﹣ learned_symbolic falls back to music21 when the narrow lane rejects the request (0.1189ms) # SKIP
+﹣ learned_symbolic worker localizes targeted rewrite to the requested weak section (0.0944ms) # SKIP
+﹣ learned_symbolic worker degrades cleanly to music21 outside the narrow lane (0.0899ms) # SKIP
+✔ mergeRenderedAndStyledArtifacts preserves score-aligned audio and stores styled audio separately (0.3428ms)
+✔ buildHumanizeWorkerInput threads expression guidance to the worker (0.864ms)
+﹣ humanizer applies extended expression vocabulary to timing and velocity shaping (0.1452ms) # SKIP
+﹣ humanizer compounds phrase-breath and harmonic arrival cues when they overlap in the late window (0.0806ms) # SKIP
+﹣ humanizer applies section-local tempo-motion cues to late-section durations (0.069ms) # SKIP
+﹣ humanizer realizes phrase-breath arrival and release shaping inside section windows (0.0674ms) # SKIP
+﹣ humanizer realizes fermata as a local hold near the targeted cadence beat (0.0729ms) # SKIP
+﹣ humanizer realizes target-beat arpeggio sweeps on chordal accompaniment and reports spread evidence (0.0756ms) # SKIP
+﹣ humanizer realizes target-beat grace notes on note-bearing lines and reports lead-in evidence (0.0772ms) # SKIP
+﹣ humanizer realizes target-beat trill oscillations on note-bearing lines and reports oscillation evidence (0.0727ms) # SKIP
+✔ buildExpressionPlanSidecar annotates section measure ranges for downstream humanization (1.2681ms)
+✔ buildAudioEvaluation scores weak tempo-motion evidence from section artifacts (14.3414ms)
+✔ buildAudioEvaluation scores weak phrase-breath evidence from section artifacts (8.1953ms)
+✔ buildAudioEvaluation scores strong phrase-breath evidence from section artifacts (8.0222ms)
+✔ buildAudioEvaluation scores weak harmonic-realization evidence from section artifacts (8.9175ms)
+✔ buildAudioEvaluation scores strong harmonic-realization evidence from section artifacts (11.6542ms)
+✔ buildAudioEvaluation scores weak ornament hold evidence from section artifacts (14.236ms)
+✔ buildAudioEvaluation reports metadata-only unsupported ornament tags without failing them (5.9919ms)
+✔ buildAudioEvaluation scores realized arpeggio spread evidence from section artifacts (8.4378ms)
+✔ buildAudioEvaluation scores realized grace-note lead-in evidence from section artifacts (6.8155ms)
+✔ buildAudioEvaluation scores realized trill oscillation evidence from section artifacts (8.0335ms)
+﹣ humanizer differentiates lead and secondary-voice shaping across section texture windows (0.1377ms) # SKIP
+﹣ humanizer splits bass and upper-strand shaping inside a single accompaniment part (0.1064ms) # SKIP
+﹣ humanizer differentiates simultaneous chord-internal subvoices inside shared accompaniment chords (0.0922ms) # SKIP
+✔ buildStyledAudioPrompt includes expression defaults and section cues (1.9602ms)
+✔ resolveRequestedAudioDurationSec derives symbolic duration from sections and tempo when explicit duration is absent (0.6207ms)
+✔ buildRenderExpressionSummaryLines combines defaults, section cues, and realized velocity ranges (3.4211ms)
+﹣ render worker embeds expression summary lines into the score preview (0.1202ms) # SKIP
+✔ buildAudioEvaluation requires both rendered and styled audio for symbolic_plus_audio (11.2637ms)
+✔ buildAudioEvaluation scores development and recap narrative fit from rendered audio sections (291.7455ms)
+✔ buildAudioEvaluation flags audio renders that flatten development and overstate recap (206.5482ms)
+✔ buildAudioEvaluation distinguishes same-tonic major and minor returns with key-profile matching (157.5984ms)
+✔ buildAudioEvaluation localizes render-consistency drift to the affected narrative section (154.692ms)
+✔ serializeQueuedJob exposes qualityControl history at top level (5.2822ms)
+✔ pipeline allows render to render-audio transition (0.3322ms)
+﹣ humanizer applies harmonic prolongation and tonicization cues to late-section sustain (1.1353ms) # SKIP
+﹣ compose worker accepts spelled-flat tonic names like E-flat major (0.2562ms) # SKIP
+﹣ compose worker applies inversion and sequence transforms when motifPolicy allows development reuse (0.1276ms) # SKIP
+﹣ compose worker applies augmentation and diminution transforms to section note density (0.0911ms) # SKIP
+﹣ compose worker infers a related-key route for development and returns recap to home tonic (0.0794ms) # SKIP
+﹣ compose worker defaults sonata theme_b to the resolved secondary key when tonal centers are omitted (0.077ms) # SKIP
+﹣ compose worker keeps full recap motif returns literal under slow harmonic rhythm (0.0762ms) # SKIP
+﹣ compose worker differentiates abbreviated and varied recap modes even without rhythm transforms (0.0713ms) # SKIP
+﹣ compose worker realizes distinct motivic, textural, and free development types (0.072ms) # SKIP
+﹣ compose worker preserves inverted development contour strongly enough to clear narrative critique (0.0728ms) # SKIP
+﹣ compose worker realizes strong planned cadence sections with firmer bass support (0.0708ms) # SKIP
+﹣ compose worker realizes planned voicing profiles with distinct accompaniment patterns (0.0794ms) # SKIP
+﹣ compose worker realizes planned harmony density with distinct accompaniment thickness (0.083ms) # SKIP
+﹣ compose worker realizes imitative counterline sections as answer-like upper strands (0.0853ms) # SKIP
+﹣ compose worker applies expression defaults and section overrides to melody articulation (0.0873ms) # SKIP
+﹣ compose worker realizes extended expression tags in artifacts and melodic shaping (0.0854ms) # SKIP
+﹣ compose worker localizes clarify_texture_plan retries by reusing untouched sections and strengthening the targeted counterline (0.0871ms) # SKIP
+﹣ compose worker splits explicit chamber inner voice into a dedicated MIDI part when separate secondary and bass instruments are provided (0.0868ms) # SKIP
+﹣ compose worker realizes planned dynamics with distinct velocity ranges (0.0848ms) # SKIP
+﹣ compose worker harmonic directives reduce exposed parallels and preserve cadence support (0.0841ms) # SKIP
+﹣ compose worker localizes cadence and harmony reinforcement to the targeted closing section without destabilizing preserved sections (0.0838ms) # SKIP
+﹣ compose worker targeted retries preserve untargeted sections with section-local seeding (0.0943ms) # SKIP
+﹣ compose worker prepares the bass for a recap return across section boundaries (0.0574ms) # SKIP
+﹣ compose worker motif-driven development keeps route strength while reducing outer-voice parallels (0.0482ms) # SKIP
+﹣ compose worker diminished development avoids structural-frame outer-voice parallels even when notes enter off the beat (0.0456ms) # SKIP
+﹣ compose worker contrast theme_b follows realized accompaniment bass to avoid outer-voice parallels (0.0709ms) # SKIP
+﹣ compose worker infers closing cadence stability even without explicit cadenceStrength (0.0792ms) # SKIP
+✔ saveManifest stores sectionArtifacts and expressionPlan in sidecar caches and listStoredManifests stays lean (240.1914ms)
+✔ mcp health is public and exposes readiness, queue, and operator artifacts (2052.4849ms)
+✔ mcp HTTP rpc rejects unauthenticated requests when token is configured (1314.7505ms)
+✔ mcp tool schemas define items for every array node (599.7967ms)
+✔ mcp compose accepts JSON-string structured inputs for model bindings and instrumentation (9498.147ms)
+✔ mcp operator summary tool is exposed and returns canonical operator summary (1506.0093ms)
+✔ mcp HTTP rpc accepts bearer auth, keeps legacy /mcp, and exposes /tools/list fallback (20154.6989ms)
+✔ mcp stdio notifications are silent and regular requests still return JSON (578.5221ms)
+✔ mcp manifest tools expose stored section transforms and audio narrative metrics (478.9034ms)
+✔ print-discord-upstream-config emits AXIOM upstream JSON (141.0426ms)
+✔ verify-mcp-http-bridge validates AXIOM HTTP MCP compatibility (1756.9052ms)
+✔ print-operator-summary emits canonical operator summary from AXIOM runtime routes (1823.423ms)
+✔ project-operator-summary writes latest artifacts and daily history (2387.0286ms)
+✔ project-operator-summary records failure evidence when summary collection fails (427.9272ms)
+✔ project-operator-summary projects shadow reranker advantage and retry localization lines for reviewed hybrid evidence (2237.7813ms)
+✔ print-operator-summary escalates to SEV-1 for compounded runtime failures (1013.2033ms)
+✔ scaffold-shadow-review writes policy review markdown and json with baseline snapshot (2440.1903ms)
+✔ capture-shadow-review-evidence records baseline and candidate evidence with comparison deltas (7110.341ms)
+✔ run-safe-unattended-sweep writes bridge, projection, warning, and stale-lock evidence (4153.6997ms)
+✔ run-safe-unattended-sweep records failure evidence when bridge verify fails (778.6668ms)
+✔ project-operator-pickup writes consolidated shared pickup artifacts (4691.4536ms)
+✔ project-operator-pickup records failure evidence when source artifacts are missing (168.644ms)
+✔ generate-soundfont-benchmark-metrics writes reproducible JSON and Markdown reports (313.5758ms)
+✔ generate-soundfont-benchmark-playlist writes corpus and blind listening artifacts (273.9739ms)
+✔ export-structure-reranker-dataset writes grouped structure_rank_v1 snapshots (662.0375ms)
+✔ export-structure-reranker-dataset falls back to winning manifest reviewSignals context without candidate sidecars (282.7948ms)
+✔ export-structure-reranker-dataset preserves retry lineage for legacy candidate sidecars without selected revisionDirectives (330.2641ms)
+✔ dedicated backbone and localized-rewrite exporters write flat truth-plane datasets (502.5862ms)
+✔ evaluate-structure-reranker-shadow trains an explainable reranker and reports disagreements (280.5084ms)
+✔ evaluate-structure-reranker-shadow learns proposal-evidence features for the hybrid learned lane (277.5837ms)
+✔ evaluate-structure-reranker-shadow shows feedback-aware gains on reviewed retry groups over static weights (281.2193ms)
+✔ runtime structure shadow reranker writes candidate disagreement sidecars without changing heuristic authority (319.0408ms)
+✔ runtime structure shadow reranker consumes proposal warning features from candidate sidecars (333.9773ms)
+✔ structure reranker promotion holds until the narrow-lane gate is ready and then promotes the learned top candidate (941.5282ms)
+✔ structure reranker promotion can promote the learned trio candidate from proposal-evidence features alone (900.5405ms)
+✔ structure reranker promotion falls back to heuristic selection when the learned top misses the explicit target (845.9003ms)
+✔ runtime structure shadow summary script reports recent runtime-window disagreement history (243.1039ms)
+✔ operator summary reports narrow-lane reranker promotion outcomes against heuristic-reviewed runs (21008.6961ms)
+✔ structure candidate sidecars persist snapshots and selected pointer (231.4047ms)
+✔ structure candidate sidecars persist reranker promotion metadata on the selected candidate (225.052ms)
+{"timestamp":"2026-05-18T02:18:40.147Z","level":"info","message":"Autonomy approval updated","songId":"song-pending-learned","runId":"run-song-pending-learned","approvalStatus":"approved"}
+{"timestamp":"2026-05-18T02:18:40.170Z","level":"info","message":"Autonomy approval updated","songId":"song-pending-baseline","runId":"run-song-pending-baseline","approvalStatus":"rejected"}
+✔ structure candidate sidecars persist learned proposal evidence for candidate export (207.5035ms)
+﹣ structure candidate sidecars persist learned targeted rewrite evidence and transforms (0.3678ms) # SKIP
+﹣ runPipeline persists same-attempt hybrid symbolic candidates and records the hybrid stop reason (0.1359ms) # SKIP
+﹣ runPipeline persists same-attempt localized rewrite branch candidates for Stage B S4 search budgets (0.1208ms) # SKIP
+﹣ runPipeline persists same-attempt localized rewrite branch candidates for a custom three-candidate search budget (0.1079ms) # SKIP
+﹣ runPipeline persists proposal-driven reranker promotion on the selected learned candidate snapshot (0.1087ms) # SKIP
+﹣ runPipeline preserves attempt-2 targeted rewrite truth-plane through the real retry path after downstream failure (0.1041ms) # SKIP
+✔ learned backbone review result recorder writes and replaces blind review entries (642.7503ms)
+✔ learned backbone review pack can target pending shortlist queue (307.2541ms)
+✔ learned backbone review result recorder ingests review sheet csv in bulk (488.6512ms)
+✔ learned backbone review pack pendingOnly excludes already reviewed blind pairs (944.0214ms)
+✔ learned backbone review pack can filter pending queue by custom search budget (274.1565ms)
+✔ learned backbone review pack pendingOnly excludes songs already assigned to an active blind pack (559.4093ms)
+✔ learned backbone benchmark summary groups paired benchmark runs and promotion evidence (531.1653ms)
+✔ learned backbone benchmark summary distinguishes custom whole-piece and mixed search budgets (277.547ms)
+✔ learned backbone benchmark summary reads persisted blind review pack results (1049.7193ms)
+✔ learned backbone benchmark summary carries review pack search-budget scope (539.7238ms)
+﹣ learned backbone benchmark runner materializes pending benchmark evidence batches (0.1603ms) # SKIP
+✔ learned-backbone manifest review sheet scaffolds pending rows and records approval decisions (1240.6909ms)
+✔ learned-backbone manifest review sheet can approve benchmark api manifests without autonomy audit side effects (1460.3683ms)
+✔ operator summary surfaces learned backbone benchmark aggregate on overseer payload (20697.9187ms)
+✔ operator summary distinguishes custom whole-piece and mixed search budgets on payload and artifacts (18905.9154ms)
+✔ operator summary surfaces active learned backbone review pack worksheet commands (18820.6027ms)
+✔ operator summary surfaces supplemental learned backbone review pack actions when uncovered pending runs remain (18804.2848ms)
+✔ project operator summary renders learned backbone benchmark section and artifact lines (20084.4623ms)
+✔ project operator summary renders custom search-budget descriptors without collapsing mixed budgets (19174.3576ms)
+✔ project operator summary carries active learned backbone review pack actions in latest json (20039.5748ms)
+✔ hybrid symbolic candidate pool emits baseline and learned variants on the narrow string trio lane (1.1269ms)
+✔ hybrid symbolic candidate pool expands to four same-attempt whole-piece candidates when candidateCount requests S2 (0.5122ms)
+✔ hybrid symbolic candidate pool expands to three same-attempt whole-piece candidates for the custom search budget (0.2682ms)
+✔ hybrid symbolic candidate pool expands to eight same-attempt whole-piece candidates when candidateCount requests S3 (0.332ms)
+✔ hybrid symbolic candidate pool falls back to the requested candidate outside the narrow lane (0.3046ms)
+✔ hybrid symbolic selection reason records the heuristic worker decision (0.2838ms)
+✔ hybrid symbolic selection reason compares against the best cross-worker alternative when duplicate worker slots exist (0.1216ms)
+✔ ready endpoint returns not_ready when Python runtime is unavailable (1338.3963ms)
+✔ ready endpoint reports not_ready when a required worker script is missing (18847.1276ms)
+✔ automatic overseer runs persist latest report, append history, and are exposed via route and MCP (919.9418ms)
+✔ last-report route and MCP surface return missing state when no automatic report exists (871.8894ms)
+✔ history route and MCP surface expose newest-first daily JSONL history (952.5434ms)
+✔ summary route, dashboard, and MCP surface expose derived overseer metrics (965.4624ms)
+✔ automatic overseer failures are appended to history and counted in summary (157.5843ms)
+✔ dashboard acknowledge actions move repeated warnings between active and acknowledged lists (879.8979ms)
+✔ domain-specific warning normalization groups render, autonomy, and queue variants (176.4972ms)
+✔ acknowledged repeated warning resurfaces when a newer occurrence arrives after acknowledgement (183.5889ms)
+✔ Old manifest without listenerFeedback loads without errors (0.6898ms)
+✔ ReviewFeedback.listenerFeedback is optional — absent means no feedback (0.2217ms)
+✔ saveListenerFeedbackToSelectedCandidate writes feedback to candidate sidecar (10.3115ms)
+✔ saveListenerFeedbackToSelectedCandidate no-ops when no selected candidate (6.0833ms)
+✔ Derived listenerScores match numeric feedback fields (0.3246ms)
+✔ internalScores are derived from craftScoreSummary when available (11.837ms)
+✔ Listener feedback is absent when appeal is not provided (0.4761ms)
+✔ Export preference row has required fields (0.3289ms)
+✔ DPO pairs approved vs rejected under same planSignature (0.4024ms)
+✔ listenerFeedback nests inside reviewFeedback on manifest (0.2023ms)
+✔ LEARNED_SYMBOLIC_BACKEND=template: notagenBackend reports mode=template and available=false (130.4845ms)
+✔ Disabled mode keeps notagenModelPath and notagenDevice accessible (125.0495ms)
+✔ select_backend picks TemplateBackend when LEARNED_SYMBOLIC_BACKEND=template (124.2415ms)
+✔ select_backend picks NotagenBackend when LEARNED_SYMBOLIC_BACKEND=notagen_mock (123.184ms)
+✔ select_backend picks NotagenBackend when LEARNED_SYMBOLIC_BACKEND=notagen_local (114.0221ms)
+✔ LEARNED_SYMBOLIC_BACKEND=notagen_local with missing model path → ok=false (no crash) (123.5203ms)
+✔ LEARNED_SYMBOLIC_BACKEND=notagen_local with nonexistent model path is detectable from config (137.3628ms)
+✔ config.ts exposes learnedSymbolicBackend with default=template (116.8618ms)
+✔ config.ts notagenResampleBudget defaults to 2 (115.62ms)
+✔ config.ts notagenResampleBudget is overrideable via env var (119.8512ms)
+✔ Readiness shows notagenBackend.mode=template when LEARNED_SYMBOLIC_BACKEND unset (18840.3666ms)
+✔ Readiness shows notagenBackend.available=true for notagen_mock mode (22344.9518ms)
+✔ Readiness adds degradedReason for notagen_local mode with missing model path (20149.7492ms)
+{"timestamp":"2026-05-18T02:23:07.995Z","level":"warn","message":"Learned symbolic proposal normalization warning","songId":"test-song","warning":"abc_repaired"}
+{"timestamp":"2026-05-18T02:23:07.996Z","level":"warn","message":"Learned symbolic proposal normalization warning","songId":"test-song","warning":"voice_padding_inserted"}
+{"timestamp":"2026-05-18T02:23:08.002Z","level":"warn","message":"Learned symbolic proposal normalization warning","songId":"test-song","warning":"truncated_extra_bars"}
+{"timestamp":"2026-05-18T02:23:08.004Z","level":"warn","message":"Learned symbolic proposal normalization warning","songId":"test-song","warning":"inferred_tonal_center"}
+✔ Readiness does NOT mark not_ready when symbolic path is ready but NotaGen local fails (18804.1799ms)
+✔ export row has non-null promptPack and providerRequest when stored in proposalEvidence (166.3284ms)
+✔ export row has null promptPack and providerRequest when absent from proposalEvidence (150.5832ms)
+✔ DPO pairs link approved and rejected rows sharing a planSignature (166.6413ms)
+▶ py_compile: all worker Python files are syntactically valid
+  ✔ py_compile: workers\composer\compose_learned_symbolic.py (163.9724ms)
+  ✔ py_compile: workers\composer\learned_symbolic\backends.py (156.058ms)
+  ✔ py_compile: workers\composer\learned_symbolic\notagen_backend.py (154.3024ms)
+  ✔ py_compile: workers\composer\learned_symbolic\notagen_engines\__init__.py (162.5669ms)
+  ✔ py_compile: workers\composer\learned_symbolic\notagen_engines\mock.py (170.7415ms)
+  ✔ py_compile: workers\composer\learned_symbolic\notagen_engines\hf_causal_lm.py (167.9588ms)
+  ✔ py_compile: workers\composer\learned_symbolic\notagen_engines\notagen_native.py (176.7133ms)
+  ✔ py_compile: workers\composer\learned_symbolic\abc_conditioning.py (166.1391ms)
+  ✔ py_compile: workers\composer\learned_symbolic\abc_parser.py (171.308ms)
+  ✔ py_compile: workers\composer\learned_symbolic\abc_project.py (172.362ms)
+  ✔ py_compile: workers\composer\learned_symbolic\abc_prompt.py (161.9132ms)
+  ✔ py_compile: workers\composer\learned_symbolic\abc_repair.py (178.1115ms)
+  ✔ py_compile: workers\composer\learned_symbolic\abc_to_events.py (167.9869ms)
+  ✔ py_compile: workers\composer\learned_symbolic\abc_to_midi.py (165.1005ms)
+  ✔ py_compile: workers\composer\learned_symbolic\abc_types.py (174.6716ms)
+  ✔ py_compile: workers\composer\learned_symbolic\abc_validate.py (172.3641ms)
+✔ py_compile: all worker Python files are syntactically valid (2689.2613ms)
+▶ smoke: compose_learned_symbolic.py with notagen_mock backend
+  ✖ ok === true (1918.7869ms)
+  ✖ proposalMidiPath is present in output (1962.1786ms)
+  ✖ proposalMetadata.generationMode === "mock_notagen_abc" (1753.7584ms)
+  ✖ normalizationWarnings contains "mock_backend_not_for_quality_eval" (1773.9656ms)
+✖ smoke: compose_learned_symbolic.py with notagen_mock backend (9032.5319ms)
+✔ approved song with abcText and providerRequest exports a valid SFT row (149.6778ms)
+✔ non-approved song is excluded from SFT export (168.2421ms)
+✔ approved song without abcText is excluded and counted as noAbcText (151.7627ms)
+✔ mock generationMode rows are excluded by default and included with --include-mock (263.9174ms)
+✔ validatePianoHandPlan passes clean RH plan (0.8345ms)
+✔ validatePianoHandPlan passes clean LH plan (0.2971ms)
+✔ validatePianoHandPlan flags RH registerMin below C4 (0.3276ms)
+✔ validatePianoHandPlan flags LH registerMax above C5 (0.2872ms)
+✔ validatePianoHandPlan flags inverted register range (0.4543ms)
+✔ validatePianoHandPlan flags span exceeding hard ceiling (19) (0.4767ms)
+✔ validatePianoHandPlan flags zero span (0.1879ms)
+✔ validatePianoHandPlan flags empty roles (0.1757ms)
+✔ validatePianoHandPlan flags densityTarget out of range (0.2091ms)
+✔ validatePianoPedalPlan passes harmonic strategy (0.3129ms)
+✔ validatePianoPedalPlan flags enabled=true with strategy=none (0.1829ms)
+✔ validatePianoPedalPlan flags enabled=false with non-none strategy (0.1595ms)
+✔ validatePianoPedalPlan flags changeOnHarmony=true with non-harmonic strategy (0.1634ms)
+✔ validatePianoPedalPlan flags maxPedalMeasures < 1 (0.1698ms)
+✔ validatePianoSectionPlan passes a clean section plan (0.4906ms)
+✔ validatePianoSectionPlan flags empty sectionId (0.2126ms)
+✔ validatePianoSectionPlan flags LH/RH register overlap without allowCrossing (0.2401ms)
+✔ validatePianoSectionPlan allows overlap when allowCrossing=true (0.2202ms)
+✔ validatePianoSectionPlan flags alberti_bass without bass/pulse in LH (0.2136ms)
+✔ validatePianoSectionPlan flags octave_melody without lead in RH (0.217ms)
+✔ validatePianoPlan passes a minimal valid plan (0.3561ms)
+✔ validatePianoPlan flags wrong instrument (0.2276ms)
+✔ validatePianoPlan flags empty sections array (0.1672ms)
+✔ validatePianoPlan flags duplicate sectionId (0.2584ms)
+✔ validatePianoPlan flags section difficulty exceeding plan cap (0.2306ms)
+✔ buildDefaultPianoHandPlan RH is within idiomatic range (0.2787ms)
+✔ buildDefaultPianoHandPlan LH is within idiomatic range (1.2002ms)
+✔ buildDefaultPianoHandPlan span increases with difficulty (0.1793ms)
+✔ buildDefaultPianoPedalPlan toccata → no pedal (0.2205ms)
+✔ buildDefaultPianoPedalPlan nocturne → legato pedal (0.1968ms)
+✔ buildDefaultPianoPedalPlan alberti_bass → harmonic pedal (0.2071ms)
+✔ buildDefaultPianoSectionPlan passes validation (1.1149ms)
+✔ buildDefaultPianoSectionPlan chorale sets high density in both hands (0.233ms)
+✔ buildDefaultPianoSectionPlan counterpoint_two_voice assigns counterline to LH (0.2061ms)
+✔ buildPianoPlanFromCompositionPlan produces a valid plan for typical sections (0.6219ms)
+✔ buildPianoPlanFromCompositionPlan assigns chorale to cadence sections (0.2093ms)
+✔ buildPianoPlanFromCompositionPlan assigns broken_chord to development sections (0.2095ms)
+✔ buildPianoPlanFromCompositionPlan assigns melody_accompaniment to theme (0.2545ms)
+✔ buildPianoPlanFromCompositionPlan empty sections produces valid plan (0.2159ms)
+✔ getTextureTemplate: alberti_bass has correct accompanimentPattern and styleHints (0.264ms)
+✔ getTextureTemplate: nocturne has spread voicing, legato pedal, no change-on-harmony (0.2154ms)
+✔ getTextureTemplate: toccata has no pedal and allowRepeatedOctaves (0.1948ms)
+✔ getTextureTemplate: etude_figuration has no pedal (0.2586ms)
+✔ getTextureTemplate: counterpoint_two_voice has single-note density on both hands (0.273ms)
+✔ getTextureTemplate: chorale has inner_voice in both hands (0.2511ms)
+✔ buildPianoSectionPlanFromTemplate: all 12 texture kinds pass validation (1.3759ms)
+✔ buildPianoSectionPlanFromTemplate: alberti_bass sets accompanimentPattern and roles (0.3107ms)
+✔ buildPianoSectionPlanFromTemplate: nocturne sets spread voicing and legato pedal (0.23ms)
+✔ buildPianoSectionPlanFromTemplate: toccata disables pedal (0.2187ms)
+✔ buildPianoSectionPlanFromTemplate: chorale has high density in both hands (0.2861ms)
+✔ buildPianoSectionPlanFromTemplate: difficulty controls span (0.3925ms)
+✔ buildPianoSectionPlanForStyle: classical_sonata theme_a → alberti_bass (0.399ms)
+✔ buildPianoSectionPlanForStyle: classical_sonata cadence → chorale (0.1739ms)
+✔ buildPianoSectionPlanForStyle: nocturne any role → nocturne texture (0.1423ms)
+✔ buildPianoSectionPlanForStyle: nocturne climax → octave_melody (0.1249ms)
+✔ buildPianoSectionPlanForStyle: etude development → etude_figuration (0.1287ms)
+✔ buildPianoSectionPlanForStyle: romantic_character climax → octave_melody (0.1295ms)
+✔ buildPianoSectionPlanForStyle: unknown role falls back to theme_a texture (0.122ms)
+✔ validatePianoSectionPlan flags nocturne without bass/chordal_support in LH (0.2373ms)
+✔ validatePianoSectionPlan flags arpeggiated_texture without bass in LH (0.2048ms)
+✔ validatePianoSectionPlan flags chorale without inner_voice in RH (0.2365ms)
+✔ validatePianoSectionPlan flags toccata without pulse in any hand (0.2287ms)
+✔ validatePianoSectionPlan: valid etude_figuration plan with pulse passes (0.1528ms)
+✔ computeHandPlayability returns 0.5 and notes when layout missing (0.2594ms)
+✔ computeHandPlayability returns high score for clean layout (0.7345ms)
+✔ computeHandPlayability degrades for many collisions (0.2415ms)
+✔ computeMelodicClarity returns 0.5 for empty artifacts (0.3968ms)
+✔ computeMelodicClarity rewards stepwise melody (0.534ms)
+✔ computeMelodicClarity penalises many large leaps (absorbed leap penalty) (0.2777ms)
+✔ computeMelodicClarity penalises super-octave leaps (> 12 semitones) (0.1887ms)
+✔ computeBassCoherence returns neutral for no artifacts (0.2953ms)
+✔ computeBassCoherence rewards stepwise bass (0.2043ms)
+✔ computeBassCoherence penalises leaping bass (0.18ms)
+✔ computeBassCoherence penalises bass above C5 (0.2075ms)
+✔ computeRegisterSpacing scores 1.0 when RH/LH gap >= 14 semitones (0.6252ms)
+✔ computeRegisterSpacing scores low when hands overlap (0.2928ms)
+✔ computeRegisterSpacing falls back to artifact data (0.2319ms)
+✔ computeVoicingIdiomaticFit returns neutral for no layout and no artifacts (1.8745ms)
+✔ computeVoicingIdiomaticFit returns near 1.0 at or below 6 avg voices (0.3694ms)
+✔ computeVoicingIdiomaticFit degrades above 6 avg voices (0.2508ms)
+✔ computeVoicingIdiomaticFit penalises large span (0.4057ms)
+✔ computeAccompanimentPatternCoherence returns 0.5 for empty (0.5266ms)
+✔ computeAccompanimentPatternCoherence rewards uniform rhythm (0.3904ms)
+✔ computeAccompanimentPatternCoherence penalises irregular rhythm (0.2453ms)
+✔ computeHandIndependence returns 0.5 for empty artifacts (0.4101ms)
+✔ computeHandIndependence rewards balanced density between hands (0.2379ms)
+✔ computeHandIndependence rewards contrary motion (0.4773ms)
+✔ computeHandIndependence penalises one hand dominating (ratio > 4x) (0.3828ms)
+✔ computePedalPlausibility returns 0.5 for no events (0.3302ms)
+✔ computePedalPlausibility gives 0.6 for zero pedal events (0.186ms)
+✔ computePedalPlausibility rewards moderate pedal usage (0.1749ms)
+✔ computePedalPlausibility penalises over-pedalling (0.1684ms)
+✔ computeDifficultyFit returns 0.7 for no span data (0.2525ms)
+✔ computeDifficultyFit returns ~1.0 when span fits easy ceiling (10) (0.2135ms)
+✔ computeDifficultyFit degrades when span exceeds difficulty ceiling (0.2254ms)
+✔ computeDifficultyFit uses pianoHandSpanMax from artifacts as fallback (0.5026ms)
+✔ pianoPlayabilityGate passes when no pianoPlayabilityScore present (0.6081ms)
+✔ pianoPlayabilityGate passes when score exceeds threshold (0.1863ms)
+✔ pianoPlayabilityGate rejects when minimum score is below threshold (0.1957ms)
+✔ pianoPlayabilityGate uses minimum across sections (worst-case) (0.15ms)
+✔ applyPianoPlayabilityGate returns same report when gate passes (0.2118ms)
+✔ applyPianoPlayabilityGate sets passed=false and prepends issue (0.2602ms)
+✔ computePianoCraftScoreSummary returns valid score structure (1.4838ms)
+✔ computePianoCraftScoreSummary gives good composite for idiomatic piano writing (0.6192ms)
+✔ computePianoCraftScoreSummary resolves layout from artifact pianoVoiceLayout (0.5664ms)
+✔ computePianoCraftScoreSummary weights sum to 1.00 (0.605ms)
+✔ RH pitch min/max from melody events (1.4009ms)
+✔ RH pitch range includes chord pitches (0.5335ms)
+✔ RH pitch undefined when only rests (0.6282ms)
+✔ LH pitch min/max from accompaniment events (0.8519ms)
+✔ RH density = note events / measures (0.4272ms)
+✔ density does not count rest events (0.6108ms)
+✔ density is 0 when measureCount is 0 (0.8008ms)
+✔ RH leap max and average are correct (0.7615ms)
+✔ LH leap analysis works independently (0.3532ms)
+✔ leap stats undefined when only one pitch (0.2818ms)
+✔ chord density is ratio of chord events to all non-rest events (0.7874ms)
+✔ maxSimultaneousNotes reflects largest chord (0.5949ms)
+✔ maxSimultaneousNotes is undefined when no chords (0.1996ms)
+✔ awkwardChordCount flags chords spanning > 14 semitones (0.218ms)
+✔ awkwardChordCount is 0 when all chords are comfortable (0.5291ms)
+✔ repeatedOctaveRate detects exact octave jumps (0.3271ms)
+✔ repeatedOctaveRate is 0 with no octave jumps (0.1849ms)
+✔ handCrossingCount forwarded from pianoVoiceLayout (0.2167ms)
+✔ registerCollisionCount forwarded from pianoVoiceLayout.handCollisionCount (0.1518ms)
+✔ pedalChangeCount forwarded from pianoVoiceLayout.pedalEventCount (0.1387ms)
+✔ handSpanMax is max of LH and RH spans (0.1381ms)
+✔ handSpanAverage is mean of LH and RH spans (0.1271ms)
+✔ playabilityScore uses layout.playableSpanFit when present (0.1861ms)
+✔ playabilityScore estimated from span when layout absent — comfortable span = 1.0 (0.2194ms)
+✔ playabilityScore decreases above octave span (0.4504ms)
+✔ idiomaticTextureScore is 1.0 for a clean easy section (0.2983ms)
+✔ idiomaticTextureScore penalises hand collisions (0.1659ms)
+✔ idiomaticTextureScore penalises unplayable span (0.1449ms)
+✔ pedalBlurRisk is 0 when no pedal events (0.1577ms)
+✔ pedalBlurRisk increases with pedal events + wide span (0.3243ms)
+✔ applyPianoProjection enriches summary without mutating original (0.8281ms)
+✔ applyPianoProjection is idempotent (0.3942ms)
+✔ empty events produce zero densities and no crash (0.1606ms)
+✔ chord_span_revoice: wide chord (span > 14) drops too-far inner voice (4.0155ms)
+✔ chord_span_revoice: comfortable chord (span <= 14) unchanged (0.407ms)
+✔ chord_span_revoice: single note unchanged (0.5441ms)
+✔ register_correction: RH note below floor (48) shifted up one octave (0.7309ms)
+✔ register_correction: LH note above ceiling (72) shifted down one octave (0.5117ms)
+✔ register_correction: in-range notes unchanged (0.494ms)
+✔ register_correction: rest events are skipped (0.4783ms)
+✔ leap_attenuation: ascending leap > 12 is compressed down (0.476ms)
+✔ leap_attenuation: descending leap > 12 is compressed up (0.7139ms)
+✔ leap_attenuation: stepwise motion unchanged (0.3389ms)
+✔ leap_attenuation: rests do not count as leap partner (0.2536ms)
+✔ bass_reinforcement: LH all above E3 (52) gets shifted down (0.8115ms)
+✔ bass_reinforcement: LH with bass already present is unchanged (0.6275ms)
+✔ bass_reinforcement: empty LH does not crash (0.4585ms)
+✔ voicing_clarity: LH note above RH floor removed (0.7116ms)
+✔ voicing_clarity: LH notes below RH floor are kept (0.4807ms)
+✔ voicing_clarity: does not empty an event (keeps it even if all notes collide) (0.6385ms)
+✔ pedal_change_increase: high blur risk increases pianoPedalChangeCount (1.2725ms)
+✔ pedal_change_increase: blur risk at or below threshold → no repair (0.167ms)
+✔ chord_thinning: 8-note chord reduced to maxSimultaneousNotes (0.2365ms)
+✔ chord_thinning: chord within limit unchanged (0.1874ms)
+✔ repairPianoSection: idiomatic section generates no repairs (0.4714ms)
+✔ repairPianoSection: multiple problems are all fixed in one pass (0.8575ms)
+✔ repairPianoSection: enabledRepairs limits scope (0.3567ms)
+✔ repairPianoSection: updatedArtifact has refreshed projection evidence (0.3944ms)
+✔ repairPianoCandidates: repairs all sections and returns repairedArtifacts (1.0681ms)
+✔ repairPianoCandidates: empty array returns no repairs (0.1795ms)
+✔ evaluatePianoVoiceLayout passes a clean layout (0.273ms)
+✔ evaluatePianoVoiceLayout reports strengths on clean layout (0.2296ms)
+✔ evaluatePianoVoiceLayout flags right-hand pitch too low (0.3723ms)
+✔ evaluatePianoVoiceLayout flags right-hand pitch too high (0.415ms)
+✔ evaluatePianoVoiceLayout flags left-hand pitch too low (0.4108ms)
+✔ evaluatePianoVoiceLayout flags left-hand pitch too high (0.4765ms)
+✔ evaluatePianoVoiceLayout flags right-hand span exceeded (0.514ms)
+✔ evaluatePianoVoiceLayout flags left-hand span exceeded (0.5129ms)
+✔ evaluatePianoVoiceLayout does not flag span at exactly the limit (19) (0.1931ms)
+✔ evaluatePianoVoiceLayout flags low playable span fit (0.2296ms)
+✔ evaluatePianoVoiceLayout passes at 80% playable span (0.1792ms)
+✔ evaluatePianoVoiceLayout flags many hand collisions (0.2043ms)
+✔ evaluatePianoVoiceLayout flags moderate hand collision with softer message (0.1809ms)
+✔ evaluatePianoVoiceLayout reports no crossings when zero (0.1979ms)
+✔ evaluatePianoVoiceLayout flags excessive chord density (0.2413ms)
+✔ evaluatePianoVoiceLayout accepts density at the limit (6) (0.1706ms)
+✔ evaluatePianoVoiceLayout handles empty layout without throwing (0.1994ms)
+✔ evaluatePianoVoiceLayout returns numeric fit values rounded to 4 decimal places (0.1772ms)
+✔ deriveCycleTensionCurve returns 8 samples per movement (0.4701ms)
+✔ deriveCycleTensionCurve returns empty array for no movements (0.15ms)
+✔ deriveCycleTensionCurve sorts by ordinal before sampling (0.1964ms)
+✔ validateSonataCyclePlan accepts a valid 4-movement cycle (2.2889ms)
+✔ validateSonataCyclePlan rejects duplicate ordinals (0.4653ms)
+✔ validateSonataCyclePlan rejects missing ordinal 1 (0.3285ms)
+✔ validateSonataCyclePlan rejects ordinal-1 movement with wrong functionInCycle (0.2936ms)
+✔ validateSonataCyclePlan rejects last movement without 'resolution' function (0.4662ms)
+✔ validateSonataCyclePlan rejects inherited motif undeclared in preceding movements (0.3922ms)
+✔ validateSonataCyclePlan rejects cross-movement recall with unknown motif in source (0.2655ms)
+✔ validateSonataCyclePlan rejects cross-movement recall with unknown movementId (0.3134ms)
+✔ validateSonataCyclePlan flags totalDurationSec diverging >30s from movement sum (0.3373ms)
+✔ extractMovementPlanFromCompositionPlan maps all fields (0.4096ms)
+✔ extractMovementPlanFromCompositionPlan falls back to defaults when plan fields absent (0.3208ms)
+✔ buildSonataCyclePlan derives globalMotifIds from motifs shared across movements (0.6409ms)
+✔ buildSonataCyclePlan falls back to first movement motifs when none are shared (0.4196ms)
+✔ buildSonataCyclePlan attaches provided crossMovementRecall array (0.6314ms)
+✔ pearsonCorrelationClamped returns 1 for identical arrays (0.5021ms)
+✔ pearsonCorrelationClamped returns 0 for constant input (zero variance) (0.2077ms)
+✔ pearsonCorrelationClamped clamps negative correlation to 0 (0.2066ms)
+✔ pearsonCorrelationClamped returns 0 for fewer than 2 points (0.2003ms)
+✔ pearsonCorrelationClamped returns intermediate value for partial correlation (0.2151ms)
+✔ movementQualityScore prefers finalPianoScore when pianoCraftScore is present (0.655ms)
+✔ movementQualityScore falls back to finalCraftScore for non-piano movement (0.2657ms)
+✔ movementQualityScore returns 0 when no evaluation fields are present (0.2913ms)
+✔ computeMotifSurvivalRate returns 1 when globalMotifIds is empty (0.3967ms)
+✔ computeMotifSurvivalRate returns 1 when all global motifs survived (2.0231ms)
+✔ computeMotifSurvivalRate returns 0.5 when half of global motifs survived (0.2135ms)
+✔ computeMotifSurvivalRate returns 0 when no global motifs survived (0.1586ms)
+✔ computeFinalPayoffScore returns 0 for empty movements (0.2056ms)
+✔ computeFinalPayoffScore is finalQuality * 1 when all movements complete (0.1763ms)
+✔ computeFinalPayoffScore is scaled down when cycle is incomplete (0.1099ms)
+✔ computeFinalPayoffScore uses finalPianoScore for piano movements (0.1605ms)
+✔ evaluateSonataCycle returns zeros for empty movement list (0.3705ms)
+✔ evaluateSonataCycle produces compositeCycleScore in [0,1] for 4-movement cycle (0.8921ms)
+✔ evaluateSonataCycle flags allMovementsPassedGate3=true for high-quality cycle (0.4884ms)
+✔ evaluateSonataCycle flags allMovementsPassedGate3=false when fallback used (0.8152ms)
+✔ evaluateSonataCycle crossMovementMotifSurvivalRate is 1 when no global motifs planned (0.4874ms)
+✔ evaluateSonataCycle movementNotes has one entry per completed movement (0.6981ms)
+✔ evaluateSonataCycle tensionArcMatch is 1 for cycle whose scores perfectly track planned curve (0.9183ms)
+﹣ backend-routing: default (no env var) uses mock and succeeds (0.2959ms) # No Python binary available
+﹣ backend-routing: AXIOM_LEARNED_BACKEND=template produces valid output (0.1531ms) # No Python binary available
+﹣ backend-routing: AXIOM_LEARNED_BACKEND=notagen returns ok:false when checkpoint unavailable (0.1707ms) # No Python binary available
+﹣ backend-routing: candidateCount=2 produces proposalCandidatePool with 2 entries (0.1889ms) # No Python binary available
+﹣ backend-routing: candidateCount=1 (default) does NOT include proposalCandidatePool (0.1266ms) # No Python binary available
+﹣ backend-routing: malformed providerRequest returns validation error (0.1324ms) # No Python binary available
+✖ compose_learned_symbolic: solo_piano_symbolic reaches backend when PianoPlan is present (171.734ms)
+✖ compose_learned_symbolic: solo_piano_symbolic rejects Piano instrumentation without PianoPlan (152.4335ms)
+✖ piano E2E: lane routing — solo_piano_symbolic lane is accepted (180.5967ms)
+✖ piano E2E: notagen_mock — full pipeline produces pianoVoiceLayout and pianoPlayabilityScore (192.9834ms)
+✖ piano E2E: notagen_mock — mock is tagged to prevent quality dataset leakage (169.426ms)
+✖ piano E2E: notagen_mock — piano summary reports partCount=1 and Piano instrument (164.1291ms)
+✖ piano E2E: rejects solo_piano_symbolic when pianoPlan is absent (165.2627ms)
+✔ A1: SOLO_PIANO_SYMBOLIC_LANE constant equals 'solo_piano_symbolic' (0.3107ms)
+✔ A2: piano + pianoPlan → buildLearnedSymbolicPromptPack resolves solo_piano_symbolic (1.4028ms)
+✔ A3: piano + pianoPlan → promptPack carries the pianoPlan (0.4205ms)
+✔ A4: piano without pianoPlan → throws (generic_symbolic not supported) (0.4797ms)
+✔ A5: string trio + miniature → lane resolves to string_trio_symbolic (unchanged) (0.8318ms)
+✔ A6: unsupported instrument (clarinet) → throws (0.6652ms)
+✔ A7: buildLearnedSymbolicWorkerPayload with piano → payload.promptPack.lane = solo_piano_symbolic (2.1057ms)
+✔ B1: SFT dataset only includes approvalStatus=approved entries (4.3537ms)
+✔ B2: SFT dataset excludes approved entries with missing or empty abcText (2.6445ms)
+✔ B3: gate-failed candidate (rejected status) is absent from SFT even with abcText (4.3418ms)
+✔ B4: high craft score alone does not override rejected approval status (2.5924ms)
+✔ B5: preference pair: listener_approved wins over higher craft score (4.2502ms)
+✔ C1: PLAYABILITY_LABEL_THRESHOLD = 0.60 (unplayable classification boundary) (0.3398ms)
+✔ C2: PREFERENCE_SCORE_MARGIN = 0.05 (minimum craft score differential for DPO pair) (0.1939ms)
+✔ C3: pianoPlayabilityGate passes at boundary score (score = threshold) (0.3051ms)
+✔ C4: pianoPlayabilityGate fails one semitone below boundary (0.331ms)
+✔ C5: applyPianoPlayabilityGate is a hard blocking filter — does not mutate original report (0.4923ms)
+✔ D1: ideal artifacts pass pianoPlayabilityGate at benchmark median target (>= 0.80) (0.4747ms)
+✔ D2: ideal stepwise melody meets melodicClarity benchmark (>= 0.75) (0.569ms)
+✔ D3: ideal stepwise bass meets bassCoherence benchmark (>= 0.70) (0.2557ms)
+✔ D4: ideal layout yields handPlayability >= 0.80 (0.2739ms)
+✔ D5: full ideal artifact yields finalPianoScore >= 0.70 and all 9 dimensions present (0.471ms)
+✔ BM-coverage: benchmark bank contains exactly 30 prompts (0.0929ms)
+✔ BM-coverage: benchmark bank covers all 7 required style categories (0.1413ms)
+✔ BM-coverage: all 30 benchmark prompts resolve to solo_piano_symbolic lane (11.546ms)
+✔ BM-coverage: every prompt produces a valid planSignature containing the lane token (10.3581ms)
+✔ BM-coverage: same prompt produces identical planSignature on repeat calls (determinism) (0.7156ms)
+✔ BM-texture: classical_sonata / theme_a → alberti_bass (0.3133ms)
+✔ BM-texture: nocturne / theme_a → nocturne (0.2483ms)
+✔ BM-texture: etude / theme_a → etude_figuration (0.2394ms)
+✔ BM-texture: romantic_character / theme_a → arpeggiated_texture (0.2269ms)
+✔ BM-texture: all 4 IR styles produce valid section plans for theme_a role (0.3519ms)
+✔ BM-texture: buildPianoSectionPlanForStyle respects difficulty span constraints (0.2551ms)
+✔ BM-score: pianoPlayabilityGate passes ideal artifacts at > 0.80 (target median >= 0.80) (1.2226ms)
+✔ BM-score: melodicClarity median across ideal artifacts >= 0.75 (0.9461ms)
+✔ BM-score: bassCoherence median across ideal artifacts >= 0.70 (0.6931ms)
+✔ BM-score: handPlayability of ideal layout >= 0.80 (0.3289ms)
+✔ BM-score: finalPianoScore median across ideal artifacts >= 0.70 (2.4032ms)
+✔ BM-constants: PLAYABILITY_LABEL_THRESHOLD (0.60) is above default gate threshold (0.50) (0.1858ms)
+✔ BM-constants: benchmark success criteria are internally consistent (0.1706ms)
+▶ buildSentenceStructure
+  ✔ returns 4 units for 8-measure sentence (0.3337ms)
+  ✔ totalMeasures sums match for 8-bar sentence (0.2367ms)
+  ✔ basicIdea starts at measure 1 (0.1886ms)
+  ✔ cadential ends on authentic cadence (0.6124ms)
+  ✔ repetition ends on half cadence (0.3127ms)
+  ✔ handles non-standard measure count (6 measures) (0.3302ms)
+✔ buildSentenceStructure (3.28ms)
+▶ buildPeriodStructure
+  ✔ returns 2 units for 8-measure period (0.3636ms)
+  ✔ 4+4 split for 8 measures (0.1921ms)
+  ✔ antecedent ends on half cadence (0.3172ms)
+  ✔ consequent ends on authentic cadence (0.4333ms)
+  ✔ antecedent starts at measure 1, consequent follows (0.3577ms)
+✔ buildPeriodStructure (2.3498ms)
+▶ computeHypermetricGroups
+  ✔ sentence of 8 measures produces 4 groups (0.4635ms)
+  ✔ period of 8 measures produces 2 groups (0.1876ms)
+  ✔ 16-measure structure uses 8bar grouping (0.207ms)
+  ✔ 8-measure structure uses 4bar grouping (0.2592ms)
+  ✔ 4-measure structure uses 2bar grouping (0.341ms)
+✔ computeHypermetricGroups (2.0189ms)
+▶ choosePhraseStructure
+  ✔ theme_a with 8 measures defaults to period (0.4536ms)
+  ✔ development with 8 measures defaults to sentence (0.217ms)
+  ✔ explicit period preference forces period on development (0.1482ms)
+  ✔ explicit sentence preference forces sentence on theme_a (3.0496ms)
+  ✔ hypermetricGroups are present and non-empty (1.1812ms)
+  ✔ notes include structure type and role (0.3382ms)
+  ✔ non-mult-of-4 measures adds irregularity note (0.2932ms)
+✔ choosePhraseStructure (6.3319ms)
+▶ applyPhraseGrammarToSections
+  ✔ annotates all eligible sections (0.3743ms)
+  ✔ skips sections with < 2 measures (0.635ms)
+  ✔ theme_a gets period structure (0.4567ms)
+  ✔ development gets sentence structure (0.1792ms)
+✔ applyPhraseGrammarToSections (1.976ms)
+▶ computeMotifTransformVariety
+  ✔ returns neutral score when no transform data (0.4626ms)
+  ✔ rewards diverse transform modes (0.333ms)
+  ✔ lower score for uniform transform mode (0.2908ms)
+✔ computeMotifTransformVariety (1.2824ms)
+▶ computeHarmonicRhythmVariance
+  ✔ returns neutral score with no data (0.44ms)
+  ✔ high variance for slow/fast contrast (0.3167ms)
+  ✔ low variance for uniform rhythm (0.2166ms)
+✔ computeHarmonicRhythmVariance (1.1671ms)
+▶ computeTextureProfileScore
+  ✔ returns neutral for empty data (4.1611ms)
+  ✔ rewards diverse texture profiles (0.9361ms)
+✔ computeTextureProfileScore (7.3886ms)
+▶ computeCadenceArchitecturalWeight
+  ✔ returns 0.5 when no critical sections (0.7668ms)
+  ✔ high score when recap and final have dominant cadence (0.4565ms)
+  ✔ lower score with no cadence approach data (0.4868ms)
+✔ computeCadenceArchitecturalWeight (2.1056ms)
+▶ computePhraseGrammarScore
+  ✔ baseline 0.4 for empty data (0.8715ms)
+  ✔ rewards sentence pattern (presentation→continuation→cadential) (0.5254ms)
+  ✔ rewards phrase peaks in sections (0.3781ms)
+  ✔ rewards 4-bar hypermeter in plan sections (0.5232ms)
+  ✔ rewards phraseSpanShape annotation (0.4123ms)
+✔ computePhraseGrammarScore (3.2804ms)
+▶ computeCraftScoreSummary — supplementary fields
+  ✔ includes all 5 supplementary fields in output (13.2416ms)
+  ✔ supplementary fields are numbers in [0, 1] (0.8511ms)
+  ✔ finalCraftScore formula unchanged (8-dimension weighted sum) (0.3963ms)
+✔ computeCraftScoreSummary — supplementary fields (14.7312ms)
+▶ computePhrasePeakScore
+  ✔ returns 0.5 when no phrasePeaks recorded (0.3741ms)
+  ✔ sentence: single peak in cadential window scores 1.0 (0.3905ms)
+  ✔ sentence: peak before continuation scores 0.3 (0.1817ms)
+  ✔ period: peaks in both halves score 1.0 (0.3296ms)
+  ✔ period: peak in only one half scores 0.65 (0.1752ms)
+✔ computePhrasePeakScore (1.6862ms)
+▶ computeCadencePlacementScore
+  ✔ returns 0.5 when no cadenceApproach (0.291ms)
+  ✔ sentence authentic + artifact dominant = 1.0 (0.2318ms)
+  ✔ sentence authentic + artifact tonic = 1.0 (0.1429ms)
+  ✔ period consequent authentic + artifact dominant = 1.0 (0.1631ms)
+  ✔ unclassified cadenceApproach 'other' yields partial score (0.1527ms)
+✔ computeCadencePlacementScore (1.2023ms)
+▶ computeHypermetricRegularityScore
+  ✔ regular groups + matching measureCount = 1.0 (0.3664ms)
+  ✔ measure count mismatch reduces score (0.2025ms)
+  ✔ returns 0.5 for empty groups (0.1712ms)
+✔ computeHypermetricRegularityScore (0.8941ms)
+▶ computePhraseClosureScore
+  ✔ cadential function + authentic plan = 1.0 (0.3179ms)
+  ✔ continuation function with open half-cadence plan = 1.0 (0.1918ms)
+  ✔ no phraseFunction: tonic approach = 1.0 (0.1385ms)
+  ✔ no phraseFunction: dominant approach = 0.75 (0.152ms)
+✔ computePhraseClosureScore (0.9842ms)
+▶ computePhraseGrammarScoreSummary
+  ✔ returns all four fields + overall (0.9103ms)
+  ✔ overall is clamped to [0, 1] (0.2556ms)
+  ✔ ideal artifact scores above 0.8 (0.8032ms)
+  ✔ bad artifact scores below 0.6 (0.1916ms)
+✔ computePhraseGrammarScoreSummary (2.3526ms)
+▶ buildPhraseGroupStructure
+  ✔ returns phrase_group type (0.2238ms)
+  ✔ has exactly two phrases for 8 measures (0.0928ms)
+  ✔ phrases sum to totalMeasures (0.1091ms)
+  ✔ both phrases end with authentic cadence (0.1155ms)
+  ✔ second phrase starts after first (0.1743ms)
+  ✔ 4-measure phrase_group splits 2+2 (0.2196ms)
+✔ buildPhraseGroupStructure (1.1664ms)
+▶ buildPhrasePlan
+  ✔ sentence structure produces phraseType=sentence (0.2751ms)
+  ✔ period structure produces phraseType=period (0.12ms)
+  ✔ phrase_group structure produces phraseType=phrase_group (0.1352ms)
+  ✔ sentence produces phraseFunction=presentation (0.0948ms)
+  ✔ period produces phraseFunction=antecedent (0.0813ms)
+  ✔ 8-measure structure has hypermeterUnit=4 (0.0736ms)
+  ✔ 16-measure structure has hypermeterUnit=8 (0.0718ms)
+  ✔ 4-measure structure has hypermeterUnit=2 (0.0767ms)
+  ✔ cadencePlacement is present and lands on final measure (0.1176ms)
+✔ buildPhrasePlan (1.3305ms)
+▶ choosePhraseStructure — phrase_group
+  ✔ explicit phrase_group preference produces phrase_group (0.1743ms)
+  ✔ phrase_group plan includes phrasePlan (0.11ms)
+  ✔ phrase_group produces hypermetric groups for each phrase (0.101ms)
+  ✔ sentence plan includes phrasePlan with phraseType=sentence (0.0821ms)
+  ✔ period plan includes phrasePlan with cadencePlacement (0.0836ms)
+✔ choosePhraseStructure — phrase_group (0.6823ms)
+▶ computeSentenceRatioScore
+  ✔ canonical 2+2+4 sentence (8 measures) scores 1.0 (0.12ms)
+  ✔ returns 0.5 for period structure (N/A) (0.0785ms)
+  ✔ returns 0.5 for phrase_group structure (N/A) (0.1836ms)
+  ✔ 16-measure sentence also scores high (0.1479ms)
+✔ computeSentenceRatioScore (0.6594ms)
+▶ computePeriodBalanceScore
+  ✔ balanced 4+4 period (8 measures) scores 1.0 (0.2237ms)
+  ✔ returns 0.5 for sentence structure (N/A) (0.1223ms)
+  ✔ returns 0.5 for phrase_group structure (N/A) (0.1309ms)
+  ✔ unbalanced period scores lower (0.1834ms)
+✔ computePeriodBalanceScore (0.8219ms)
+▶ computeAntecedentConsequentCadenceScore
+  ✔ canonical period (HC antecedent + authentic consequent) scores 1.0 (0.2013ms)
+  ✔ returns 0.5 for sentence (N/A) (0.1663ms)
+  ✔ returns 0.5 for phrase_group (N/A) (0.1218ms)
+  ✔ only correct antecedent HC scores 0.5 (0.1405ms)
+  ✔ both wrong cadence types scores 0.0 (0.1406ms)
+✔ computeAntecedentConsequentCadenceScore (0.9511ms)
+▶ computeCadenceStructuralPositionScore
+  ✔ returns 0.5 when no phrasePlan (0.1701ms)
+  ✔ cadence at final measure scores 1.0 (0.0938ms)
+  ✔ cadence at multiple of 4 scores 1.0 (0.151ms)
+  ✔ cadence at even (non-4) measure scores 0.75 (0.1588ms)
+  ✔ cadence at odd measure scores 0.4 (0.1474ms)
+✔ computeCadenceStructuralPositionScore (0.8985ms)
+▶ computeHypermetricStabilityScore
+  ✔ all-same-span groups score 1.0 (no phrasePlan) (0.2666ms)
+  ✔ returns 0.5 when no groups (0.1671ms)
+  ✔ groups matching expected hypermeterUnit score 1.0 (0.1897ms)
+  ✔ mixed-span groups score below 1.0 (0.202ms)
+✔ computeHypermetricStabilityScore (1.0143ms)
+▶ computePhraseGrammarScoreSummary — new fields
+  ✔ contains all nine score fields plus overall (1.2105ms)
+  ✔ all new fields are numbers in [0, 1] (0.2937ms)
+  ✔ ideal period artifact scores above 0.8 (0.2117ms)
+✔ computePhraseGrammarScoreSummary — new fields (1.9212ms)
+✔ buildFunctionalProgression: theme_a returns T→PD→D→T (0.1855ms)
+✔ buildFunctionalProgression: intro returns T→PD→D→T (0.1726ms)
+✔ buildFunctionalProgression: recap returns T→PD→D→T (0.1371ms)
+✔ buildFunctionalProgression: theme_b returns extended PD cycle (0.1479ms)
+✔ buildFunctionalProgression: variation also returns extended PD cycle (0.1323ms)
+✔ buildFunctionalProgression: development starts T and ends D (0.1403ms)
+✔ buildFunctionalProgression: development with low tension has 4 steps (0.1182ms)
+✔ buildFunctionalProgression: development with high energy adds extra dominant (0.1239ms)
+✔ buildFunctionalProgression: bridge starts with PD (0.1126ms)
+✔ buildFunctionalProgression: cadence returns D→T (0.2226ms)
+✔ buildFunctionalProgression: outro returns D→T (0.208ms)
+✔ buildFunctionalProgression: all sequences contain only valid roles (0.506ms)
+✔ chooseCadenceApproachTemplate: recap → cad64 (0.2293ms)
+✔ chooseCadenceApproachTemplate: cadence → cad64 (0.2021ms)
+✔ chooseCadenceApproachTemplate: outro at last position → cad64 (0.2019ms)
+✔ chooseCadenceApproachTemplate: outro early → basic (0.2065ms)
+✔ chooseCadenceApproachTemplate: bridge → applied_dominant (0.2442ms)
+✔ chooseCadenceApproachTemplate: development → applied_dominant (0.1431ms)
+✔ chooseCadenceApproachTemplate: theme_a at early position → basic (0.1143ms)
+✔ chooseCadenceApproachTemplate: theme_a near end → extended (0.1108ms)
+✔ chooseCadenceApproachTemplate: valid template values (0.1983ms)
+✔ buildHarmonicRhythmShape: intro → slow (0.2173ms)
+✔ buildHarmonicRhythmShape: theme_a → slow (0.1602ms)
+✔ buildHarmonicRhythmShape: theme_b → uniform (2.0148ms)
+✔ buildHarmonicRhythmShape: development high energy → slow→fast (0.3249ms)
+✔ buildHarmonicRhythmShape: development low energy → uniform (0.2336ms)
+✔ buildHarmonicRhythmShape: bridge → slow→fast (0.2115ms)
+✔ buildHarmonicRhythmShape: variation → arch (0.2105ms)
+✔ buildHarmonicRhythmShape: recap → fast→slow (0.1275ms)
+✔ buildHarmonicRhythmShape: cadence → slow (0.1097ms)
+✔ buildAppliedDominantCue: returns correct tag (0.1269ms)
+✔ buildAppliedDominantCue: keyTarget contains target degree and key context (0.0954ms)
+✔ buildAppliedDominantCue: optional startMeasure is propagated (0.1311ms)
+✔ buildAppliedDominantCue: no startMeasure → undefined (0.1282ms)
+✔ buildAppliedDominantCue: intensity is positive (0.145ms)
+✔ suggestTonicizationWindow: development returns window (0.1888ms)
+✔ suggestTonicizationWindow: bridge returns window (0.1157ms)
+✔ suggestTonicizationWindow: theme_b returns window (0.1334ms)
+✔ suggestTonicizationWindow: theme_a returns undefined (0.1169ms)
+✔ suggestTonicizationWindow: recap returns undefined (0.1079ms)
+✔ suggestTonicizationWindow: development window bounds within section (0.1363ms)
+✔ applyHarmonyGrammarToSections: returns a Map (0.2682ms)
+✔ applyHarmonyGrammarToSections: every section has an entry (0.2588ms)
+✔ applyHarmonyGrammarToSections: each plan has a valid functionalSequence (0.211ms)
+✔ applyHarmonyGrammarToSections: each plan has a cadenceApproach (0.1875ms)
+✔ applyHarmonyGrammarToSections: each plan has a harmonicRhythmShape (0.1769ms)
+✔ applyHarmonyGrammarToSections: recap gets cad64 approach (0.1561ms)
+✔ applyHarmonyGrammarToSections: development gets appliedDominantCues (0.1516ms)
+✔ applyHarmonyGrammarToSections: development gets tonicization window (0.1629ms)
+✔ applyHarmonyGrammarToSections: empty sections returns empty map (0.1244ms)
+✔ applyHarmonyGrammarToSections: uses harmonicPlan.prolongationMode if present (0.1977ms)
+✔ applyHarmonyGrammarToSections: notes array is populated (0.2629ms)
+✔ computePDTScore: full evidence returns high score (0.6943ms)
+✔ computePDTScore: no evidence returns neutral-low score (0.2398ms)
+✔ computePDTScore: empty plan sequence returns 0.5 (0.2308ms)
+✔ computeAppliedDominantScore: no cues planned returns 0.5 (0.3809ms)
+✔ computeAppliedDominantScore: planned but absent returns 0.2 (0.1437ms)
+✔ computeAppliedDominantScore: planned and realised returns high score (0.1212ms)
+✔ computeTonicizationDepthScore: no tonicization planned returns 0.5 (0.1464ms)
+✔ computeTonicizationDepthScore: planned but absent returns 0.2 (0.22ms)
+✔ computeTonicizationDepthScore: planned and realised with matching target = 1.0 (0.3627ms)
+✔ computeHarmonicRhythmConsistencyScore: missing summary returns 0.5 (0.4294ms)
+✔ computeHarmonicRhythmConsistencyScore: slow shape + high avgScale = high score (0.2221ms)
+✔ computeHarmonicRhythmConsistencyScore: uniform shape + scale ~1.0 = high score (0.1449ms)
+✔ computeCadenceApproachQualityScore: cad64 planned + dominant realised = 1.0 (0.1358ms)
+✔ computeCadenceApproachQualityScore: basic planned + tonic realised = 1.0 (0.0791ms)
+✔ computeCadenceApproachQualityScore: no cadenceApproach in artifact = 0.5 (0.0725ms)
+✔ computeProlongationProxyScore: no prolongation planned returns 0.5 (0.1022ms)
+✔ computeProlongationProxyScore: planned = realised = 1.0 (0.0858ms)
+✔ computeProlongationProxyScore: planned but absent = 0.2 (0.0719ms)
+✔ computeHarmonyGrammarScoreSummary: returns all six fields + overall (1.3243ms)
+✔ computeHarmonyGrammarScoreSummary: overall is in [0, 1] (0.2805ms)
+✔ computeHarmonyGrammarScoreSummary: ideal evidence scores above 0.75 (0.3828ms)
+✔ computeHarmonyGrammarScoreSummary: includes innerVoiceMotionScore field (0.2847ms)
+✔ computeInnerVoiceMotionScore: no accompaniment returns 0.5 (0.2654ms)
+✔ computeInnerVoiceMotionScore: high independence rate scores above 0.6 (0.4306ms)
+✔ computeInnerVoiceMotionScore: low independence rate scores below 0.6 (0.2745ms)
+✔ computeInnerVoiceMotionScore: prolongation plan bonus raises score (0.3515ms)
+✔ computeInnerVoiceMotionScore: return value always in [0, 1] (0.3305ms)
+✔ computeForbiddenProgressionPenaltyScore: no forbidden evidence returns 1.0 (0.4022ms)
+✔ computeForbiddenProgressionPenaltyScore: plagal close when plan ends on dominant penalises (0.3063ms)
+✔ computeForbiddenProgressionPenaltyScore: cad64 planned but no cue + tonic approach penalises (0.3465ms)
+✔ computeForbiddenProgressionPenaltyScore: missing PD evidence penalises (0.2363ms)
+✔ computeForbiddenProgressionPenaltyScore: returns value in [0, 1] (0.2815ms)
+✔ computeCad64DetectionScore: plan not cad64 returns 0.5 (0.1447ms)
+✔ computeCad64DetectionScore: cad64 + cadential_64 cue + dominant approach = 1.0 (0.1256ms)
+✔ computeCad64DetectionScore: cad64 + cadential_64 cue + tonic approach = 0.75 (0.2029ms)
+✔ computeCad64DetectionScore: cad64 planned but no cue = 0.2 (0.1951ms)
+✔ computeCad64DetectionScore: returns value in [0, 1] (0.2793ms)
+✔ computeHarmonicRhythmAccelerationScore: no summary returns 0.5 (0.2173ms)
+✔ computeHarmonicRhythmAccelerationScore: slow→fast + negative delta = 1.0 (0.2561ms)
+✔ computeHarmonicRhythmAccelerationScore: fast→slow + positive delta = 1.0 (0.2121ms)
+✔ computeHarmonicRhythmAccelerationScore: uniform + scale ~1.0 = high score (0.227ms)
+✔ computeHarmonicRhythmAccelerationScore: returns value in [0, 1] (0.4639ms)
+✔ computeAppliedDominantResolutionScore: no cues planned returns 0.5 (0.1999ms)
+✔ computeAppliedDominantResolutionScore: planned but no resolution evidence = 0.2 (0.2383ms)
+✔ computeAppliedDominantResolutionScore: resolved via tonicizationWindows = high score (0.1686ms)
+✔ computeAppliedDominantResolutionScore: resolved via harmonicColorCues = high score (0.1486ms)
+✔ computeAppliedDominantResolutionScore: returns value in [0, 1] (0.1777ms)
+✔ computeMixtureResolutionScore: no chromatic PD cues returns 0.5 (0.1239ms)
+✔ computeMixtureResolutionScore: mixture + dominant close = 1.0 (0.1114ms)
+✔ computeMixtureResolutionScore: neapolitan + dominant close = 1.0 (0.0941ms)
+✔ computeMixtureResolutionScore: aug6 + dominant close = 1.0 (0.0789ms)
+✔ computeMixtureResolutionScore: mixture + plagal close = penalised (0.1774ms)
+✔ computeMixtureResolutionScore: returns value in [0, 1] (0.3591ms)
+✔ computeHarmonyGrammarScoreSummary: includes all 12 scoring fields (0.427ms)
+✔ computeHarmonyGrammarScoreSummary: ideal evidence scores above 0.7 with new weights (0.7875ms)
+✔ applySequence: count=1 returns single copy at stride 0 (0.4251ms)
+✔ applySequence: count=3 produces 3 transpositions (0.2449ms)
+✔ applySequence: negative stride descends (0.2065ms)
+✔ applySequence: empty intervals produces empty arrays per copy (0.2179ms)
+✔ applySequence: count=0 returns empty array (0.1731ms)
+✔ applyFragmentation: basic slice from start (0.1764ms)
+✔ applyFragmentation: slice from offset (0.1735ms)
+✔ applyFragmentation: length exceeding array is clamped (0.1689ms)
+✔ applyFragmentation: empty input returns empty (0.1626ms)
+✔ applyFragmentation: length=0 returns empty (0.167ms)
+✔ applyFragmentation: start beyond length returns empty (0.1639ms)
+✔ applyInversion: negates all intervals (0.2762ms)
+✔ applyInversion: zero interval stays zero (0.4932ms)
+✔ applyInversion: double inversion returns original (2.3191ms)
+✔ applyInversion: empty input returns empty (0.2012ms)
+✔ applyRetrograde: reverses interval array (0.1882ms)
+✔ applyRetrograde: double retrograde returns original (0.3536ms)
+✔ applyRetrograde: empty input returns empty (0.2444ms)
+✔ applyRetrograde: single element returns same (0.4358ms)
+✔ applyAugmentation: default factor 2 doubles all durations (0.494ms)
+✔ applyAugmentation: custom factor 3 (0.172ms)
+✔ applyAugmentation: empty input returns empty (0.233ms)
+✔ applyDiminution: default factor 2 halves all durations (0.3278ms)
+✔ applyDiminution: custom factor 4 (0.2206ms)
+✔ applyDiminution: augment then diminish returns original (0.3891ms)
+✔ applyDiminution: empty input returns empty (0.204ms)
+✔ computeRecapIdentityScore: identical intervals → 1.0 (0.3386ms)
+✔ computeRecapIdentityScore: completely opposite contour → 0.0 (0.2064ms)
+✔ computeRecapIdentityScore: half match → 0.5 (0.1808ms)
+✔ computeRecapIdentityScore: zeros match zeros (0.2745ms)
+✔ computeRecapIdentityScore: empty arrays → 0 (0.233ms)
+✔ computeRecapIdentityScore: different lengths uses shorter (0.2469ms)
+✔ computeRecapIdentityScore: augmented recap has high identity (same contour, different duration) (0.2701ms)
+✔ computeRecapIdentityScore: inverted recap has low identity (0.1581ms)
+✔ buildMotifDevelopmentPlan: returns a Map (0.3997ms)
+✔ buildMotifDevelopmentPlan: non-development roles (theme_a) are not in map (0.1902ms)
+✔ buildMotifDevelopmentPlan: recap entry has recapIdentityScore (0.2469ms)
+✔ buildMotifDevelopmentPlan: development entry uses sequence transform (0.3117ms)
+✔ buildMotifDevelopmentPlan: bridge entry uses fragment transform (0.2875ms)
+✔ buildMotifDevelopmentPlan: variation entry uses inversion transform (0.5725ms)
+✔ buildMotifDevelopmentPlan: outro entry uses augmentation transform (0.3256ms)
+✔ buildMotifDevelopmentPlan: no motif drafts → empty map (0.1512ms)
+✔ buildMotifDevelopmentPlan: development transformedIntervals is array (0.1472ms)
+✔ buildMotifDevelopmentPlan: fragment transformedIntervals is shorter than original (0.1253ms)
+✔ buildMotifDevelopmentPlan: inversion entry has negated intervals (0.1274ms)
+✔ buildMotifDevelopmentPlan: recap identity score of exact return is 1.0 (0.1264ms)
+✔ computeExactReturnScore: identical motifs return 1.0 (0.2605ms)
+✔ computeExactReturnScore: no capturedMotif returns 0 (0.2911ms)
+✔ computeExactReturnScore: opposite contour returns 0 (0.2595ms)
+✔ computeSequenceScore: perfect transposition returns 1.0 (0.4254ms)
+✔ computeSequenceScore: no motifs returns 0 (0.22ms)
+✔ computeSequenceScore: random intervals score low (0.2202ms)
+✔ computeFragmentationScore: exact prefix of source = 1.0 (0.3059ms)
+✔ computeFragmentationScore: target same length as source = 0.5 neutral (0.1837ms)
+✔ computeInversionDetectionScore: perfect inversion returns 1.0 (0.3258ms)
+✔ computeInversionDetectionScore: identical (not inverted) returns 0 (0.2469ms)
+✔ computeRhythmicProportionScore: augmentation with halved density = high (0.4423ms)
+✔ computeRhythmicProportionScore: diminution with doubled density = high (0.2933ms)
+✔ computeReharmonizedReturnScore: same melody + different harmony = high score (0.5267ms)
+✔ computeMotifRecapIdentityScore: delegates to computeExactReturnScore (0.2386ms)
+✔ computeMotifDevelopmentScoreSummary: repeat transform returns summary with primaryScore (1.0758ms)
+✔ computeMotifDevelopmentScoreSummary: recap with recapIdentityScore blends into overall (0.3471ms)
+✔ computeMotifDevelopmentScoreSummary: unknown transform returns 0.5 primaryScore (0.4009ms)
+✔ computePlanAwareMotifDevelopmentScore: no plan returns fallback 0.4 (0.3216ms)
+✔ computePlanAwareMotifDevelopmentScore: no theme_a source returns fallback 0.4 (0.3158ms)
+✔ computePlanAwareMotifDevelopmentScore: no motifDevelopment plans returns fallback (0.1929ms)
+✔ computePlanAwareMotifDevelopmentScore: with motifDevelopment plan returns numeric score in [0,1] (0.2908ms)
+✔ computePlanAwareMotifDevelopmentScore: returns sectionScores record (0.3418ms)
+✔ buildMotifGraph: returns MotifGraph with original occurrence (1.2912ms)
+✔ buildMotifGraph: includes all non-theme_a sections in occurrences (0.3501ms)
+✔ buildMotifGraph: false_recap when development section has high contour similarity (0.9912ms)
+✔ buildMotifGraph: recap section is NOT classified as false_recap (0.6135ms)
+✔ buildMotifGraph: diversityScore = 0 when no non-original transforms (0.1961ms)
+✔ buildMotifGraph: returns undefined when no motif drafts (0.1381ms)
+✔ computeTonalRepetitionScore: perfect tonal match (same intervals) returns 1.0 (0.2146ms)
+✔ computeTonalRepetitionScore: diatonic ±1 deviation still scores high (0.2133ms)
+✔ computeTonalRepetitionScore: opposite contour returns 0 (0.1932ms)
+✔ computeTonalRepetitionScore: missing capturedMotif returns 0 (0.1878ms)
+✔ computeFalseRecapDetectionScore: high similarity + changed key → score ≥ 0.70 (0.499ms)
+✔ computeFalseRecapDetectionScore: high similarity + same harmony → score 0.50 (0.138ms)
+✔ computeFalseRecapDetectionScore: low similarity → score 0 (0.1616ms)
+✔ computeFalseRecapDetectionScore: no source motif → score 0 (0.1643ms)
+✔ computeFalseRecapDetectionScore: changed color tags signal false recap (0.2587ms)
+✔ computeMotifDiversityScore: no occurrences → neutral 0.5 (0.1644ms)
+✔ computeMotifDiversityScore: only original occurrence → 0 (0.1442ms)
+✔ computeMotifDiversityScore: 2 distinct non-original transforms → 0.5 (0.1193ms)
+✔ computeMotifDiversityScore: 4+ distinct transforms → 1.0 (0.1272ms)
+✔ computeMotifDevelopmentScoreSummary: graph adds optional fields without changing overall (0.1992ms)
+✔ computeMotifDevelopmentScoreSummary: without graph, new optional fields are absent (0.4365ms)
+✔ computeMotifDevelopmentScoreSummary: diversityScore from graph occurrences is correct (0.4858ms)
+✔ buildGlobalMotifGraph: recap and outro sections appear in requiredReturns (0.5738ms)
+✔ buildGlobalMotifGraph: highest-energy development section gets climax + diminution (0.5605ms)
+✔ buildGlobalMotifGraph overrides heuristic in buildMotifDevelopmentPlan (0.4262ms)
+✔ computeOverallAppeal: perfect scores yield 1.0 (0.2566ms)
+✔ computeOverallAppeal: all-zero inputs yield 0.0 (0.1653ms)
+✔ computeOverallAppeal: weights sum to 1.0 (formula invariant) (0.1833ms)
+✔ computeOverallAppeal: clamped above 1.0 (0.2016ms)
+✔ computeOverallAppeal: clamped below 0.0 (0.2039ms)
+✔ computeOverallAppeal: handPlayability has 35% weight (0.2384ms)
+✔ computeOverallAppeal: melodicClarity has 35% weight (0.2317ms)
+✔ computeOverallAppeal: bassCoherence has 30% weight (0.2346ms)
+✔ computeOverallAppeal: monotonic with each dimension (0.2568ms)
+✔ golden section has higher melodicClarity than baseline (1.6609ms)
+✔ golden section has higher bassCoherence than baseline (0.4698ms)
+✔ golden layout has higher handPlayability than baseline (0.6793ms)
+✔ golden overall appeal exceeds baseline (0.3672ms)
+✔ classical_sonatina: golden artifact overall appeal ≥ 0.55 (0.5381ms)
+✔ romantic_nocturne: golden artifact overall appeal ≥ 0.55 (0.3307ms)
+✔ baroque_invention: golden artifact overall appeal ≥ 0.55 (0.1875ms)
+✔ waltz: golden artifact overall appeal ≥ 0.55 (0.1232ms)
+✔ etude: golden artifact overall appeal ≥ 0.55 (0.1875ms)
+✔ theme_variations: golden artifact overall appeal ≥ 0.55 (0.27ms)
+✔ sonata_lite: golden artifact overall appeal ≥ 0.55 (0.1476ms)
+✔ baseline artifact overall appeal < golden threshold (0.283ms)
+✔ computeOverallAppeal: defined and finite for any inputs in [0,1] (1.0655ms)
+✔ computeOverallAppeal with missing layout (undefined playability) (0.2183ms)
+✔ computeMelodyProminenceScore: no data returns 0.5 (0.2817ms)
+✔ computeMelodyProminenceScore: melody clearly above LH returns high score (0.3112ms)
+✔ computeMelodyProminenceScore: melody below LH scores low (0.276ms)
+✔ computeMelodyProminenceScore: velocity gap boosts score (0.4364ms)
+✔ computePedalBlurRisk: no layout data returns ~0.7 (0.4068ms)
+✔ computePedalBlurRisk: high pedal + low bass returns low score (high blur risk) (0.2078ms)
+✔ computePedalBlurRisk: no pedal + high LH returns high score (low risk) (0.1624ms)
+✔ computeBassRootSupportScore: no data returns 0.5 (0.2921ms)
+✔ computeBassRootSupportScore: LH in C2–E3 range returns high score (0.1718ms)
+✔ computeBassRootSupportScore: LH too high returns low score (0.1429ms)
+✔ computeBassRootSupportScore: collisions penalise score (0.1756ms)
+✔ computeTextureFormCoherence: fewer than 2 sections → 0.5 (0.4872ms)
+✔ computeTextureFormCoherence: no theme_a section → 0.5 (0.2074ms)
+✔ computeTextureFormCoherence: development denser than theme_a → high score (0.253ms)
+✔ computeTextureFormCoherence: recap matches theme_a density → high score (0.1813ms)
+✔ computeTextureFormCoherence: recap very different from theme_a → lower score (0.1888ms)
+✔ computeTextureFormCoherence: intro simpler than theme_a → high score (0.2201ms)
+✔ computePianoListenabilityScore: returns object with all 7 fields (1.0461ms)
+✔ computePianoListenabilityScore: all numeric dimensions in [0,1] (0.2848ms)
+✔ computePianoListenabilityScore: golden section scores higher than baseline (0.4511ms)
+✔ computePianoListenabilityScore: clear melody register separation improves overall (0.3717ms)
+✔ computePianoListenabilityScore: weights sum preserved — overall is finite (0.28ms)
+✔ computePianoCraftScoreSummary: includes pianoListenabilityScore field (1.6894ms)
+✔ computePianoCraftScoreSummary: includes textureFormCoherenceScore field (0.4341ms)
+✔ computePianoCraftScoreSummary: finalPianoScore unchanged by new fields (0.3903ms)
+✔ SP-01: CLASSICAL_DEFAULT_V1 weights sum to 1.00 (0.2121ms)
+✔ SP-02: PIANO_LISTENABILITY_V1 weights sum to 1.00 (0.1435ms)
+✔ SP-03: validateProfileWeights throws on weights that do not sum to 1 (0.3735ms)
+✔ SP-04: loadScoringProfile reads classical_default_v1.json correctly (0.9662ms)
+✔ SP-05: loadScoringProfile reads piano_listenability_v1.json correctly (0.8208ms)
+✔ SP-06: computeCraftScoreSummary stamps scoringProfile in result (0.5737ms)
+✔ SP-07: computeCraftScoreSummary with custom profile stamps custom profile name (0.6623ms)
+✔ SP-08: computePianoListenabilityScore stamps scoringProfile = piano_listenability_v1 by default (0.3966ms)
+✔ SP-09: computePianoListenabilityScore with custom profile stamps custom name (0.3344ms)
+✔ SP-10: QUALITY_GATE_V1 has all required threshold fields in [0,1] (0.827ms)
+✔ SP-11: loadQualityGateConfig reads quality_gate_v1.json correctly (1.2047ms)
+✔ SP-12: validateQualityGateConfig throws when a threshold is out of [0,1] (0.3163ms)
+✔ SP-13: craftScorePassesHardFilter uses qualityGate thresholds when supplied (0.4323ms)
+✔ SP-14: pianoPlayabilityGate uses qualityGate.pianoPlayabilityMin when supplied (0.3878ms)
+✔ SP-15: candidateGateTier returns 0 when custom gate raises syntaxValidityMin above candidate score (0.3786ms)
+✔ SP-16: candidateGateTier returns 3 when custom gate lowers all thresholds below candidate scores (0.2874ms)
+✔ SP-17: selectAttemptWinner uses QUALITY_GATE_V1 as default and selects highest-scoring candidate (3.976ms)
+✔ SP-18: resolveCraftScoringProfile returns CLASSICAL_DEFAULT_V1 for known name and unknown name (0.7203ms)
+✔ SP-19: buildStructureEvaluation uses scoringProfiles.scoringProfile to stamp craftScoreSummary (2.7389ms)
+✔ EC-06: computePianoEvidenceCoverage returns 1.0 when all piano fields present (0.3253ms)
+✔ EC-07: computePianoEvidenceCoverage returns 0.5 when only RH events + playability present (0.1579ms)
+✔ EC-08: computeEvidenceCoverageReport detects piano sections via rightHandEvents (0.2532ms)
+✔ EC-08b: computeEvidenceCoverageReport returns pianoEvidenceCoverage = 0.5 neutral when no piano artifacts (0.2061ms)
+✔ EC-09: gateTier is 'full' when overallCoverage >= 0.75 (0.231ms)
+✔ EC-10: gateTier is 'failed' when overallCoverage < 0.50 (0.2136ms)
+✔ EC-11: candidateGateTier caps at Tier 0 when evidenceCoverageGateTier is 'failed' (0.3337ms)
+✔ EC-12: candidateGateTier caps at Tier 2 when evidenceCoverageGateTier is 'reduced' (0.319ms)
+✔ EC-13: candidateGateTier reaches Tier 3 when evidenceCoverageGateTier is 'full' (0.2813ms)
+✔ craftScorePassesHardFilter: all-good summary passes (0.3089ms)
+✔ craftScorePassesHardFilter: syntaxValidity below floor fails (0.194ms)
+✔ craftScorePassesHardFilter: sectionContractFit below floor fails (0.2226ms)
+✔ craftScorePassesHardFilter: finalCraftScore below floor fails (0.4088ms)
+✔ craftScorePassesHardFilter: writes failure reasons when array provided (0.4898ms)
+✔ computePreferenceScore: default weights produce score in [0,1] (1.8562ms)
+✔ computePreferenceScore: higher cadenceStrength yields higher score in cold-start (0.8654ms)
+✔ computePreferenceScore: weightSource is 'default' with empty history (0.5035ms)
+✔ loadFeedbackHistory: returns empty array for non-existent song (0.7896ms)
+✔ loadFeedbackHistory: reads feedback records from persisted manifests (19.8047ms)
+✔ selectPreferredCandidate: selects highest preference-scoring candidate (4.5227ms)
+✔ selectPreferredCandidate: falls back gracefully when all candidates lack craftSummary (4.1872ms)
+✔ selectPreferredCandidate: candidates failing hard filter appear in filteredOutIds (3.8068ms)
+✔ computePreferenceScore: weightSource is 'learned' when ≥5 feedback samples provided (1.1305ms)
+✔ computePreferenceScore: learned weights favour cadence when it historically predicts appeal (1.0378ms)
+✔ computeRerankerScore: sigmoid output in [0,1] for typical candidate (1.1477ms)
+✔ computeRerankerScore: returns null when feature count mismatches snapshot (0.2927ms)
+✔ computePreferenceScore: weightSource is "reranker" when valid snapshot provided (3.7543ms)
+✔ selectPreferredCandidate: picks candidate with highest reranker logit when snapshot present (0.862ms)
+✔ loadGlobalFeedbackHistory: returns empty array when outputDir does not exist (0.6881ms)
+✔ loadGlobalFeedbackHistory: collects feedback records from multiple song directories (25.2977ms)
+✔ selectPreferredCandidate: uses global feedback (learned weights) when enough cross-song history exists (49.4846ms)
+✔ computePreferenceScore: piano candidate with pianoCraftSummary uses piano default weights (0.8594ms)
+✔ computePreferenceScore: piano candidate — higher handPlayability yields higher score (0.3165ms)
+✔ computePreferenceScore: piano dimension contributions include expected piano_* keys (0.291ms)
+✔ computePreferenceScore: generic reranker snapshot (N=14) falls back to piano weights for piano candidate (0.4192ms)
+✔ computePreferenceScore: piano-aware reranker snapshot (N=23) is accepted for piano candidate (0.3842ms)
+✔ piano-dataset: savePianoDataLoopEntry round-trips entry through JSONL log (8.1474ms)
+✔ piano-dataset: savePianoDataLoopEntry assigns stable entryId from songId+candidateId+capturedAt (0.8294ms)
+✔ piano-dataset: loadPianoDataLoopEntries returns empty array when log does not exist (2.4308ms)
+✔ piano-dataset: exportPianoSftDataset only includes approved entries with abcText (6.5646ms)
+✔ piano-dataset: exportPianoSftDataset assembles controlBlock from controlLines + pianoGlobalLine + pianoSectionLines (3.2189ms)
+✔ piano-dataset: exportPianoRewriteDataset only includes entries with rewriteApplied + parentCandidateId + directives (8.7835ms)
+✔ piano-dataset: exportPianoRewriteDataset carries beforeAbc from parent, computes improved flag (2.7318ms)
+✔ piano-dataset: exportPianoPreferenceDataset pairs same-prompt candidates by craft score margin (3.6496ms)
+✔ piano-dataset: exportPianoPreferenceDataset prefers listener_approved over craft score (3.3559ms)
+✔ piano-dataset: exportPianoPlayabilityDataset labels playable >= threshold, unplayable below (2.9198ms)
+✔ piano-dataset: exportPianoPlayabilityDataset excludes entries without abcText or playabilityScore (4.6077ms)
+✔ piano-dataset: exportAllPianoDatasets returns correct counts (19.3729ms)
+✔ piano-dataset: buildPianoDataLoopEvidence aggregates piano* fields from section artifacts (1.2055ms)
+✔ piano-dataset: buildPianoDataLoopEvidence returns undefined when no piano fields present (0.2676ms)
+✔ notagen-adapter: conditioningText uses short ABC-oriented format (2.1406ms)
+✔ notagen-adapter: controlLines contains required fields in order (1.515ms)
+✔ notagen-adapter: key in controlLines is ABC-compatible format (1.3337ms)
+✔ notagen-adapter: determinism — same request produces identical output (1.2638ms)
+✔ notagen-adapter: different section order changes planSignature and section line order (1.8215ms)
+✔ notagen-adapter: missing meter defaults to 4/4 (1.4832ms)
+✔ notagen-adapter: non-default meter is forwarded correctly (0.6573ms)
+✔ notagen-adapter: missing instrumentation on narrow lane defaults with warning (1.2663ms)
+✔ notagen-adapter: every section line contains motif_ref (1.0285ms)
+✔ notagen-adapter: softConstraintLines contains per-section energy+density (1.0691ms)
+✔ notagen-adapter: metadataLines contains riskProfile and intentRationale when present (1.3825ms)
+✔ abc_prompt.py: determinism — same request produces identical output (258.5241ms)
+✔ abc_prompt.py: output starts with conditioningText (125.9478ms)
+✔ abc_prompt.py: output contains %%axiom_control_begin and %%axiom_control_end (139.1877ms)
+✔ abc_prompt.py: section order is preserved in output (268.6438ms)
+✔ abc_prompt.py: missing required field causes exit 1 (137.4689ms)
+✔ abc_prompt.py: softConstraintLines block appears in output when present (153.707ms)
+✔ abc_prompt.py: output omits softConstraintLines block when not present (157.187ms)
+✔ prompt_packing: section count mismatch is a hard ValidationError (176.4381ms)
+✔ prompt_packing: matching section count is accepted (185.4758ms)
+✖ abc_conditioning: meter from control line, not hardcoded 4/4 (162.3473ms)
+✖ abc_conditioning: instrumentation control line preserved as %% comment (161.0181ms)
+✖ abc_conditioning: all non-section control lines appear as %% comments (168.6886ms)
+✔ abc_conditioning: section lines still appear as %% axiom_section (151.0609ms)
+✔ abc_conditioning: missing meter falls back to 4/4 (no meter= in controlLines) (155.3554ms)
+✔ notagen-adapter piano: lane resolves to solo_piano_symbolic (2.3184ms)
+✔ notagen-adapter piano: promptPack carries pianoPlan (1.0342ms)
+✔ notagen-adapter piano: controlLines contains difficulty and piano_global before sections (1.411ms)
+✔ notagen-adapter piano: each section line is immediately followed by piano_section line (1.7061ms)
+✔ notagen-adapter piano: density labels match densityTarget thresholds (0.9051ms)
+✔ notagen-adapter piano: lh= uses accompanimentPattern when present, roles as fallback (1.1344ms)
+✖ notagen_backend: notagen_native + rewrite_block → warning + full-regen mode (Python) (2363.717ms)
+✔ buildPianoRewriteBlock: emits AXIOM_PIANO_REWRITE tags and mode=localized_piano_rewrite (1.0365ms)
+✔ buildPianoRewriteBlock: rewrite_sections and keep_sections are present (0.2925ms)
+✔ buildPianoRewriteBlock: target bullets come from PIANO_DIRECTIVE_KIND_TO_TARGETS (0.2429ms)
+✔ buildPianoRewriteBlock: repair_already_applied=true emitted when set (0.3607ms)
+✔ buildPianoRewriteBlock: repair_solver_directives and rewrite_directives separation (0.326ms)
+✔ buildLearnedSymbolicWorkerPayload: pianoRewriteSpec + pianoRewriteBlock carried on providerRequest (1.5515ms)
+✔ abc_validate: valid 3-voice ABC passes with no errors or fatal (167.0474ms)
+✔ abc_validate: empty input → fatal error (168.0899ms)
+✔ abc_validate: missing K: → fatal error (154.8205ms)
+✔ abc_validate: missing X: and T: → repairable warnings, not fatal (169.5024ms)
+✔ abc_validate: voice count mismatch → warning, not fatal (148.4304ms)
+✔ abc_validate: too many bars → bar count divergence warning (160.5455ms)
+✔ abc_validate: empty voice → warning, not fatal (148.9205ms)
+✔ abc_repair: missing final barline → |] added and abc_repaired warning (164.7748ms)
+✔ abc_repair: empty measure → Z rest substituted and abc_repaired warning (139.7625ms)
+✔ abc_repair: too-long voice truncated to expected_total_bars (153.2498ms)
+✔ abc_repair: too-short voice padded with Z rests and voice_padding_inserted (147.9759ms)
+✔ abc_project: unparseable ABC → ok:false (1896.2799ms)
+﹣ abc_project: valid ABC + sections → ok:true with proposalSections (0.2163ms) # music21 not available
+﹣ abc_project: short voice → voice_padding_inserted in normalization_warnings (0.1039ms) # music21 not available
+﹣ abc_project: too many bars → truncated_extra_bars in normalization_warnings (0.1085ms) # music21 not available
+✔ normalizer: Phase C warning codes thread to proposalEvidence.normalizationWarnings (7.221ms)
+✔ normalizer: proposalSections → sectionArtifacts with lead/supportEvents (7.6606ms)
+﹣ Phase C-2 validate_bar_durations: properly filled 4/4 bars produce no warnings (0.3847ms) # music21 not available
+﹣ Phase C-2 validate_bar_durations: short bar detected with part/measure info (0.3044ms) # music21 not available
+﹣ Phase C-2 validate_voice_synchronization: in-sync voices produce no warnings (0.2298ms) # music21 not available
+﹣ Phase C-2 validate_voice_synchronization: measure-count mismatch detected (0.2652ms) # music21 not available
+﹣ Phase C-2 abc_project: bar_duration_mismatch surfaces in normalization_warnings (0.2045ms) # music21 not available
+﹣ Phase C-2 abc_project: voice_sync_mismatch surfaces in normalization_warnings (0.1996ms) # music21 not available
+﹣ Phase C-3 evidence: melodyPitchMin/Max present and ordered (0.216ms) # music21 not available
+﹣ Phase C-3 evidence: bassPitchMin/Max present and ordered (0.1997ms) # music21 not available
+﹣ Phase C-3 evidence: cadenceApproach is one of the four allowed values (0.1983ms) # music21 not available
+﹣ Phase C-3 evidence: bassMotionProfile is one of the four allowed values (0.1936ms) # music21 not available
+﹣ Phase C-3 evidence: texture rates are numbers in [0,1] (1.172ms) # music21 not available
+﹣ Phase C-3 evidence: rhythmicDensity > 0 for non-empty section (0.2197ms) # music21 not available
+﹣ Phase C-3 evidence: phrasePeaks is a non-empty array of numbers (0.155ms) # music21 not available
+﹣ Phase C-3 evidence: secondaryLineMotif present with up to 6 MIDI pitches (0.139ms) # music21 not available
+﹣ Phase C-3 evidence: runProjection pipeline includes evidence fields in proposal_sections (0.2541ms) # music21 not available
+﹣ Phase C-3 evidence: tonicizationWindows is an array of window objects (0.2862ms) # music21 not available
+﹣ Phase C-3 evidence: tonicizationWindows startMeasure/endMeasure are numbers when present (0.2696ms) # music21 not available
+﹣ Phase C-3 evidence: tonicizationWindows first keyTarget matches declared tonalCenter when no modulation (0.2683ms) # music21 not available
+﹣ Phase C-3 evidence: phrasePeaks chord entries use the highest pitch (48-96 range) (0.2394ms) # music21 not available
+✔ multi-candidate: learnedCandidateCount=3 produces 3 learned + 1 baseline (1.0783ms)
+✔ multi-candidate: music21BaselineCount=2 produces 2 baseline candidates (0.5712ms)
+✔ multi-candidate: explicit counts produce correct total count (0.3716ms)
+✔ multi-candidate: legacy candidateCount=4 → 2 baseline + 2 learned (alternating) (0.5209ms)
+✔ multi-candidate: learnedCandidateCount capped at 32 (0.4871ms)
+✔ multi-candidate: music21BaselineCount minimum is 1 when explicitly set (0.3327ms)
+✔ multi-candidate: learnedSampling threads into providerRequest controlLines (10.9797ms)
+✔ multi-candidate: candidateIndex derived from candidateVariantKey (learned-2 → 1) (1.1104ms)
+✔ multi-candidate: no candidateIndex for non-learned variant key (baseline) (0.738ms)
+✔ multi-candidate: no sampling control line when learnedSampling absent (1.0431ms)
+✔ sectionContractFit is low when section count is wrong (0.4206ms)
+✔ sectionContractFit is high when plan matches artifacts exactly (0.2742ms)
+✔ cadenceStrength is high when final section has dominant cadence approach (0.2675ms)
+✔ cadenceStrength is boosted by stepwise melodic resolution (0.2909ms)
+✔ voiceIndependence is low when voices share the same rhythm (0.7958ms)
+✔ voiceIndependence is high when textureContraryMotionRate is high (0.3356ms)
+✔ motifSurvival is high when theme_a and recap share interval contour direction (0.4265ms)
+✔ motifSurvival is low when recap contour is completely opposite (0.3529ms)
+✔ registerIdiomaticFit penalises out-of-range pitches (0.794ms)
+✔ registerIdiomaticFit scores high when all pitches in idiomatic range (0.404ms)
+✔ computeCraftScoreSummary finalCraftScore matches weighted formula (1.7265ms)
+✔ scoreStructureEvaluationForCandidateSelection includes craftBonus when craftScoreSummary present (0.2832ms)
+✔ scoreStructureEvaluationForCandidateSelection applies contractPenalty when sectionContractFit < 0.5 (0.2727ms)
+✔ syntaxValidity is 0 when evaluation has hard failure issue (0.2251ms)
+✔ craftScorePassesQualityGate returns true when all dimensions meet threshold (0.28ms)
+✔ craftScorePassesQualityGate returns false when syntaxValidity < threshold (0.1671ms)
+✔ craftScorePassesQualityGate returns false when sectionContractFit < threshold (0.1636ms)
+✔ craftScorePassesQualityGate returns false when registerIdiomaticFit < threshold (0.1465ms)
+✔ gate-passer scores higher than gate-failer with identical structure evaluation (0.2862ms)
+✔ passesValidityGate returns true when evaluation passed and syntaxValidity >= threshold (0.1896ms)
+✔ passesValidityGate returns false when evaluation.passed is false (0.3619ms)
+✔ passesValidityGate returns false when syntaxValidity below threshold (0.2636ms)
+✔ passesContractGate returns true when sectionContractFit meets threshold (0.1666ms)
+✔ passesContractGate returns false when sectionContractFit below threshold (0.255ms)
+✔ passesCraftGate returns true when all three craft thresholds met (0.1722ms)
+✔ passesCraftGate returns false when cadenceStrength below threshold (0.4256ms)
+✔ passesCraftGate returns false when voiceIndependence below threshold (0.1647ms)
+✔ candidateGateTier returns 0 when validity fails (passed=false) (0.2414ms)
+✔ candidateGateTier returns 1 when only validity passes (0.1917ms)
+✔ candidateGateTier returns 2 when validity + contract pass but craft fails (0.1804ms)
+✔ candidateGateTier returns 3 when all gates pass (0.297ms)
+✔ tier-3 candidate scores significantly higher than tier-2 (no craft gate) (0.5351ms)
+✔ tier-2 candidate scores significantly higher than tier-0 (no gate passes) (0.3381ms)
+✔ computePhraseEvidenceCoverage returns 1.0 when all four evidence fields present (0.3994ms)
+✔ computePhraseEvidenceCoverage returns 0.5 when only 2 of 4 fields present (0.238ms)
+✔ computeHarmonyEvidenceCoverage returns 1.0 when all evidence present (no tonicization planned) (0.3747ms)
+✔ computeHarmonyEvidenceCoverage penalises missing tonicizationWindows when plan.tonicization is set (0.3116ms)
+✔ computeMotifEvidenceCoverage returns 1.0 for theme_a when capturedMotif present (0.2345ms)
+✔ computeMotifEvidenceCoverage returns 0 for theme_a when capturedMotif absent (0.2101ms)
+✔ computeEvidenceCoverageReport returns neutral 0.5 when no grammar plans and no theme_a section (0.3643ms)
+✔ computeEvidenceCoverageReport applies penalty when theme_a lacks capturedMotif (0.3189ms)
+✔ computeCraftScoreSummary populates all four evidence coverage fields (0.8275ms)
+✔ scoreStructureEvaluationForCandidateSelection applies evidenceCoveragePenalty for low coverage (0.3891ms)
+✔ computeCraftScoreSummary returns advancedCraftScore between 0 and 1 (1.899ms)
+✔ scoreStructureEvaluationForCandidateSelection ranks higher advancedCraftScore candidate above lower one (0.6836ms)
+✔ motifSurvival: theme_a ascending contour returns in recap → high score (0.6336ms)
+✔ motifSurvival: recap has opposite contour to theme_a → low score (0.3497ms)
+✔ sectionContractFit: 3-section sonata with matching artifacts passes (1.0858ms)
+✔ sectionContractFit: only 1 artifact for a 3-section plan → low score (0.337ms)
+✔ sectionContractFit: 4-section sonata (theme_a/theme_b/development/recap) passes (0.4059ms)
+✔ tonalReturn: recap with tonicization window on home key C → high score (0.3386ms)
+✔ tonalReturn: recap tonicization window on foreign key → lower score (0.4294ms)
+✔ cadenceStrength: final section without dominant approach → low score (0.3324ms)
+✔ cadenceStrength: final section with dominant approach + stepwise resolution → high score (0.2535ms)
+✔ phraseShape: presentation section with high density and cadential section with dominant approach both match (0.8614ms)
+✔ integration: structurally good sonata achieves finalCraftScore >= 0.65 (3.69ms)
+✔ integration: sonata with no motif return and weak cadence scores < 0.65 (0.6743ms)
+✔ integration: quality gate passes for strong sonata craft score (0.2224ms)
+✔ integration: quality gate rejects when syntax validity fails (0.1583ms)
+✔ piano: dense stepwise melody → high melodicClarity (0.3669ms)
+✔ piano: jumpy melody with large leaps scores lower than stepwise melody (0.4917ms)
+✔ piano: accompaniment strictly below melody register → good registerSpacing (0.3649ms)
+✔ piano: left hand pitches invade right hand register → poor registerSpacing (0.2882ms)
+✔ voiceIndependence: development with high contrary motion elevates overall voice independence (0.3235ms)
+✔ checkSectionHarmonyContract: no violations when all required fields present (0.5319ms)
+✔ checkSectionHarmonyContract: missing cadenceApproach is a required violation (0.3948ms)
+✔ checkSectionHarmonyContract: missing harmonicColorCues is a required violation (0.3077ms)
+✔ checkSectionHarmonyContract: no harmonyGrammar plan → no violations (0.225ms)
+✔ checkHarmonyRealizationContract: contractScore = 1.0 when no sections have harmonyGrammar (0.2968ms)
+✔ checkHarmonyRealizationContract: 3 violations and degraded contractScore when all required fields absent (0.469ms)
+✔ scoreStructureEvaluationForCandidateSelection penalises candidates with harmonyContractViolations (0.8531ms)
+✔ motifTransformVariety: multiple distinct transform modes → higher score than one mode (0.6406ms)
+✔ motifTransformVariety: diverse phrase functions give partial score when no transform field (0.2178ms)
+✔ harmonicRhythmVariance: slow→fast contrast scores higher than all-medium (0.3566ms)
+✔ voiceLeadingScore: high contrary motion + stepwise final resolution → high score (0.4283ms)
+✔ voiceLeadingScore: parallel motion + large leaps → low score (0.4356ms)
+✔ tonicizationDepthScore: development with multiple foreign keys → high score (0.4206ms)
+✔ tonicizationDepthScore: no tonicization windows → low score (0.3273ms)
+✔ planAwarePhraseGrammarScore: sentence plan + peak in cadential window → near 1.0 (0.6282ms)
+✔ planAwarePhraseGrammarScore: plan with no phraseGrammar → returns 0.4 fallback (0.2882ms)
+✔ integration: computeCraftScoreSummary includes voiceLeadingScore and tonicizationDepthScore (1.4384ms)
+✔ integration: computeCraftScoreSummary includes planAwareHarmonyGrammarScore and planAwareMotifDevelopmentScore (1.5034ms)
+✔ piano: stepwise LH bass → bassCoherence >> leaping bass (0.6493ms)
+✔ piano: regular accompaniment pattern → higher accompanimentPatternCoherence (0.8694ms)
+✔ piano: melody well above LH register → high melodyProminenceScore (0.4257ms)
+✔ phase-e: buildRewriteBlock produces <AXIOM_REWRITE> block (1.1631ms)
+✔ phase-e: buildRewriteBlock includes directive-derived targets (0.2091ms)
+✔ phase-e: providerRequest includes rewriteSpec when localizedRewriteSpec set (1.1523ms)
+✔ phase-e: providerRequest has no rewriteSpec when localizedRewriteSpec absent (0.6791ms)
+✔ phase-e: buildLearnedLocalizedRewriteSpec returns undefined for empty sectionFindings (0.4543ms)
+✔ phase-e: buildLearnedLocalizedRewriteSpec identifies weak sections (0.9356ms)
+✔ phase-e: buildLearnedLocalizedRewriteSpec returns undefined when no plan sections (0.2739ms)
+✔ phase-e: build_rewrite_prompt_block produces expected structure (154.0583ms)
+✔ phase-e: assemble_rewritten_abc preserves keep artifacts and uses rewritten for rewrite sections (137.3784ms)
+✔ phase-e: abc_prompt includes AXIOM_REWRITE block when rewriteSpec present (156.7272ms)
+✔ phase-e: abc_prompt omits AXIOM_REWRITE block when rewriteSpec absent (148.6257ms)
+✔ phase-e metric: voiceIndependence improves after rewriting weak s2 with independent voices (0.4391ms)
+✔ phase-e metric: cadenceStrength improves after rewriting s2/s3 with dominant cadence approach (0.4868ms)
+✔ phase-e metric: finalCraftScore improves after full localized rewrite of weak s2 (0.6047ms)
+✔ phase-e metric: s1 and s3 SectionArtifactSummary objects are event-stable after simulated rewrite assembly (0.4717ms)
+✔ phase-e metric: buildLearnedLocalizedRewriteSpec targets only the weakest section (s2) (1.1319ms)
+✔ phase-e metric: assemble_rewritten_abc leaves keep-section events byte-identical (Python) (153.5187ms)
+✔ piano: LH bass in C2–C3 zone → high bassRootSupportScore (0.6187ms)
+✔ piano: no pedal events → high pedalBlurRisk score (= low actual risk) (0.2538ms)
+✔ piano: development denser than theme_a → high textureFormCoherence (0.5965ms)
+✔ piano: phrase peaks + dominant cadences → high phraseLevelVoicing (0.3322ms)
+✔ piano: well-constructed piano section → pianoListenabilityScore >= 0.55 (0.6696ms)
+ℹ tests 1265
+ℹ suites 25
+ℹ pass 1164
+ℹ fail 17
+ℹ cancelled 0
+ℹ skipped 84
+ℹ todo 0
+ℹ duration_ms 399087.8407
+
+✖ failing tests:
+
+test at test\restart-recovery.test.mjs:37:1
+✖ restores running MusicGen compose job with same songId and completes from existing output (1148.4695ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'running' !== 'done'
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/restart-recovery.test.mjs:165:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'running',
+    expected: 'done',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\python-worker-compile.test.mjs:208:13
+✖ ok === true (1918.7869ms)
+  AssertionError [ERR_ASSERTION]: Expected ok=true, got: {"ok":false,"error":"NotaGen checkpoint not connected. ABC pipeline available: True; conditioning header: 152 chars, 1 section(s); candidate_index=0 temperature=0.9 top_p=0.95 top_k=50 seed_offset=0. Set AXIOM_NOTAGEN_CHECKPOINT_PATH to connect the model, or set AXIOM_LEARNED_BACKEND=template to use the deterministic fallback."}
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-worker-compile.test.mjs:225:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-worker-compile.test.mjs:208:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\python-worker-compile.test.mjs:228:13
+✖ proposalMidiPath is present in output (1962.1786ms)
+  AssertionError [ERR_ASSERTION]: proposalMidiPath should be a non-empty string, got: undefined
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-worker-compile.test.mjs:240:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-worker-compile.test.mjs:228:13)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\python-worker-compile.test.mjs:246:13
+✖ proposalMetadata.generationMode === "mock_notagen_abc" (1753.7584ms)
+  AssertionError [ERR_ASSERTION]: Expected generationMode=mock_notagen_abc, got: undefined
+  + actual - expected
+  
+  + undefined
+  - 'mock_notagen_abc'
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-worker-compile.test.mjs:258:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-worker-compile.test.mjs:246:13)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'mock_notagen_abc',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\python-worker-compile.test.mjs:265:13
+✖ normalizationWarnings contains "mock_backend_not_for_quality_eval" (1773.9656ms)
+  AssertionError [ERR_ASSERTION]: normalizationWarnings should contain "mock_backend_not_for_quality_eval", got: []
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-worker-compile.test.mjs:278:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-worker-compile.test.mjs:265:13)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\python-compose-piano-lane.test.mjs:205:1
+✖ compose_learned_symbolic: solo_piano_symbolic reaches backend when PianoPlan is present (171.734ms)
+  AssertionError [ERR_ASSERTION]: {"ok":false,"error":"unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan"}
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-compose-piano-lane.test.mjs:210:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\python-compose-piano-lane.test.mjs:219:1
+✖ compose_learned_symbolic: solo_piano_symbolic rejects Piano instrumentation without PianoPlan (152.4335ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /pianoPlan/i. Input:
+  
+  'unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan'
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-compose-piano-lane.test.mjs:227:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan',
+    expected: /pianoPlan/i,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\python-compose-piano-e2e.test.mjs:187:1
+✖ piano E2E: lane routing — solo_piano_symbolic lane is accepted (180.5967ms)
+  AssertionError [ERR_ASSERTION]: {"ok":false,"error":"unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan"}
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-compose-piano-e2e.test.mjs:219:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\python-compose-piano-e2e.test.mjs:228:1
+✖ piano E2E: notagen_mock — full pipeline produces pianoVoiceLayout and pianoPlayabilityScore (192.9834ms)
+  AssertionError [ERR_ASSERTION]: Pipeline failed: {"ok":false,"error":"unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan"}
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-compose-piano-e2e.test.mjs:238:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\python-compose-piano-e2e.test.mjs:292:1
+✖ piano E2E: notagen_mock — mock is tagged to prevent quality dataset leakage (169.426ms)
+  AssertionError [ERR_ASSERTION]: {"ok":false,"error":"unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan"}
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-compose-piano-e2e.test.mjs:301:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\python-compose-piano-e2e.test.mjs:312:1
+✖ piano E2E: notagen_mock — piano summary reports partCount=1 and Piano instrument (164.1291ms)
+  AssertionError [ERR_ASSERTION]: {"ok":false,"error":"unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan"}
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-compose-piano-e2e.test.mjs:321:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\python-compose-piano-e2e.test.mjs:329:1
+✖ piano E2E: rejects solo_piano_symbolic when pianoPlan is absent (165.2627ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /pianoPlan/i. Input:
+  
+  'unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan'
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/python-compose-piano-e2e.test.mjs:350:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan',
+    expected: /pianoPlan/i,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\learned-notagen-prompt.test.mjs:579:1
+✖ abc_conditioning: meter from control line, not hardcoded 4/4 (162.3473ms)
+  AssertionError [ERR_ASSERTION]: header must use meter from control lines
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/learned-notagen-prompt.test.mjs:585:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'X:1\r\nT:Generate interleaved ABC notation for a classical string tri\r\nC:AXIOM plan_signature=lane=string_trio_symbolic|form=miniature|key=g minor|sig=aabb\r\nM:4/4\r\nL:1/8\r\nQ:1/4=92\r\nK:Gmin\r\n%% axiom_section id=s1 role=theme_a measures=4 energy=0.5\r\n',
+    expected: /^M:3\/4$/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\learned-notagen-prompt.test.mjs:589:1
+✖ abc_conditioning: instrumentation control line preserved as %% comment (161.0181ms)
+  AssertionError [ERR_ASSERTION]: instrumentation= control line must appear as %% comment in ABC header
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/learned-notagen-prompt.test.mjs:594:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'X:1\r\nT:Generate interleaved ABC notation for a classical string tri\r\nC:AXIOM plan_signature=lane=string_trio_symbolic|form=miniature|key=g minor|sig=aabb\r\nM:4/4\r\nL:1/8\r\nQ:1/4=92\r\nK:Gmin\r\n%% axiom_section id=s1 role=theme_a measures=4 energy=0.5\r\n',
+    expected: /^%% instrumentation=Violin:lead,Viola:counterline,Cello:bass$/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\learned-notagen-prompt.test.mjs:601:1
+✖ abc_conditioning: all non-section control lines appear as %% comments (168.6886ms)
+  AssertionError [ERR_ASSERTION]: header must contain "%% lane=string_trio_symbolic", got:
+  X:1
+  T:Generate interleaved ABC notation for a classical string tri
+  C:AXIOM plan_signature=lane=string_trio_symbolic|form=miniature|key=g minor|sig=aabb
+  M:4/4
+  L:1/8
+  Q:1/4=92
+  K:Gmin
+  %% axiom_section id=s1 role=theme_a measures=4 energy=0.5
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/learned-notagen-prompt.test.mjs:618:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\learned-notagen-prompt.test.mjs:814:1
+✖ notagen_backend: notagen_native + rewrite_block → warning + full-regen mode (Python) (2363.717ms)
+  AssertionError [ERR_ASSERTION]: Python test failed:
+  stdout: 
+  stderr: Traceback (most recent call last):
+    File "<string>", line 26, in <module>
+    File "C:\Users\seoje\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1467, in __enter__
+      original, local = self.get_original()
+                        ^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\seoje\AppData\Local\Programs\Python\Python312\Lib\unittest\mock.py", line 1437, in get_original
+      raise AttributeError(
+  AttributeError: <module 'learned_symbolic.notagen_backend' from 'C:\\Users\\seoje\\OneDrive\\����\\New project\\Project-AXIOM\\workers/composer\\learned_symbolic\\notagen_backend.py'> does not have the attribute '_engine_name'
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///C:/Users/seoje/OneDrive/%EB%AC%B8%EC%84%9C/New%20project/Project-AXIOM/test/learned-notagen-prompt.test.mjs:880:12)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
