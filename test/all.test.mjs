@@ -63,3 +63,6 @@ import "./worker-evidence-contract.test.mjs";
 import "./harmony-repair-prompt.test.mjs";
 import "./motif-graph-prompt.test.mjs";
 import "./piano-listenability-repair.test.mjs";
+import "./harmony-repair-directives.test.mjs";
+import "./localized-rewrite-harmony-repair.test.mjs";
+import "./scoring-profile-registry.test.mjs";
