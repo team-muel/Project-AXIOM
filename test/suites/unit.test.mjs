@@ -29,11 +29,11 @@ import "../sonata-cycle-planner.test.mjs";
 // ─── Feedback & preference ───────────────────────────────────────────────────
 import "../listener-feedback.test.mjs";
 import "../preference-model.test.mjs";
-import "../candidate-feedback-api.test.mjs";
+// NOTE: candidate-feedback-api.test.mjs uses runNodeEval → lives in core.test.mjs
 
 // ─── Candidate pool & repair ─────────────────────────────────────────────────
 import "../hybrid-symbolic-candidate-pool.test.mjs";
 import "../learned-multi-candidate.test.mjs";
 import "../harmony-repair-directives.test.mjs";
 import "../localized-rewrite-harmony-repair.test.mjs";
-// NOTE: candidate-feedback-api.test.mjs uses runNodeEval → lives in core.test.mjs
+import "../rewrite-improvement.test.mjs";

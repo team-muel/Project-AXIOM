@@ -66,3 +66,4 @@ import "./piano-listenability-repair.test.mjs";
 import "./harmony-repair-directives.test.mjs";
 import "./localized-rewrite-harmony-repair.test.mjs";
 import "./scoring-profile-registry.test.mjs";
+import "./rewrite-improvement.test.mjs";
