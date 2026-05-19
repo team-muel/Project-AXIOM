@@ -41,3 +41,4 @@ import "../generation-strategy.test.mjs";
 import "../harmony-repair-directives.test.mjs";
 import "../localized-rewrite-harmony-repair.test.mjs";
 import "../rewrite-improvement.test.mjs";
+import "../axiom-critic-dpo.test.mjs";

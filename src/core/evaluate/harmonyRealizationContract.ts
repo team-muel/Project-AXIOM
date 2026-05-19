@@ -322,15 +322,15 @@ export function buildHarmonyRepairDirectives(
 
 /** Maps each RepairAction to the matching RevisionDirectiveKind for the pipeline. */
 const ACTION_TO_PIPELINE_KIND: Record<RepairAction, RevisionDirectiveKind> = {
-    strengthen_cadence:             "strengthen_cadence",
-    clarify_harmonic_color:         "clarify_harmonic_color",
+    strengthen_cadence: "strengthen_cadence",
+    clarify_harmonic_color: "clarify_harmonic_color",
     regenerate_harmony_realization: "regenerate_harmony_realization",
-    enforce_tonicization_window:    "enforce_tonicization_window",
-    enforce_prolongation_mode:      "enforce_prolongation_mode",
+    enforce_tonicization_window: "enforce_tonicization_window",
+    enforce_prolongation_mode: "enforce_prolongation_mode",
 };
 
 const REPAIR_PRIORITY: Record<HarmonyContractSeverity, number> = {
-    required:    90,
+    required: 90,
     conditional: 70,
 };
 
@@ -352,9 +352,9 @@ export function buildHarmonyContractRevisionDirectives(
     const repairDirectives = buildHarmonyRepairDirectives(report);
 
     return repairDirectives.map((r): PipelineRevisionDirective => ({
-        kind:       ACTION_TO_PIPELINE_KIND[r.action],
-        priority:   REPAIR_PRIORITY[r.severity],
-        reason:     r.reason,
+        kind: ACTION_TO_PIPELINE_KIND[r.action],
+        priority: REPAIR_PRIORITY[r.severity],
+        reason: r.reason,
         sectionIds: [r.sectionId],
     }));
 }

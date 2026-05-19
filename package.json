@@ -37,7 +37,9 @@
         "export:sft-dataset": "node scripts/export-sft-dataset.mjs --out=outputs/_system/sft-dataset.jsonl",
         "export:notagen-sft": "node scripts/export-notagen-sft-dataset.mjs --root=outputs",
         "export:notagen-sft:dry-run": "node scripts/export-notagen-sft-dataset.mjs --root=outputs --dry-run",
-        "export:notagen-sft:selected-only": "node scripts/export-notagen-sft-dataset.mjs --root=outputs --selected-only"
+        "export:notagen-sft:selected-only": "node scripts/export-notagen-sft-dataset.mjs --root=outputs --selected-only",
+        "export:notagen-dpo": "node scripts/export-notagen-preference-dataset.mjs --root=outputs",
+        "export:notagen-dpo:dry-run": "node scripts/export-notagen-preference-dataset.mjs --root=outputs --dry-run"
     },
     "dependencies": {
         "dotenv": "^16.4.7",

@@ -271,8 +271,13 @@ function computeEligibility(cm, { includeMock }) {
  * Mirrors the abc_prompt.py output format.
  *
  * Reads from (in priority order):
- *   1. providerRequest.conditioningText + providerRequest.controlLines
+ *   1. providerRequest.conditioningText + controlLines + AXIOM blocks
  *   2. learnedNotagenProviderRequest (same shape)
+ *
+ * AXIOM blocks are appended after the control section:
+ *   [AXIOM_MOTIF_GRAPH]   → motifGraphBlock
+ *   [AXIOM_REPAIR]        → repairBlock
+ *   <AXIOM_PIANO_REWRITE> → pianoRewriteBlock
  */
 function buildInstruction(pr) {
     if (!pr) return null;
@@ -287,6 +292,16 @@ function buildInstruction(pr) {
         parts.push("%%axiom_control_begin");
         parts.push(...lines);
         parts.push("%%axiom_control_end");
+    }
+    // AXIOM control blocks: carry full structured intent for fine-tuning
+    if (typeof pr.motifGraphBlock === "string" && pr.motifGraphBlock.trim()) {
+        parts.push(pr.motifGraphBlock.trim());
+    }
+    if (typeof pr.repairBlock === "string" && pr.repairBlock.trim()) {
+        parts.push(pr.repairBlock.trim());
+    }
+    if (typeof pr.pianoRewriteBlock === "string" && pr.pianoRewriteBlock.trim()) {
+        parts.push(pr.pianoRewriteBlock.trim());
     }
     return parts.join("\n");
 }
@@ -350,6 +365,7 @@ function buildSftRow(songId, candidateId, cm) {
             planSignature: planSignature ?? null,
             selected: cm?.selected === true,
             generationMode,
+            label: "axiom_curated_pass",
             instruction,
             output: abcText,
             meta: {
