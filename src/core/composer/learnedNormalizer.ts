@@ -59,6 +59,18 @@ function normalizeLearnedProposalEvents(
     });
 }
 
+function normalizeNoteHistory(section: LearnedSymbolicProposalSection): number[] {
+    if (Array.isArray(section.noteHistory)) {
+        return [...section.noteHistory];
+    }
+    return [...(section.leadEvents ?? []), ...(section.supportEvents ?? [])]
+        .flatMap((event) => {
+            if (event.kind === "note" && typeof event.midi === "number") return [event.midi];
+            if (event.kind === "chord" && Array.isArray(event.midiPitches)) return event.midiPitches;
+            return [];
+        });
+}
+
 export function normalizeLearnedSymbolicResponse(
     response: LearnedSymbolicProposalResponse,
     request: ComposeRequest,
@@ -86,7 +98,7 @@ export function normalizeLearnedSymbolicResponse(
         measureCount: section.measureCount,
         melodyEvents: normalizeLearnedProposalEvents(section.leadEvents),
         accompanimentEvents: normalizeLearnedProposalEvents(section.supportEvents),
-        noteHistory: [...section.noteHistory],
+        noteHistory: normalizeNoteHistory(section),
         ...(section.phraseFunction ? { phraseFunction: section.phraseFunction as SectionArtifactSummary["phraseFunction"] } : {}),
         textureVoiceCount: 3,
         primaryTextureRoles: ["lead", "counterline", "bass"] as NonNullable<SectionArtifactSummary["primaryTextureRoles"]>,

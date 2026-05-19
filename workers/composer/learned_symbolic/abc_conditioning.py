@@ -65,6 +65,16 @@ def _parse_abc_tempo(conditioning_text: str) -> int:
     return int(m.group(1)) if m else 92
 
 
+def _normalize_abc_key(value: str) -> str:
+    """Normalize common AXIOM key labels to ABC K: values."""
+    raw = value.strip()
+    m = re.match(r"^([A-G][#b]?)[\s_-]*(major|minor)$", raw, re.IGNORECASE)
+    if m:
+        tonic = m.group(1)
+        return tonic if m.group(2).lower() == "major" else f"{tonic}min"
+    return raw or "C"
+
+
 def _parse_title(conditioning_text: str) -> str:
     """Extract a brief title hint from conditioning text."""
     m = re.search(r"Brief:\s*(.+?)(?:\.|Mood:|Title hint:|$)", conditioning_text)
@@ -107,8 +117,10 @@ def build_abc_header(context: ProviderPromptPackingContext) -> str:
     lines = context["controlLines"]
 
     plan_sig = _find_control_value(lines, "plan_signature=") or "unknown"
-    abc_key = _parse_abc_key(text)
-    tempo = _parse_abc_tempo(text)
+    abc_key = _normalize_abc_key(_find_control_value(lines, "key=") or _parse_abc_key(text))
+    meter = _find_control_value(lines, "meter=") or "4/4"
+    tempo_raw = _find_control_value(lines, "tempo=")
+    tempo = int(tempo_raw) if tempo_raw and tempo_raw.isdigit() else _parse_abc_tempo(text)
     title = _parse_title(text)
     sections = _parse_section_lines(lines)
 
@@ -116,11 +128,16 @@ def build_abc_header(context: ProviderPromptPackingContext) -> str:
         "X:1",
         f"T:{title}",
         f"C:AXIOM plan_signature={plan_sig}",
-        "M:4/4",
+        f"M:{meter}",
         "L:1/8",
         f"Q:1/4={tempo}",
         f"K:{abc_key}",
     ]
+
+    for line in lines:
+        if line.startswith("section ") or line.startswith("plan_signature="):
+            continue
+        header.append(f"%% {line}")
 
     for sec in sections:
         parts: list[str] = [

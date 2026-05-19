@@ -3,7 +3,7 @@
 Two data sources are supported:
 
 1. JSONL mode (recommended): reads a preferences.jsonl file produced by
-   ``npm run ml:export:notagen-preferences``.
+   ``npm run export:notagen-dpo``.
 
    --snapshot=<id>  reads  outputs/_system/ml/notagen-preferences/<id>/preferences.jsonl
    --jsonl=<path>   reads an explicit JSONL path
@@ -85,7 +85,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--out", default=None,
                    help="Snapshot output path (default: <root>/_system/preference-reranker-snapshot.json)")
     p.add_argument("--snapshot", default=None,
-                   help="Snapshot ID produced by ml:export:notagen-preferences (e.g. 2025-05-15). "
+                   help="Snapshot ID produced by export:notagen-dpo (e.g. 2025-05-15). "
                         "Reads <root>/_system/ml/notagen-preferences/<id>/preferences.jsonl")
     p.add_argument("--jsonl", default=None,
                    help="Explicit path to a preferences.jsonl file to use instead of manifest scanning.")

@@ -7,7 +7,7 @@ Stage 2 of the AXIOM NotaGen pipeline:
 
 Input
 -----
-SFT JSONL produced by ``npm run ml:export:notagen-sft``:
+SFT JSONL produced by ``npm run export:notagen-sft``:
 
   outputs/_system/ml/notagen-sft/<snapshot>/sft-pairs.jsonl
 
@@ -106,7 +106,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--root", default="outputs",
                    help="AXIOM output directory (default: outputs)")
     p.add_argument("--snapshot", default=None,
-                   help="SFT snapshot ID from ml:export:notagen-sft (e.g. 2025-05-15)")
+                   help="SFT snapshot ID from export:notagen-sft (e.g. 2025-05-15)")
     p.add_argument("--jsonl", default=None,
                    help="Explicit path to sft-pairs.jsonl (overrides --snapshot)")
     p.add_argument("--model", default="EleutherAI/gpt-neo-125M",
@@ -145,9 +145,10 @@ CRAFT_DIMS = [
 
 def _safe_float(v: Any) -> float | None:
     try:
-        return float(v)
+        parsed = float(v)
     except (TypeError, ValueError):
         return None
+    return parsed if parsed == parsed and parsed not in (float("inf"), float("-inf")) else None
 
 
 def _avg_craft_score(row: dict[str, Any]) -> float | None:
@@ -328,7 +329,7 @@ def main() -> None:
     else:
         sys.exit(
             "ERROR: provide --snapshot=<id> or --jsonl=<path>.\n"
-            "Run 'npm run ml:export:notagen-sft' first to produce the JSONL dataset."
+            "Run 'npm run export:notagen-sft' first to produce the JSONL dataset."
         )
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")

@@ -97,6 +97,7 @@ function toFinite(v) {
     if (typeof v === "string" && v.trim()) { const p = Number(v); return Number.isFinite(p) ? p : undefined; }
     return undefined;
 }
+function scoreOrZero(v) { return typeof v === "number" && Number.isFinite(v) ? v : 0; }
 function daySnapshotId(now = new Date()) { return now.toISOString().slice(0, 10); }
 function stableHash(parts) {
     return createHash("sha256").update(parts.join("|"), "utf-8").digest("hex").slice(0, 16);
@@ -302,6 +303,7 @@ function resolveSelectedCandidateId(idx) {
 function buildCandidateRecord(songId, candidateId, cm, isSelected) {
     const evidence = cm?.proposalEvidence ?? {};
     const pr = evidence.providerRequest ?? cm?.learnedNotagenProviderRequest ?? null;
+    const promptPack = evidence.promptPack ?? null;
     const criticResult = computeCriticResult(cm, { includeMock: INCLUDE_MOCK });
     const scores = extractScores(cm);
     const planSignature = toTrimmed(evidence.planSignature) || undefined;
@@ -321,9 +323,12 @@ function buildCandidateRecord(songId, candidateId, cm, isSelected) {
         candidateId,
         planSignature: planSignature ?? null,
         selected: isSelected,
+        decision: criticResult.pass ? "approved" : "rejected",
         generationMode,
         instruction,
         abcText,
+        promptPack,
+        providerRequest: pr,
         criticPass: criticResult.pass,
         failedGates: criticResult.failedGates,
         isHardNegative: !criticResult.pass && isHardNegative(scores),
@@ -379,27 +384,85 @@ function buildDpoPairs(byPlanSignature) {
                         id: pos.id,
                         songId: pos.songId,
                         candidateId: pos.candidateId,
+                        decision: "approved",
                         instruction: pos.instruction,
                         output: pos.abcText,
+                        response: pos.abcText,
+                        promptPack: pos.promptPack,
+                        providerRequest: pos.providerRequest,
                         scores: pos.scores,
                     },
                     rejected: {
                         id: neg.id,
                         songId: neg.songId,
                         candidateId: neg.candidateId,
+                        decision: "rejected",
                         instruction: neg.instruction,
                         output: neg.abcText,
+                        response: neg.abcText,
+                        promptPack: neg.promptPack,
+                        providerRequest: neg.providerRequest,
                         failedGates: neg.failedGates,
                         scores: neg.scores,
                     },
                     // Explain WHY this is a useful negative for training
                     rejectionReasonSummary: summarizeRejection(neg),
+                    meta: {
+                        planSignature: sig,
+                        rejectionReason: classifyRejectionReason(neg),
+                        scoreGap: computeScoreGap(pos, neg),
+                        craftScores: {
+                            chosen: pos.scores,
+                            rejected: neg.scores,
+                        },
+                    },
                 });
             }
         }
     }
 
     return pairs;
+}
+
+function computeScoreGap(pos, neg) {
+    const thresholdDeficits = [
+        THRESHOLDS.finalCraftScore - scoreOrZero(neg.scores.finalCraftScore),
+        THRESHOLDS.advancedCraftScore - scoreOrZero(neg.scores.advancedCraftScore),
+        THRESHOLDS.harmonyContractScore - scoreOrZero(neg.scores.harmonyContractScore),
+        THRESHOLDS.evidenceCoverageScore - scoreOrZero(neg.scores.evidenceCoverageScore),
+        neg.scores.pianoListenabilityScore === null
+            ? 0
+            : THRESHOLDS.pianoListenabilityScore - scoreOrZero(neg.scores.pianoListenabilityScore),
+    ];
+    const chosenRejectedGaps = [
+        scoreOrZero(pos.scores.finalCraftScore) - scoreOrZero(neg.scores.finalCraftScore),
+        scoreOrZero(pos.scores.advancedCraftScore) - scoreOrZero(neg.scores.advancedCraftScore),
+        scoreOrZero(pos.scores.harmonyContractScore) - scoreOrZero(neg.scores.harmonyContractScore),
+        scoreOrZero(pos.scores.evidenceCoverageScore) - scoreOrZero(neg.scores.evidenceCoverageScore),
+        scoreOrZero(pos.scores.pianoListenabilityScore) - scoreOrZero(neg.scores.pianoListenabilityScore),
+    ];
+    const gap = Math.max(0, ...thresholdDeficits, ...chosenRejectedGaps);
+    return Math.round(Math.max(gap, MIN_SCORE_GAP) * 1000) / 1000;
+}
+
+function classifyRejectionReason(rec) {
+    const s = rec.scores;
+    if ((s.harmonyContractViolations ?? 0) > 0
+        || rec.failedGates.some((g) => g.includes("harmony"))) {
+        return "harmony_failure";
+    }
+    if (s.motifReturnScore !== null && s.motifReturnScore <= 0.30) {
+        return "motif_recap_failure";
+    }
+    if (s.pianoListenabilityScore !== null
+        && s.pianoListenabilityScore < THRESHOLDS.pianoListenabilityScore - MIN_SCORE_GAP) {
+        return "piano_listenability_failure";
+    }
+    if (s.evidenceCoverageGateTier === "partial" || s.evidenceCoverageGateTier === "none"
+        || rec.failedGates.some((g) => g.includes("evidence"))) {
+        return "evidence_insufficient";
+    }
+    return "low_craft_score";
 }
 
 /**
@@ -494,30 +557,52 @@ function main() {
 
     if (DRY_RUN) {
         console.log("\n[dry-run] No files written.");
+        console.log(JSON.stringify({
+            ok: true,
+            snapshotId: SNAPSHOT_ID,
+            ...counts,
+            totalRows: allCandidates.length,
+            dpoPairCount: dpoPairs.length,
+            hardNegPairCount: pairsWithHardNeg,
+            dryRun: true,
+        }));
         return;
     }
 
-    const systemDir  = path.join(OUTPUT_ROOT, "_system", "ml", "notagen-dpo-critic", SNAPSHOT_ID);
+    const systemDir  = path.join(OUTPUT_ROOT, "_system", "ml", "notagen-preferences", SNAPSHOT_ID);
     const pairsPath  = path.join(systemDir, "dpo-critic-pairs.jsonl");
+    const legacyPairsPath = path.join(systemDir, "dpo-pairs.jsonl");
     const candPath   = path.join(systemDir, "candidates.jsonl");
+    const preferencesPath = path.join(systemDir, "preferences.jsonl");
     const summaryPath = path.join(systemDir, "summary.json");
 
     writeJsonlFile(pairsPath,  dpoPairs);
+    writeJsonlFile(legacyPairsPath, dpoPairs);
     writeJsonlFile(candPath,   allCandidates);
-    writeJsonFile(summaryPath, {
+    writeJsonlFile(preferencesPath, allCandidates);
+    const summary = {
+        ok: true,
         snapshotId: SNAPSHOT_ID,
         exportedAt: new Date().toISOString(),
         philosophy: "axiom_critic_dpo",
         ...counts,
+        totalRows: allCandidates.length,
         dpoPairCount: dpoPairs.length,
         hardNegPairCount: pairsWithHardNeg,
         thresholds: THRESHOLDS,
         minScoreGap: MIN_SCORE_GAP,
         includeMock: INCLUDE_MOCK,
         outputRoot: OUTPUT_ROOT,
-        files: { dpoCriticPairs: pairsPath, candidates: candPath },
-    });
+        files: {
+            dpoCriticPairs: pairsPath,
+            legacyDpoPairs: legacyPairsPath,
+            candidates: candPath,
+            preferences: preferencesPath,
+        },
+    };
+    writeJsonFile(summaryPath, summary);
     console.log(`\nWrote ${dpoPairs.length} DPO pair(s) -> ${pairsPath}`);
+    console.log(JSON.stringify(summary));
 }
 
 main();

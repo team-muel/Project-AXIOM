@@ -125,7 +125,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--root", default="outputs",
                    help="AXIOM output directory (default: outputs)")
     p.add_argument("--snapshot", default=None,
-                   help="DPO snapshot ID from ml:export:notagen-dpo (e.g. 2025-05-15)")
+                   help="DPO snapshot ID from export:notagen-dpo (e.g. 2025-05-15)")
     p.add_argument("--jsonl", default=None,
                    help="Explicit path to dpo-critic-pairs.jsonl (overrides --snapshot)")
     p.add_argument("--sft-adapter", default=None,
@@ -156,7 +156,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--rejection-reasons", default=None,
                    help="Comma-separated list of rejection reasons to include.\n"
                         "Options: harmony_failure,motif_recap_failure,piano_listenability_failure,"
-                        "evidence_insufficient\n"
+                        "evidence_insufficient,low_craft_score\n"
                         "Default: all reasons included.")
     p.add_argument("--out", default=None,
                    help="Output directory override")
@@ -178,6 +178,60 @@ KNOWN_REJECTION_REASONS = frozenset({
     "evidence_insufficient",
     "low_craft_score",
 })
+
+
+def _safe_float(value: Any) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed == parsed and parsed not in (float("inf"), float("-inf")) else None
+
+
+def _response_text(side: dict[str, Any]) -> str:
+    """Read current DPO rows (`response`) and older export rows (`output`)."""
+    return str(side.get("response") or side.get("output") or "").strip()
+
+
+def _infer_score_gap(row: dict[str, Any]) -> float:
+    meta = row.get("meta") or {}
+    explicit_gap = _safe_float(meta.get("scoreGap"))
+    if explicit_gap is not None:
+        return explicit_gap
+
+    chosen_scores = ((row.get("chosen") or {}).get("scores") or {})
+    rejected_scores = ((row.get("rejected") or {}).get("scores") or {})
+    gaps = [
+        (_safe_float(chosen_scores.get(key)) or 0.0) - (_safe_float(rejected_scores.get(key)) or 0.0)
+        for key in (
+            "finalCraftScore",
+            "advancedCraftScore",
+            "harmonyContractScore",
+            "evidenceCoverageScore",
+            "pianoListenabilityScore",
+        )
+    ]
+    return max(0.0, *gaps)
+
+
+def _infer_rejection_reason(row: dict[str, Any]) -> str:
+    meta = row.get("meta") or {}
+    explicit_reason = str(meta.get("rejectionReason") or "").strip()
+    if explicit_reason:
+        return explicit_reason
+
+    rejected = row.get("rejected") or {}
+    failed_gates = " ".join(str(g) for g in rejected.get("failedGates") or [])
+    rejected_scores = rejected.get("scores") or {}
+    if "harmony" in failed_gates or (_safe_float(rejected_scores.get("harmonyContractViolations")) or 0) > 0:
+        return "harmony_failure"
+    if (_safe_float(rejected_scores.get("motifReturnScore")) or 1.0) <= 0.30:
+        return "motif_recap_failure"
+    if "piano" in failed_gates:
+        return "piano_listenability_failure"
+    if "evidence" in failed_gates or rejected_scores.get("evidenceCoverageGateTier") in {"partial", "none"}:
+        return "evidence_insufficient"
+    return "low_craft_score"
 
 
 def _load_dpo_pairs(
@@ -209,23 +263,22 @@ def _load_dpo_pairs(
 
             chosen = row.get("chosen") or {}
             rejected = row.get("rejected") or {}
-            meta = row.get("meta") or {}
 
             chosen_instruction = str(chosen.get("instruction") or "").strip()
-            chosen_response = str(chosen.get("response") or "").strip()
+            chosen_response = _response_text(chosen)
             rejected_instruction = str(rejected.get("instruction") or "").strip()
-            rejected_response = str(rejected.get("response") or "").strip()
+            rejected_response = _response_text(rejected)
 
             if not all([chosen_instruction, chosen_response, rejected_instruction, rejected_response]):
                 skipped += 1
                 continue
 
-            score_gap = float(meta.get("scoreGap") or 0.0)
+            score_gap = _infer_score_gap(row)
             if score_gap < min_score_gap:
                 skipped += 1
                 continue
 
-            rejection_reason = str(meta.get("rejectionReason") or "").strip()
+            rejection_reason = _infer_rejection_reason(row)
             if allowed_reasons and rejection_reason not in allowed_reasons:
                 skipped += 1
                 continue
@@ -236,7 +289,11 @@ def _load_dpo_pairs(
                 "chosen_response":     chosen_response,
                 "rejected_instruction": rejected_instruction,
                 "rejected_response":   rejected_response,
-                "meta": meta,
+                "meta": {
+                    **(row.get("meta") or {}),
+                    "scoreGap": score_gap,
+                    "rejectionReason": rejection_reason,
+                },
             })
 
     if verbose:
@@ -434,6 +491,8 @@ def _train_dpo(
     model.train()
 
     all_losses: list[float] = []
+    reason_loss_sums: dict[str, float] = defaultdict(float)
+    reason_loss_counts: dict[str, int] = defaultdict(int)
     step = 0
 
     for epoch in range(1, epochs + 1):
@@ -456,6 +515,9 @@ def _train_dpo(
                     c_ids, r_ids, c_labels, r_labels,
                     beta=beta,
                 )
+                reason = str((pair.get("meta") or {}).get("rejectionReason") or "unknown")
+                reason_loss_sums[reason] += float(loss.detach().item())
+                reason_loss_counts[reason] += 1
                 batch_loss = batch_loss + loss / len(batch)
 
             optimizer.zero_grad()
@@ -480,6 +542,10 @@ def _train_dpo(
         "epochs": epochs,
         "totalSteps": step,
         "lossHistory": all_losses[::max(1, len(all_losses) // 50)],  # Downsampled for summary
+        "lossByRejectionReason": {
+            reason: reason_loss_sums[reason] / reason_loss_counts[reason]
+            for reason in sorted(reason_loss_counts)
+        },
     }
 
 
@@ -507,7 +573,7 @@ def main() -> None:
     else:
         sys.exit(
             "ERROR: provide --snapshot=<id> or --jsonl=<path>.\n"
-            "Run 'npm run ml:export:notagen-dpo' first to produce the JSONL dataset."
+            "Run 'npm run export:notagen-dpo' first to produce the JSONL dataset."
         )
 
     # Parse allowed rejection reasons filter
@@ -531,7 +597,7 @@ def main() -> None:
         sys.exit(
             f"ERROR: no usable DPO pairs in {jsonl_path}.\n"
             "Ensure chosen and rejected candidates have instruction + response.\n"
-            "Tip: run 'npm run ml:export:notagen-dpo' to regenerate the dataset."
+            "Tip: run 'npm run export:notagen-dpo' to regenerate the dataset."
         )
 
     print(f"\nDPO dataset: {len(pairs)} pairs")

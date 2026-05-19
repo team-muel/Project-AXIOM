@@ -32,7 +32,7 @@ function readJsonl(filePath) {
         .split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => JSON.parse(l));
 }
 
-function seedSong(outputRoot, { songId, decision, proposalEvidence }) {
+function seedSong(outputRoot, { songId, decision, proposalEvidence, structureEvaluation }) {
     const songDir = path.join(outputRoot, songId);
     writeJson(path.join(songDir, "manifest.json"), {
         approvalStatus: decision,
@@ -58,7 +58,7 @@ function seedSong(outputRoot, { songId, decision, proposalEvidence }) {
         meta: {},
         executionPlan: { workflow: "learned_symbolic", composeWorker: "learned_symbolic", selectedModels: [] },
         revisionDirectives: [],
-        structureEvaluation: { passed: true, score: 0.9 },
+        structureEvaluation: structureEvaluation ?? { passed: true, score: 0.9 },
         proposalEvidence,
         artifacts: {},
     });
@@ -81,6 +81,7 @@ const SAMPLE_PROVIDER_REQUEST = {
     conditioningText: "%Romantic\n%Brahms, Johannes\n%String_Trio",
     controlLines: ["period=Romantic", "composer=Brahms, Johannes"],
 };
+const SAMPLE_ABC = "X:1\nT:DPO Test\nM:4/4\nL:1/8\nK:C\n| CDEF GABC |";
 
 function runExport(outputRoot, snapshotId = "2024-01-01") {
     const result = execFileSync(
@@ -117,7 +118,7 @@ test("export row has non-null promptPack and providerRequest when stored in prop
         assert.notEqual(row.providerRequest, null, "providerRequest should be non-null");
         assert.equal(row.promptPack.planSignature, "sig-abc123");
         assert.equal(row.providerRequest.planSignature, "sig-abc123");
-        assert.equal(row.decision, "approved");
+        assert.equal(row.decision, "rejected", "AXIOM critic, not manifest.approvalStatus, labels preference rows");
     } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -154,21 +155,59 @@ test("DPO pairs link approved and rejected rows sharing a planSignature", () => 
             planSignature: "sig-shared",
             promptPack: SAMPLE_PROMPT_PACK,
             providerRequest: SAMPLE_PROVIDER_REQUEST,
+            abcText: SAMPLE_ABC,
+            generationMode: "notagen_abc_inference_hf_causal_lm",
         };
-        seedSong(tmp, { songId: "song-A", decision: "approved", proposalEvidence: sharedEvidence });
-        seedSong(tmp, { songId: "song-B", decision: "rejected", proposalEvidence: sharedEvidence });
+        seedSong(tmp, {
+            songId: "song-A",
+            decision: "approved",
+            proposalEvidence: sharedEvidence,
+            structureEvaluation: {
+                passed: true,
+                score: 0.9,
+                craftScoreSummary: {
+                    finalCraftScore: 0.85,
+                    advancedCraftScore: 0.75,
+                    harmonyContractScore: 0.8,
+                    evidenceCoverageScore: 0.75,
+                },
+            },
+        });
+        seedSong(tmp, {
+            songId: "song-B",
+            decision: "rejected",
+            proposalEvidence: sharedEvidence,
+            structureEvaluation: {
+                passed: false,
+                score: 0.35,
+                craftScoreSummary: {
+                    finalCraftScore: 0.4,
+                    advancedCraftScore: 0.35,
+                    harmonyContractScore: 0.4,
+                    evidenceCoverageScore: 0.3,
+                    evidenceCoverageGateTier: "partial",
+                    harmonyContractViolations: 1,
+                },
+            },
+        });
 
         const summary = runExport(tmp);
         assert.equal(summary.dpoPairCount, 1, "one DPO pair expected");
 
-        const dpoPairs = readJsonl(path.join(tmp, "_system", "ml", "notagen-preferences", "2024-01-01", "dpo-pairs.jsonl"));
+        const dpoPairs = readJsonl(path.join(tmp, "_system", "ml", "notagen-preferences", "2024-01-01", "dpo-critic-pairs.jsonl"));
         assert.equal(dpoPairs.length, 1);
         const pair = dpoPairs[0];
         assert.equal(pair.chosen.decision, "approved");
         assert.equal(pair.rejected.decision, "rejected");
+        assert.equal(pair.chosen.response, SAMPLE_ABC);
+        assert.equal(pair.rejected.response, SAMPLE_ABC);
+        assert.ok(pair.meta.scoreGap >= 0.05, "DPO trainer requires a non-zero scoreGap");
+        assert.equal(typeof pair.meta.rejectionReason, "string");
         // both sides must carry the input payloads
         assert.notEqual(pair.chosen.promptPack, null);
         assert.notEqual(pair.rejected.promptPack, null);
+        const legacyPairs = readJsonl(path.join(tmp, "_system", "ml", "notagen-preferences", "2024-01-01", "dpo-pairs.jsonl"));
+        assert.equal(legacyPairs.length, 1, "legacy dpo-pairs.jsonl should remain available");
     } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
     }

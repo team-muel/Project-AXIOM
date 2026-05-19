@@ -455,11 +455,14 @@ function main() {
     for (const r of deduped) bySource[r.meta.eligibilitySource] = (bySource[r.meta.eligibilitySource] ?? 0) + 1;
 
     const summary = {
+        ok: true,
         snapshotId: SNAPSHOT_ID,
         exportedAt: new Date().toISOString(),
         ...counts,
         totalPairs: deduped.length,
         dedupedFrom: rows.length,
+        noAbcText: counts.skippedNoAbc,
+        mockExcluded: counts.skippedMock,
         byEligibilitySource: bySource,
         selectedCandidates: selectedCount,
         thresholds: THRESHOLDS,
@@ -485,6 +488,7 @@ function main() {
 
     if (DRY_RUN) {
         console.log("\n[dry-run] No files written.");
+        console.log(JSON.stringify({ ...summary, dryRun: true }));
         return;
     }
 
@@ -494,6 +498,7 @@ function main() {
     writeJsonlFile(sftPath, deduped);
     writeJsonFile(summaryPath, { ...summary, files: { sftPairs: sftPath } });
     console.log(`\nWrote ${deduped.length} pair(s) → ${sftPath}`);
+    console.log(JSON.stringify({ ...summary, files: { sftPairs: sftPath } }));
 }
 
 main();

@@ -29,7 +29,7 @@ function readJsonl(filePath) {
         .split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => JSON.parse(l));
 }
 
-function seedSong(outputRoot, { songId, decision, proposalEvidence }) {
+function seedSong(outputRoot, { songId, decision, proposalEvidence, structureEvaluation }) {
     const songDir = path.join(outputRoot, songId);
     writeJson(path.join(songDir, "manifest.json"), {
         approvalStatus: decision,
@@ -54,7 +54,7 @@ function seedSong(outputRoot, { songId, decision, proposalEvidence }) {
         meta: {},
         executionPlan: { workflow: "learned_symbolic", composeWorker: "learned_symbolic", selectedModels: [] },
         revisionDirectives: [],
-        structureEvaluation: { passed: true, score: 0.9 },
+        structureEvaluation: structureEvaluation ?? { passed: true, score: 0.9 },
         proposalEvidence,
         artifacts: {},
     });
@@ -75,6 +75,26 @@ const SAMPLE_PROVIDER_REQUEST = {
     conditioningText: "%Romantic\n%Brahms, Johannes\n%String_Trio",
     controlLines: ["period=Romantic", "composer=Brahms, Johannes", "instrumentation=String_Trio"],
 };
+const PASSING_STRUCTURE_EVALUATION = {
+    passed: true,
+    score: 0.9,
+    craftScoreSummary: {
+        finalCraftScore: 0.86,
+        advancedCraftScore: 0.74,
+        harmonyContractScore: 0.82,
+        evidenceCoverageScore: 0.76,
+    },
+};
+const FAILING_STRUCTURE_EVALUATION = {
+    passed: false,
+    score: 0.35,
+    craftScoreSummary: {
+        finalCraftScore: 0.42,
+        advancedCraftScore: 0.34,
+        harmonyContractScore: 0.45,
+        evidenceCoverageScore: 0.32,
+    },
+};
 
 test("approved song with abcText and providerRequest exports a valid SFT row", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-sft-export-"));
@@ -89,6 +109,7 @@ test("approved song with abcText and providerRequest exports a valid SFT row", (
                 abcText: SAMPLE_ABC,
                 providerRequest: SAMPLE_PROVIDER_REQUEST,
             },
+            structureEvaluation: PASSING_STRUCTURE_EVALUATION,
         });
 
         const summary = runExport(tmp);
@@ -116,7 +137,7 @@ test("approved song with abcText and providerRequest exports a valid SFT row", (
     }
 });
 
-test("non-approved song is excluded from SFT export", () => {
+test("candidate failing AXIOM critic gate is excluded from SFT export", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-sft-nonapproved-"));
     try {
         seedSong(tmp, {
@@ -124,9 +145,11 @@ test("non-approved song is excluded from SFT export", () => {
             decision: "rejected",
             proposalEvidence: {
                 worker: "learned_symbolic",
+                generationMode: "notagen_abc_inference_hf_causal_lm",
                 abcText: SAMPLE_ABC,
                 providerRequest: SAMPLE_PROVIDER_REQUEST,
             },
+            structureEvaluation: FAILING_STRUCTURE_EVALUATION,
         });
         seedSong(tmp, {
             songId: "song-approved",
@@ -137,6 +160,7 @@ test("non-approved song is excluded from SFT export", () => {
                 abcText: SAMPLE_ABC,
                 providerRequest: SAMPLE_PROVIDER_REQUEST,
             },
+            structureEvaluation: PASSING_STRUCTURE_EVALUATION,
         });
 
         const summary = runExport(tmp);
@@ -165,6 +189,7 @@ test("approved song without abcText is excluded and counted as noAbcText", () =>
                 // abcText intentionally absent
                 providerRequest: SAMPLE_PROVIDER_REQUEST,
             },
+            structureEvaluation: PASSING_STRUCTURE_EVALUATION,
         });
 
         const summary = runExport(tmp);
@@ -188,6 +213,7 @@ test("mock generationMode rows are excluded by default and included with --inclu
                 abcText: SAMPLE_ABC,
                 providerRequest: SAMPLE_PROVIDER_REQUEST,
             },
+            structureEvaluation: PASSING_STRUCTURE_EVALUATION,
         });
 
         // Default: mock excluded

@@ -29,10 +29,25 @@ from .abc_project import run_abc_projection_pipeline  # Phase C pipeline
 from .abc_to_events import ABC_PIPELINE_AVAILABLE
 from .backends import LearnedSymbolicBackendResult
 from .localized_rewrite import build_rewrite_prompt_block
+from .notagen_engines.mock import build_mock_abc
 from .prompt_packing import ProviderPromptPackingContext
 
 PROVIDER = "notagen"
 MODEL_DEFAULT = "notagen-abc-v1"
+
+
+def _engine_name() -> str:
+    return os.environ.get("NOTAGEN_ENGINE", "hf_causal_lm").strip() or "hf_causal_lm"
+
+
+def _run_local_inference(prompt: str, **kwargs: Any) -> str:
+    raise RuntimeError("NotaGen local inference engine is not connected")
+
+
+def _get_projection_value(result: Any, key: str, fallback: Any = None) -> Any:
+    if isinstance(result, dict):
+        return result.get(key, fallback)
+    return getattr(result, key, fallback)
 
 
 class NotagenBackend:
@@ -66,6 +81,9 @@ class NotagenBackend:
         # Per-candidate seed derivation (stable across retries, unique per variant):
         #   stable_seed  = payload.get("stableSeed", 0)
         #   candidate_seed = stable_seed + candidate_index + seed_offset
+        stable_seed_raw = payload.get("stableSeed", 0)
+        stable_seed = int(stable_seed_raw) if isinstance(stable_seed_raw, (int, float)) else 0
+        candidate_seed = stable_seed + candidate_index + seed_offset
 
         # ── Phase E: extract localized rewrite spec ───────────────────────────
         rewrite_spec: dict[str, Any] | None = (
@@ -109,6 +127,50 @@ class NotagenBackend:
                 keep_section_ids=list(rewrite_spec.get("keepSectionIds") or []),
                 reason=str(rewrite_spec.get("reason") or ""),
                 directives=list(rewrite_spec.get("directives") or []),
+            )
+
+        if os.environ.get("LEARNED_SYMBOLIC_BACKEND", "").strip().lower() == "notagen_mock":
+            abc_full = build_mock_abc(context, candidate_seed)
+            sections = payload.get("promptPack", {}).get("sections") or []
+            projection = run_abc_projection_pipeline(
+                abc_full,
+                sections,
+                provider_request,
+                output_path=payload.get("outputPath"),
+                keep_section_artifacts=payload.get("sectionArtifacts") if is_localized_rewrite else None,
+                lane=context.get("lane"),
+            )
+            if not _get_projection_value(projection, "ok", False):
+                return LearnedSymbolicBackendResult(
+                    ok=False,
+                    provider=PROVIDER,
+                    model=model,
+                    generation_mode="mock_notagen_abc",
+                    abc_text=abc_full,
+                    warnings=["mock_backend_not_for_quality_eval"]
+                    + list(_get_projection_value(projection, "normalization_warnings", []) or []),
+                    error=_get_projection_value(projection, "error", "ABC projection failed"),
+                )
+            proposal_sections = list(_get_projection_value(projection, "proposal_sections", []) or [])
+            return LearnedSymbolicBackendResult(
+                ok=True,
+                provider=PROVIDER,
+                model=model,
+                generation_mode="mock_notagen_abc",
+                confidence=0.5,
+                abc_text=abc_full,
+                midi_path=_get_projection_value(projection, "midi_path"),
+                proposal_sections=proposal_sections,
+                warnings=["mock_backend_not_for_quality_eval"]
+                + list(_get_projection_value(projection, "normalization_warnings", []) or []),
+                voice_layout_summary=_get_projection_value(projection, "voice_layout_summary"),
+                repair_actions=_get_projection_value(projection, "repair_actions"),
+                midi_rewritten=bool(_get_projection_value(projection, "midi_rewritten", False)),
+                note_count=sum(len(section.get("noteHistory", [])) for section in proposal_sections),
+                measure_count=sum(int(section.get("measureCount", 0) or 0) for section in proposal_sections),
+                key_name=context.get("conditioningText", ""),
+                form=str(provider_request.get("form", "")),
+                tempo_bpm=int(provider_request.get("tempo") or 92),
             )
 
         # ── Check checkpoint ─────────────────────────────────────────────────
@@ -208,4 +270,88 @@ class NotagenBackend:
                 "NotaGen inference not yet implemented. "
                 "Checkpoint path is set but model inference code is pending (Phase 3+)."
             ),
+        )
+
+    def _generate_local(
+        self,
+        *,
+        payload: dict[str, Any],
+        provider_request: dict[str, Any],
+        context: ProviderPromptPackingContext,
+        model: str,
+        generation_mode: str,
+        abc_header: str,
+        rewrite_block: str = "",
+        rewrite_spec: dict[str, Any] | None = None,
+        is_localized_rewrite: bool = False,
+        candidate_seed: int = 0,
+        candidate_index: int = 0,
+        temperature: float = 0.9,
+        top_p: float = 0.95,
+        top_k: int = 50,
+        repetition_penalty: float = 1.0,
+        max_tokens: int = 1024,
+    ) -> LearnedSymbolicBackendResult:
+        engine = _engine_name()
+        warnings: list[str] = []
+        prompt = abc_header
+        resolved_generation_mode = f"notagen_abc_inference_{engine}"
+
+        if is_localized_rewrite and rewrite_block:
+            if engine == "notagen_native":
+                warnings.append("notagen_native_rewrite_block_ignored_full_regen")
+            else:
+                prompt = f"{abc_header.rstrip()}\n{rewrite_block.strip()}\n"
+                resolved_generation_mode = f"targeted_section_rewrite_{engine}"
+
+        abc_full = _run_local_inference(
+            prompt,
+            model=model,
+            seed=candidate_seed,
+            candidate_index=candidate_index,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            repetition_penalty=repetition_penalty,
+            max_tokens=max_tokens,
+            rewrite_spec=rewrite_spec,
+            provider_request=provider_request,
+        )
+
+        sections = payload.get("promptPack", {}).get("sections") or []
+        projection = run_abc_projection_pipeline(
+            abc_full,
+            sections,
+            provider_request,
+            output_path=payload.get("outputPath"),
+            keep_section_artifacts=payload.get("sectionArtifacts") if is_localized_rewrite else None,
+            lane=context.get("lane"),
+        )
+        if not _get_projection_value(projection, "ok", False):
+            return LearnedSymbolicBackendResult(
+                ok=False,
+                provider=PROVIDER,
+                model=model,
+                generation_mode=resolved_generation_mode,
+                abc_text=abc_full,
+                warnings=warnings + list(_get_projection_value(projection, "normalization_warnings", []) or []),
+                error=_get_projection_value(projection, "error", "ABC projection failed"),
+            )
+
+        proposal_sections = list(_get_projection_value(projection, "proposal_sections", []) or [])
+        return LearnedSymbolicBackendResult(
+            ok=True,
+            provider=PROVIDER,
+            model=model,
+            generation_mode=resolved_generation_mode,
+            abc_text=abc_full,
+            midi_path=_get_projection_value(projection, "midi_path"),
+            proposal_sections=proposal_sections,
+            warnings=warnings + list(_get_projection_value(projection, "normalization_warnings", []) or []),
+            note_count=sum(len(section.get("noteHistory", [])) for section in proposal_sections),
+            measure_count=sum(int(section.get("measureCount", 0) or 0) for section in proposal_sections),
+            key_name=str(context.get("conditioningText", "")),
+            form=str(provider_request.get("form", "")),
+            tempo_bpm=int(provider_request.get("tempo") or 92),
+            rewrite_applied=is_localized_rewrite and engine != "notagen_native",
         )

@@ -11,6 +11,7 @@ from learned_symbolic.prompt_packing import (
     resolve_form,
     resolve_provider_prompt_packing_context,
     supports_narrow_lane,
+    supports_solo_piano_lane,
 )
 
 
@@ -99,7 +100,14 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
     context = resolve_provider_prompt_packing_context(payload, prompt_pack)
     form = resolve_form(payload, plan)
 
-    if not supports_narrow_lane(payload, plan, form):
+    lane = context.get("lane") if context is not None else None
+    if lane == "solo_piano_symbolic" and not supports_solo_piano_lane(payload, plan, form):
+        return {
+            "ok": False,
+            "error": "unsupported solo_piano_symbolic lane; compositionPlan.pianoPlan and Piano instrumentation are required",
+        }
+
+    if lane != "solo_piano_symbolic" and not supports_narrow_lane(payload, plan, form):
         return {
             "ok": False,
             "error": "unsupported narrow learned-symbolic lane; requires string_trio miniature composition plan",
@@ -160,24 +168,27 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
         attempt_index=normalized_attempt_index,
     )
 
+    response_lane = (
+        context["lane"]
+        if context is not None and context.get("lane")
+        else "string_trio_symbolic"
+    )
+    is_piano_lane = response_lane == "solo_piano_symbolic"
+
     response: dict[str, Any] = {
         "ok": True,
         "proposalMidiPath": best_result.midi_path,
         "proposalSummary": {
             "measureCount": best_result.measure_count,
             "noteCount": best_result.note_count,
-            "partCount": 3,
-            "partInstrumentNames": ["Violin", "Viola", "Cello"],
+            "partCount": 1 if is_piano_lane else 3,
+            "partInstrumentNames": ["Piano"] if is_piano_lane else ["Violin", "Viola", "Cello"],
             "key": best_result.key_name,
             "tempo": best_result.tempo_bpm,
             "form": best_result.form,
         },
         "proposalMetadata": {
-            "lane": (
-                context["lane"]
-                if context is not None and context.get("lane")
-                else "string_trio_symbolic"
-            ),
+            "lane": response_lane,
             "provider": best_result.provider,
             "model": best_result.model,
             "generationMode": best_result.generation_mode,
@@ -186,6 +197,14 @@ def build_response(payload: dict[str, Any]) -> dict[str, Any]:
         },
         "proposalSections": best_result.proposal_sections,
     }
+    if best_result.abc_text:
+        response["proposalAbcScore"] = best_result.abc_text
+    if best_result.voice_layout_summary:
+        response["proposalVoiceLayoutSummary"] = best_result.voice_layout_summary
+    if best_result.repair_actions:
+        response["proposalPianoRepairActions"] = best_result.repair_actions
+    if best_result.midi_rewritten:
+        response["proposalMetadata"]["midiRewritten"] = True
     if len(candidate_pool) > 1:
         response["proposalCandidatePool"] = candidate_pool
     return response

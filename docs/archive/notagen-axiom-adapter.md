@@ -101,7 +101,7 @@ outputs/<songId>/candidates/<id>/candidate-manifest.json
 ### Step 2 — Export SFT dataset
 
 ```bash
-npm run ml:export:notagen-sft
+npm run export:notagen-sft
 # or with options:
 node scripts/export-notagen-sft-dataset.mjs --root=outputs --snapshot=2025-05-15 --min-score=0.65
 ```
@@ -187,7 +187,7 @@ K:Gmin
 
 ```bash
 # 1. Export SFT pairs from approved manifests
-npm run ml:export:notagen-sft
+npm run export:notagen-sft
 
 # 2. Train LoRA adapter (GPU recommended; 200+ pairs needed for generalisation)
 npm run ml:train:notagen-adapter -- --snapshot=$(date +%Y-%m-%d) --mode=lora --min-score=0.65
