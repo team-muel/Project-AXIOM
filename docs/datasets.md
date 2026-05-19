@@ -60,8 +60,10 @@ outputs/{songId}/candidates/
 | `export-structure-reranker-dataset.mjs` | structure reranker 학습용 snapshot | `node scripts/export-structure-reranker-dataset.mjs` |
 | `export-backbone-piece-dataset.mjs` | learned backbone fine-tune용 피스 데이터 | `node scripts/export-backbone-piece-dataset.mjs` |
 | `export-localized-rewrite-dataset.mjs` | targeted rewrite 학습용 pair | `node scripts/export-localized-rewrite-dataset.mjs` |
-| `export-notagen-preference-dataset.mjs` | NotaGen preference fine-tune용 pair | `node scripts/export-notagen-preference-dataset.mjs` |
-| `export-notagen-sft-dataset.mjs` | NotaGen SFT 예제 | `node scripts/export-notagen-sft-dataset.mjs` |
+| `export-notagen-sft-dataset.mjs` | NotaGen SFT 페어 (label: `axiom_curated_pass`) | `node scripts/export-notagen-sft-dataset.mjs` |
+| `export-notagen-preference-dataset.mjs` | NotaGen DPO 페어 (AXIOM-critic chosen/rejected) | `node scripts/export-notagen-preference-dataset.mjs` |
+
+SFT / DPO export는 AXIOM internal critic 게이트 기반이다. 명곡 지향 훈련 전체 파이프라인: [`docs/notagen-training.md`](notagen-training.md).
 
 ---
 

@@ -6,7 +6,8 @@
  * craftScore  →  hard filter (reject structural garbage)
  *             →  shortlist ranking (sort by heuristic quality)
  * preferenceModel  →  final winner selection (from shortlist)
- *                  →  learns from accumulated listenerFeedback history
+ *                  →  calibrates from accumulated human calibration feedback
+ *                     (optional signal — does not gate SFT/DPO eligibility)
  *
  * Algorithm (cold-start safe)
  * ────────────────────────────
@@ -525,7 +526,7 @@ function _readFeedbackFromCandidatesDir(candidatesRoot: string): FeedbackRecord[
 
 /**
  * Scans all candidate manifests for a specific song and returns those that
- * have both internalScores and a numeric appeal rating from listenerFeedback.
+ * have both internalScores and a numeric appeal rating from human calibration feedback.
  *
  * Use this for same-song retry/refinement loops where only that song's
  * accumulated feedback is relevant.

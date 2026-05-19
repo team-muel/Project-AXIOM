@@ -38,8 +38,9 @@ import type { QualityGateConfig } from "../evaluate/scoringProfile.js";
 //   piano-idiomatic quality separates candidates more decisively.
 //   The remaining structure score terms are unchanged.
 //
-// The final winner from the shortlist is selected by the listenerFeedback
-// preference model (see src/pipeline/preferenceModel.ts), not craft alone.
+// The final winner from the shortlist is selected by the human calibration
+// preference model (see src/core/generate/preferenceModel.ts), not craft alone.
+// Human feedback is optional calibration metadata — AXIOM critic is the primary gate.
 // ---------------------------------------------------------------------------
 
 // ── Gate 1: validity ────────────────────────────────────────────────────────

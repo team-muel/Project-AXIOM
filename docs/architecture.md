@@ -198,3 +198,18 @@ hook 인터페이스 (`src/runtime/hooks.ts`):
 | `onJobFailed` | job 영구 실패 | `markAutonomyRunFailed` |
 | `onJobRetryScheduled` | job 재시도 예약 | `markAutonomyRunRetryScheduled` |
 | `onPipelineComplete` | 파이프라인 DONE | `evaluateCompletedManifest` + `updateAutonomyPreferencesFromManifest` |
+
+---
+
+## 개발 방향
+
+AXIOM의 핵심 목표는 **평가기 추가가 아니라 NotaGen을 AXIOM식 작곡가로 길들이는 것**이다.
+
+```
+Stage 1  hybrid 모드로 NotaGen 후보 대량 생성 → craft scoring으로 선택 (현재)
+Stage 2  AXIOM-curated SFT — control block 전체(motif graph, repair, piano rewrite 포함)를 instruction으로 학습
+Stage 3  AXIOM-critic DPO — chosen/rejected pair로 구조적 정확도 강화
+Stage 4  ablation 벤치마크로 control-following 능력 수치 검증
+```
+
+자세한 내용: [`docs/notagen-training.md`](notagen-training.md)

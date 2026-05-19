@@ -79,8 +79,20 @@ export type GenerationStrategy =
     | "notagen_first"
     | "hybrid_notagen_with_template_baseline";
 
+/**
+ * @deprecated Prefer {@link HumanCalibrationFeedback} for new code.
+ *
+ * AXIOM curation philosophy (applies to both this type and HumanCalibrationFeedback):
+ *   - Human feedback is **optional calibration metadata** — it is not a training gate.
+ *   - It does NOT determine SFT/DPO eligibility by default.
+ *   - AXIOM internal critic (InternalCriticApproval) is the primary curation source.
+ *   - Use human feedback to calibrate internal scores, not to replace them.
+ *
+ * This interface is kept for backward compatibility with persisted manifests
+ * and existing API routes.  New code should use HumanCalibrationFeedback.
+ */
 export interface ListenerFeedback {
-    /** Overall appeal rating: 1 (poor) – 5 (excellent) */
+    /** Overall appeal rating: 1 (poor) – 5 (excellent). Calibration signal only. */
     appeal: 1 | 2 | 3 | 4 | 5;
     memorability?: 1 | 2 | 3 | 4 | 5;
     coherence?: 1 | 2 | 3 | 4 | 5;

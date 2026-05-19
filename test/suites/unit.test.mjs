@@ -42,3 +42,8 @@ import "../harmony-repair-directives.test.mjs";
 import "../localized-rewrite-harmony-repair.test.mjs";
 import "../rewrite-improvement.test.mjs";
 import "../axiom-critic-dpo.test.mjs";
+
+// ─── NotaGen prompt ablation ─────────────────────────────────────────────────
+// Validates AXIOM control blocks (A–F) emit correct provider request fields AND
+// that D/E score delta < 0.02 with current backend (fine-tuning metadata status).
+import "../benchmark-notagen-control-ablation.test.mjs";

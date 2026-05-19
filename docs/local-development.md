@@ -48,6 +48,48 @@ copy .env.example .env
 
 > `OLLAMA_*`는 overseer report 생성에만 필요하다. `start:core`로 기동하면 무관.
 
+---
+
+## 생성 전략 선택
+
+`AXIOM_GENERATION_STRATEGY`는 **명시 설정이 필요하다** — 자동 추론되지 않는다.
+
+### 전략 비교
+
+| 전략 | 용도 | NotaGen | template |
+|------|------|---------|---------|
+| `template_first` | CI / dev / 안전 기본 | ❌ | ✅ 주 생성기 |
+| `notagen_first` | 빠른 품질 실험 | ✅ 단일 후보 | — |
+| `hybrid_notagen_with_template_baseline` | **명곡 지향 R&D** | ✅ N개 후보 | ✅ 안전망 baseline |
+
+### 명곡 지향 R&D 기본 설정
+
+**훈련 데이터 수집이나 품질 실험 시 반드시 이 전략을 사용한다.**  
+`hybrid_notagen_with_template_baseline`은 자동 추론되지 않으므로 `.env`에 명시해야 한다.
+
+```env
+AXIOM_GENERATION_STRATEGY=hybrid_notagen_with_template_baseline
+LEARNED_SYMBOLIC_BACKEND=notagen_local
+NOTAGEN_ENGINE=notagen_native
+NOTAGEN_REPO_PATH=/path/to/NotaGen
+```
+
+- NotaGen N개(기본 8–32) 후보 + template baseline 1개를 생성한다.
+- AXIOM evaluator가 craft score로 최적 후보를 선택한다.
+- template은 NotaGen이 전부 실패할 때 안전망 역할을 한다.
+- 선택된 candidate가 SFT / DPO 훈련 데이터로 쌓인다.
+
+### CI / dev 기본 (변경 없음)
+
+```env
+AXIOM_GENERATION_STRATEGY=   # 비워두면 template_first
+LEARNED_SYMBOLIC_BACKEND=template
+```
+
+빠르고 안정적이지만 실제 音樂品質 데이터는 수집되지 않는다.
+
+> 자세한 훈련 파이프라인: [`docs/notagen-training.md`](notagen-training.md)
+
 ### SoundFont 설정
 
 추천: `MuseScore_General.sf3` (무료, 고품질)

@@ -56,7 +56,8 @@ export function chooseBetterSymbolicCandidate(
  *      Tier 3 candidates have valid MIDI, respect the section contract, AND
  *      meet the musical-craft thresholds (cadence, register, independence).
  *   3. Pass the shortlist to selectPreferredCandidate(), which applies the
- *      craft hard filter and uses the listenerFeedback preference model.
+ *      craft hard filter and uses the human calibration preference model.
+ *      (Human feedback is optional calibration metadata — AXIOM critic is primary.)
  *   4. Fall back to the heuristic top candidate if preference selection fails.
  *
  * `gate` controls ALL three gate threshold checks (validity, contract, craft).

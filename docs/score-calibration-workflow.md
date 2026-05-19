@@ -1,5 +1,11 @@
 # Score Calibration Workflow
 
+> **AXIOM 큐레이션 철학:** Human feedback은 **optional calibration metadata**입니다.
+> SFT/DPO 자격 판단을 기본적으로 결정하지 않습니다.
+> AXIOM 내부 critic (`InternalCriticApproval`)이 primary curation source입니다.
+> 이 워크플로우는 내부 점수가 인간의 지각과 얼마나 잘 정렬되는지 측정하기 위한 것이지,
+> critic을 우회하기 위한 것이 아닙니다.
+
 Human listener feedback is the ground truth for whether AXIOM's automated scores
 actually predict what people want to hear.  This document describes how to run the
 full calibration loop: collect feedback → measure correlations → generate a tuned

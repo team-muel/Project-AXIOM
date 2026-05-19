@@ -33,18 +33,26 @@ function ratingField(value: unknown): 1 | 2 | 3 | 4 | 5 | undefined {
 /**
  * POST /feedback/:songId/:candidateId
  *
- * Attaches listener feedback to any structure candidate, regardless of whether
- * it is the selected candidate.  Supports pairwise preference signals
- * (preferredOver) and rejection rationale (rejectionReason) so that
- * calibration tools can learn from all candidates, not just the winner.
+ * Records **human calibration feedback** for any structure candidate.
+ *
+ * AXIOM curation philosophy:
+ *   - This feedback is **optional calibration metadata**, not a training gate.
+ *   - It does NOT determine SFT/DPO eligibility by default.
+ *   - AXIOM internal critic (InternalCriticApproval) is the primary curation source.
+ *   - Use this endpoint to calibrate internal scores against human perception
+ *     via `npm run analyze:score-feedback`.
+ *
+ * Supports pairwise preference signals (preferredOver) and rejection rationale
+ * (rejectionReason) so that calibration tools can learn from all candidates,
+ * not just the winner.
  *
  * Body fields:
- *   appeal           (required) 1–5
+ *   appeal           (required) 1–5 — overall calibration appeal rating
  *   coherence        (optional) 1–5
  *   memorability     (optional) 1–5
  *   emotionalImpact  (optional) 1–5
- *   preferredOver    (optional) candidateId the listener prefers over this one
- *   rejectionReason  (optional) free-text reason for rejection / lower rank
+ *   preferredOver    (optional) candidateId preferred over this one (pairwise signal)
+ *   rejectionReason  (optional) free-text calibration note for lower rank
  *   strongestDimension / weakestDimension / notes / comparisonCandidateId
  *     — same optional fields as the existing /autonomy/approve endpoint
  */

@@ -30,8 +30,9 @@ import {
 //                          preference model selects the final winner
 //
 // craftScore is NOT an aesthetic judge and MUST NOT be used as the sole
-// selector for the final output.  Listener-feedback preference model handles
-// final winner selection (see src/pipeline/preferenceModel.ts).
+// selector for the final output.  Human calibration preference model handles
+// final winner selection (see src/core/generate/preferenceModel.ts).
+// Human feedback is optional calibration metadata — it does not gate SFT/DPO eligibility.
 // ──────────────────────────────────────────────────────────────────────────────
 
 // ---------------------------------------------------------------------------
