@@ -1,5 +1,6 @@
 import "dotenv/config";
 import type { LogLevel } from "./logging/logger.js";
+import type { GenerationStrategy } from "./core/pipeline/types.js";
 
 function env(key: string, fallback: string): string {
     return process.env[key] ?? fallback;
@@ -14,6 +15,40 @@ function envBool(key: string, fallback: boolean): boolean {
     const value = process.env[key];
     if (value === undefined) return fallback;
     return !["0", "false", "no", "off"].includes(value.trim().toLowerCase());
+}
+
+/**
+ * Resolves the active GenerationStrategy from env vars.
+ *
+ * Resolution order:
+ *   1. AXIOM_GENERATION_STRATEGY — explicit override (highest priority)
+ *   2. Derived from LEARNED_SYMBOLIC_BACKEND (backward compat):
+ *      - template      → template_first
+ *      - notagen_mock  → template_first  (mock = CI/test, keep template_first semantics)
+ *      - notagen_local → notagen_first
+ *   3. Fallback: template_first
+ *
+ * Note: "hybrid_notagen_with_template_baseline" is NOT automatically inferred —
+ *   it must be set explicitly via AXIOM_GENERATION_STRATEGY because it implies
+ *   running multiple concurrent generation passes (NotaGen N + music21 baseline 1).
+ */
+function resolveGenerationStrategy(
+    explicit: string,
+    backend: string,
+): GenerationStrategy {
+    const valid: GenerationStrategy[] = [
+        "template_first",
+        "notagen_first",
+        "hybrid_notagen_with_template_baseline",
+    ];
+    if (valid.includes(explicit as GenerationStrategy)) {
+        return explicit as GenerationStrategy;
+    }
+    // Derive from backend
+    if (backend === "notagen_local") {
+        return "notagen_first";
+    }
+    return "template_first";
 }
 
 export const config = {
@@ -63,4 +98,13 @@ export const config = {
     notagenTimeoutMs: envInt("NOTAGEN_TIMEOUT_MS", 120_000),
     // Maximum number of additional inference attempts when ABC validation fails
     notagenResampleBudget: envInt("NOTAGEN_RESAMPLE_BUDGET", 2),
+    // Generation strategy — controls how structure candidates are generated.
+    //   template_first                      – music21 is primary (default, CI safe)
+    //   notagen_first                       – NotaGen single candidate (auto-inferred when notagen_local)
+    //   hybrid_notagen_with_template_baseline – N NotaGen + 1 music21 baseline (R&D quality mode)
+    // Resolution order: AXIOM_GENERATION_STRATEGY → derived from LEARNED_SYMBOLIC_BACKEND → template_first
+    generationStrategy: resolveGenerationStrategy(
+        env("AXIOM_GENERATION_STRATEGY", ""),
+        env("LEARNED_SYMBOLIC_BACKEND", "template"),
+    ),
 } as const;

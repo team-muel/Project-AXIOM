@@ -98,16 +98,17 @@ function coerceStructureFirstWorkflow(request: ComposeRequest, workflow: Compose
 function ensureSelectedModelsForWorkflow(
     workflow: ComposeWorkflow,
     selectedModels: ModelBinding[] | undefined,
+    generationStrategy?: import("../pipeline/types.js").GenerationStrategy,
 ): ModelBinding[] {
     const baseBindings = selectedModels?.length
         ? selectedModels.map((binding) => ({ ...binding }))
         : [];
     if (baseBindings.length === 0) {
-        return defaultModelBindings(workflow);
+        return defaultModelBindings(workflow, { generationStrategy });
     }
 
     const roles = new Set(baseBindings.map((binding) => binding.role));
-    const defaults = defaultModelBindings(workflow);
+    const defaults = defaultModelBindings(workflow, { generationStrategy });
 
     for (const binding of defaults) {
         if (!roles.has(binding.role)) {
@@ -196,7 +197,9 @@ export function resolveComposeWorkflow(request: ComposeRequest): ComposeWorkflow
 
 export function buildExecutionPlan(request: ComposeRequest): ComposeExecutionPlan {
     const workflow = resolveComposeWorkflow(request);
-    const selectedModels = ensureSelectedModelsForWorkflow(workflow, request.selectedModels);
+    // Per-request strategy overrides config; config.generationStrategy is the runtime default.
+    const strategy = request.generationStrategy ?? config.generationStrategy;
+    const selectedModels = ensureSelectedModelsForWorkflow(workflow, request.selectedModels, strategy);
     return {
         workflow,
         composeWorker: resolveComposeWorkerName(workflow, selectedModels),

@@ -60,6 +60,25 @@ export type ComposeSource = "api" | "autonomy";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "not_required";
 
+/**
+ * Controls how structure candidates are generated within a composition attempt.
+ *
+ * AXIOM 작곡 철학:
+ *   template_first  — music21/template이 주 생성기. CI/개발 기본. NotaGen 없이도 동작.
+ *   notagen_first   — NotaGen이 단일 후보 생성. 단일 inference run.
+ *   hybrid_notagen_with_template_baseline
+ *                   — NotaGen N개 + music21 baseline 1개 생성 후 AXIOM evaluator가 선별.
+ *                     R&D 품질 모드의 기본. template은 중심이 아닌 안전장치/기준선.
+ *
+ * 환경 변수로 설정: AXIOM_GENERATION_STRATEGY
+ * config.ts의 generationStrategy가 이 값을 resolve하며,
+ * LEARNED_SYMBOLIC_BACKEND 기반 자동 추론도 지원합니다 (하위 호환).
+ */
+export type GenerationStrategy =
+    | "template_first"
+    | "notagen_first"
+    | "hybrid_notagen_with_template_baseline";
+
 export interface ListenerFeedback {
     /** Overall appeal rating: 1 (poor) – 5 (excellent) */
     appeal: 1 | 2 | 3 | 4 | 5;
@@ -357,6 +376,12 @@ export interface ComposeRequest {
     music21BaselineCount?: number;
     /** Per-candidate sampling parameters forwarded to the NotaGen backend. */
     learnedSampling?: LearnedSamplingParams;
+    /**
+     * Generation strategy override for this request.
+     * When omitted, config.generationStrategy (from AXIOM_GENERATION_STRATEGY) is used.
+     * Set to "hybrid_notagen_with_template_baseline" for R&D quality mode.
+     */
+    generationStrategy?: GenerationStrategy;
     /** When present, instructs the NotaGen backend to rewrite only the specified sections. */
     localizedRewriteSpec?: LocalizedRewriteSpec;
     /** When present, describes piano-specific localized repairs/rewrites for the solo_piano_symbolic lane. */

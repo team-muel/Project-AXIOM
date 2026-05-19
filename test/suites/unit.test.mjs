@@ -37,6 +37,7 @@ import "../curation-decision.test.mjs";
 // ─── Candidate pool & repair ─────────────────────────────────────────────────
 import "../hybrid-symbolic-candidate-pool.test.mjs";
 import "../learned-multi-candidate.test.mjs";
+import "../generation-strategy.test.mjs";
 import "../harmony-repair-directives.test.mjs";
 import "../localized-rewrite-harmony-repair.test.mjs";
 import "../rewrite-improvement.test.mjs";

@@ -1,9 +1,11 @@
 import { STRUCTURE_RERANKER_PROMOTION_LANE, detectStructureRerankerPromotionLane } from "./structureRerankerPromotionLane.js";
+import { config } from "../../config.js";
 import type {
     ComposeExecutionPlan,
     ComposeRequest,
     ComposeWorkerName,
     CompositionPlan,
+    GenerationStrategy,
     ModelBinding,
 } from "../pipeline/types.js";
 
@@ -165,8 +167,18 @@ export function buildHybridSymbolicCandidateRequests(
     executionPlan: ComposeExecutionPlan,
     compositionPlan?: CompositionPlan,
 ): HybridSymbolicCandidateRequestVariant[] {
+    // Resolve effective generation strategy: request override > config default
+    const strategy: GenerationStrategy = request.generationStrategy ?? config.generationStrategy;
+    const isHybridStrategy = strategy === "hybrid_notagen_with_template_baseline";
+
     const lane = resolveHybridSymbolicCandidateLane(request, executionPlan, compositionPlan);
-    if (!lane || lane !== STRUCTURE_RERANKER_PROMOTION_LANE) {
+
+    // Enter multi-candidate pool when:
+    //   (a) promotion lane is active (existing promotion-gate path), OR
+    //   (b) strategy is hybrid_notagen_with_template_baseline (new quality-mode path)
+    const enterMultiCandidateMode = isHybridStrategy || (!!lane && lane === STRUCTURE_RERANKER_PROMOTION_LANE);
+
+    if (!enterMultiCandidateMode) {
         return [{
             variant: "requested",
             lane: null,
@@ -176,15 +188,7 @@ export function buildHybridSymbolicCandidateRequests(
     }
 
     const learnedBinding = resolveStructureBinding(request.selectedModels ?? executionPlan.selectedModels);
-    if (!isLearnedStructureBinding(learnedBinding)) {
-        return [{
-            variant: "requested",
-            lane: null,
-            candidateVariantKey: request.candidateVariantKey,
-            request: normalizeVariantRequest(request, executionPlan.selectedModels, compositionPlan),
-        }];
-    }
-    if (!learnedBinding) {
+    if (!isLearnedStructureBinding(learnedBinding) || !learnedBinding) {
         return [{
             variant: "requested",
             lane: null,
