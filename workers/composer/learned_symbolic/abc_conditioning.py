@@ -8,7 +8,6 @@ No external inference is performed; output is fully deterministic.
 """
 
 import re
-from typing import Any
 
 from .prompt_packing import ProviderPromptPackingContext
 

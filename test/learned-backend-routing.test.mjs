@@ -243,6 +243,7 @@ test("backend-routing: malformed providerRequest returns validation error", asyn
     try {
         const payload = buildMinimalPayload(tmpDir);
         // Corrupt the providerRequest: pass a non-object value
+        // @ts-expect-error intentional invalid type for robustness test
         payload.providerRequest = "not-an-object";
         const result = runLearnedWorker(payload);
         // Should still succeed (corrupt providerRequest → context=None → template backend runs)

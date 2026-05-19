@@ -22,15 +22,9 @@ from __future__ import annotations
 from typing import Any, NotRequired, TypedDict, cast
 
 from .abc_types import (
-    PIANO_LEFT_HAND_PITCH_MAX,
-    PIANO_LEFT_HAND_PITCH_MIN,
-    PIANO_MAX_CHORD_VOICES,
     PIANO_MAX_HAND_SPAN,
-    PIANO_RIGHT_HAND_PITCH_MAX,
-    PIANO_RIGHT_HAND_PITCH_MIN,
     WARN_PIANO_HAND_COLLISION,
     WARN_PIANO_SPAN_EXCEEDED,
-    PianoHandSplit,
     PianoVoiceLayoutDict,
 )
 

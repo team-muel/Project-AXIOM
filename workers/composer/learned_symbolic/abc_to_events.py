@@ -14,7 +14,7 @@ Missing voices produce silence and a normalizationWarning.
 
 from typing import Any
 
-from .section_aligner import SectionBarRange, build_section_bar_ranges
+from .section_aligner import build_section_bar_ranges
 from .symbolic_projection import (
     BASS_RANGE,
     COUNTERLINE_RANGE,
