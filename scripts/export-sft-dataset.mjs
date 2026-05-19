@@ -4,6 +4,15 @@
  * Exports approved AXIOM candidates as a Supervised Fine-Tuning (SFT) dataset
  * in JSONL format for training AXIOM-control-following NotaGen adapters.
  *
+ * APPROVAL PHILOSOPHY (v2):
+ *   PRIMARY GATE: InternalCriticApproval.approved (computed from craft scores)
+ *   SECONDARY:    manifest.selected (human selection, used as metadata only)
+ *   NOT A GATE:   listenerFeedback / curatorCalibration (calibration signal only)
+ *
+ * --approved-only now uses InternalCriticApproval.approved as the gate.
+ * Use --selection-only to additionally require human selection.
+ * Use --listener-gate to additionally require listenerFeedback.appeal >= threshold.
+ *
  * Each exported record ("example") consists of:
  *
  *   input:
@@ -21,17 +30,19 @@
  *   metadata:
  *     - songId                  AXIOM song ID
  *     - candidateId             candidate identifier
- *     - status                  "approved" | "rejected"
+ *     - criticApproved          internal critic approval decision (primary gate)
+ *     - selected                whether this was the human-selected candidate
  *     - scoringProfileId        profile used for scoring
  *     - evidenceCoverageScore   evidence completeness score
  *     - finalCraftScore         heuristic gate score
  *     - advancedCraftScore      plan-aware composite score
  *     - harmonyContractScore    harmony evidence completeness
  *     - pianoListenabilityScore piano-specific listenability (if available)
+ *     - failedDimensions[]      critic dimensions that failed (empty = approved)
  *     - hasRepairHistory        whether any repair directives were applied
  *     - repairKinds[]           kinds of repairs applied (if any)
- *     - feedbackAppeal?         human feedback appeal rating (if available)
- *     - feedbackPreferredOver?  candidateId this was preferred over (if available)
+ *     - calibrationAppeal?      curator calibration quality rating (if available)
+ *     - calibrationPreferredOver? pairwise calibration signal (if available)
  *     - exportedAt              ISO timestamp
  *
  * Records are written one JSON object per line (JSONL).
@@ -43,7 +54,10 @@
  *   --root=<dir>           outputs root directory (default: outputs)
  *   --out=<file>           output JSONL file (default: outputs/_system/sft-dataset.jsonl)
  *   --min-score=<n>        minimum finalCraftScore to include (default: 0.0)
- *   --approved-only        only include approved candidates (skips rejected)
+ *   --approved-only        only include candidates where InternalCriticApproval.approved=true
+ *                          Falls back to finalCraftScore >= 0.70 when internalCriticApproval absent
+ *   --selection-only       additionally require manifest.selected=true (human-selected candidates)
+ *   --listener-gate=<n>    additionally require curatorCalibration.qualityRating >= n (1–5)
  *   --dry-run              print stats without writing file
  *
  * Exit code 0 on success; 1 on error.
@@ -61,11 +75,16 @@ function readOption(name) {
 }
 function hasFlag(name) { return argv.includes(`--${name}`); }
 
-const outputRoot   = readOption("root") ?? "outputs";
-const outFile      = readOption("out")  ?? path.join(outputRoot, "_system", "sft-dataset.jsonl");
-const minScore     = parseFloat(readOption("min-score") ?? "0.0");
-const approvedOnly = hasFlag("approved-only");
-const dryRun       = hasFlag("dry-run");
+const outputRoot    = readOption("root") ?? "outputs";
+const outFile       = readOption("out")  ?? path.join(outputRoot, "_system", "sft-dataset.jsonl");
+const minScore      = parseFloat(readOption("min-score") ?? "0.0");
+const approvedOnly  = hasFlag("approved-only");
+const selectionOnly = hasFlag("selection-only");
+const listenerGate  = readOption("listener-gate") !== null ? parseInt(readOption("listener-gate") ?? "3", 10) : null;
+const dryRun        = hasFlag("dry-run");
+
+// Internal critic fallback threshold when manifest lacks internalCriticApproval
+const CRITIC_FALLBACK_THRESHOLD = 0.70;
 
 // ─── Filesystem helpers ───────────────────────────────────────────────────────
 function loadJsonIfExists(filePath) {
@@ -154,16 +173,28 @@ function extractRepairHistory(manifest) {
     };
 }
 
-function extractFeedback(manifest) {
-    const fb = manifest.listenerFeedback ?? manifest.feedback ?? null;
-    if (!fb) return {};
+function extractCalibration(manifest) {
+    // Curator calibration review (secondary calibration signal — not a gate)
+    const cal = manifest.curatorCalibration ?? null;
+    // Legacy: fall back to listenerFeedback for backward compat
+    const fb  = manifest.listenerFeedback ?? manifest.feedback ?? null;
+    if (!cal && !fb) return {};
+    if (cal) {
+        return {
+            ...(cal.qualityRating    !== undefined ? { calibrationAppeal:       cal.qualityRating }    : {}),
+            ...(cal.harmonyRating    !== undefined ? { calibrationHarmony:      cal.harmonyRating }    : {}),
+            ...(cal.structureRating  !== undefined ? { calibrationStructure:    cal.structureRating }  : {}),
+            ...(cal.motifRating      !== undefined ? { calibrationMotif:        cal.motifRating }      : {}),
+            ...(cal.pianoRating      !== undefined ? { calibrationPiano:        cal.pianoRating }      : {}),
+            ...(cal.preferredOver    !== undefined ? { calibrationPreferredOver: cal.preferredOver }   : {}),
+            ...(cal.calibrationNote  !== undefined ? { calibrationNote:         cal.calibrationNote }  : {}),
+        };
+    }
+    // Legacy listenerFeedback → expose as calibration metadata (not gate signal)
     return {
-        ...(fb.appeal          !== undefined ? { feedbackAppeal:       fb.appeal }          : {}),
-        ...(fb.coherence       !== undefined ? { feedbackCoherence:    fb.coherence }       : {}),
-        ...(fb.memorability    !== undefined ? { feedbackMemorability: fb.memorability }    : {}),
-        ...(fb.emotionalImpact !== undefined ? { feedbackEmotionalImpact: fb.emotionalImpact } : {}),
-        ...(fb.preferredOver   !== undefined ? { feedbackPreferredOver: fb.preferredOver }  : {}),
-        ...(fb.rejectionReason !== undefined ? { feedbackRejectionReason: fb.rejectionReason } : {}),
+        ...(fb.appeal          !== undefined ? { calibrationAppeal:       fb.appeal }          : {}),
+        ...(fb.preferredOver   !== undefined ? { calibrationPreferredOver: fb.preferredOver }  : {}),
+        ...(fb.rejectionReason !== undefined ? { calibrationInsight: fb.rejectionReason }      : {}),
     };
 }
 
@@ -182,22 +213,49 @@ function extractApprovedAbc(manifest, songDir, candidateId) {
 }
 
 // ─── Main export logic ────────────────────────────────────────────────────────
+/**
+ * Resolves whether the internal critic approved this candidate.
+ *
+ * Primary source: manifest.internalCriticApproval.approved
+ * Fallback (old manifests without saved approval): finalCraftScore >= 0.70
+ */
+function isCriticApproved(manifest) {
+    if (manifest.internalCriticApproval !== undefined) {
+        return manifest.internalCriticApproval.approved === true;
+    }
+    // Fallback for manifests generated before internalCriticApproval was added
+    const scores = extractScores(manifest);
+    return scores.finalCraftScore !== null && scores.finalCraftScore >= CRITIC_FALLBACK_THRESHOLD;
+}
+
 function buildRecord(songId, candidateId, manifest, songDir) {
     const scores = extractScores(manifest);
 
     // Score gate
     if (scores.finalCraftScore !== null && scores.finalCraftScore < minScore) return null;
 
-    // Status gate
-    const status = manifest.selected === true ? "approved" : "rejected";
-    if (approvedOnly && status !== "approved") return null;
+    // PRIMARY GATE: Internal critic approval
+    // --approved-only filters on InternalCriticApproval.approved (not manifest.selected)
+    const criticApproved = isCriticApproved(manifest);
+    if (approvedOnly && !criticApproved) return null;
+
+    // Secondary: human selection gate (opt-in)
+    if (selectionOnly && manifest.selected !== true) return null;
+
+    // Secondary: calibration quality gate (opt-in)
+    if (listenerGate !== null) {
+        const cal = manifest.curatorCalibration ?? manifest.listenerFeedback;
+        const rating = cal?.qualityRating ?? cal?.appeal ?? null;
+        if (rating === null || rating < listenerGate) return null;
+    }
 
     const approvedAbc = extractApprovedAbc(manifest, songDir, candidateId);
     if (!approvedAbc) return null; // no ABC → skip (no output to train on)
 
-    const inputFields  = extractInputFields(manifest);
-    const repairInfo   = extractRepairHistory(manifest);
-    const feedbackInfo = extractFeedback(manifest);
+    const inputFields     = extractInputFields(manifest);
+    const repairInfo      = extractRepairHistory(manifest);
+    const calibrationInfo = extractCalibration(manifest);
+    const failedDimensions = manifest.internalCriticApproval?.failedDimensions ?? [];
 
     return {
         input: {
@@ -209,11 +267,15 @@ function buildRecord(songId, candidateId, manifest, songDir) {
         metadata: {
             songId,
             candidateId,
-            status,
-            scoringProfileId: manifest.scoringProfileId ?? null,
+            criticApproved,
+            selected: manifest.selected === true,
+            scoringProfileId: manifest.internalCriticApproval?.scoringProfileId
+                ?? manifest.scoringProfileId
+                ?? null,
             ...scores,
+            failedDimensions,
             ...repairInfo,
-            ...feedbackInfo,
+            ...calibrationInfo,
             exportedAt: new Date().toISOString(),
         },
     };
@@ -229,9 +291,11 @@ function run() {
 
     const records = [];
     let totalCandidates = 0;
-    let skippedNoAbc  = 0;
-    let skippedScore  = 0;
-    let skippedStatus = 0;
+    let skippedNoAbc    = 0;
+    let skippedScore    = 0;
+    let skippedCritic   = 0;
+    let skippedSelection = 0;
+    let skippedCalibration = 0;
 
     for (const songDir of songDirs) {
         const songId = path.basename(songDir);
@@ -247,8 +311,18 @@ function run() {
             const manifest = loadCandidateManifest(songDir, candidateId);
             if (!manifest) continue;
 
-            const status = manifest.selected === true ? "approved" : "rejected";
-            if (approvedOnly && status !== "approved") { skippedStatus++; continue; }
+            // PRIMARY GATE: internal critic approval
+            if (approvedOnly && !isCriticApproved(manifest)) { skippedCritic++; continue; }
+
+            // Secondary selection gate
+            if (selectionOnly && manifest.selected !== true) { skippedSelection++; continue; }
+
+            // Secondary calibration gate
+            if (listenerGate !== null) {
+                const cal = manifest.curatorCalibration ?? manifest.listenerFeedback;
+                const rating = cal?.qualityRating ?? cal?.appeal ?? null;
+                if (rating === null || rating < listenerGate) { skippedCalibration++; continue; }
+            }
 
             const scores = extractScores(manifest);
             if (scores.finalCraftScore !== null && scores.finalCraftScore < minScore) {
@@ -264,26 +338,30 @@ function run() {
     }
 
     // Stats
-    const approvedCount = records.filter((r) => r.metadata.status === "approved").length;
-    const withRepair    = records.filter((r) => r.metadata.hasRepairHistory).length;
-    const withFeedback  = records.filter((r) => r.metadata.feedbackAppeal !== undefined).length;
-    const withMotif     = records.filter((r) => r.input.motifGraphBlock !== undefined).length;
-    const withHarmony   = records.filter((r) => r.input.repairBlock !== undefined).length;
-    const withPiano     = records.filter((r) => r.input.pianoRewriteBlock !== undefined).length;
+    const criticApprovedCount = records.filter((r) => r.metadata.criticApproved).length;
+    const selectedCount   = records.filter((r) => r.metadata.selected).length;
+    const withRepair      = records.filter((r) => r.metadata.hasRepairHistory).length;
+    const withCalibration = records.filter((r) => r.metadata.calibrationAppeal !== undefined).length;
+    const withMotif       = records.filter((r) => r.input.motifGraphBlock !== undefined).length;
+    const withHarmony     = records.filter((r) => r.input.repairBlock !== undefined).length;
+    const withPiano       = records.filter((r) => r.input.pianoRewriteBlock !== undefined).length;
 
     console.log("=== SFT Dataset Export Summary ===");
-    console.log(`  Song directories:   ${songDirs.length}`);
-    console.log(`  Total candidates:   ${totalCandidates}`);
-    console.log(`  Exported:           ${records.length}`);
-    console.log(`    approved:         ${approvedCount}`);
-    console.log(`    with repair hist: ${withRepair}`);
-    console.log(`    with feedback:    ${withFeedback}`);
-    console.log(`    with motifGraph:  ${withMotif}`);
-    console.log(`    with repairBlk:   ${withHarmony}`);
-    console.log(`    with pianoRewrite:${withPiano}`);
-    console.log(`  Skipped (no ABC):   ${skippedNoAbc}`);
-    console.log(`  Skipped (score):    ${skippedScore}`);
-    console.log(`  Skipped (status):   ${skippedStatus}`);
+    console.log(`  Song directories:      ${songDirs.length}`);
+    console.log(`  Total candidates:      ${totalCandidates}`);
+    console.log(`  Exported:              ${records.length}`);
+    console.log(`    critic-approved:     ${criticApprovedCount}`);
+    console.log(`    human-selected:      ${selectedCount}`);
+    console.log(`    with repair hist:    ${withRepair}`);
+    console.log(`    with calibration:    ${withCalibration}`);
+    console.log(`    with motifGraph:     ${withMotif}`);
+    console.log(`    with repairBlock:    ${withHarmony}`);
+    console.log(`    with pianoRewrite:   ${withPiano}`);
+    console.log(`  Skipped (no ABC):      ${skippedNoAbc}`);
+    console.log(`  Skipped (score gate):  ${skippedScore}`);
+    console.log(`  Skipped (critic gate): ${skippedCritic}`);
+    console.log(`  Skipped (selection):   ${skippedSelection}`);
+    console.log(`  Skipped (calibration): ${skippedCalibration}`);
 
     if (dryRun) {
         console.log("\n[dry-run] No file written.");

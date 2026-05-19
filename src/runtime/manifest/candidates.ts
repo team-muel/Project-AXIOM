@@ -8,6 +8,8 @@ import type {
     ComposeQualityPolicy,
     CompositionPlan,
     CraftScoreSummary,
+    CuratorCalibrationReview,
+    InternalCriticApproval,
     ListenerFeedback,
     PianoCraftScoreSummary,
     PianoDataLoopEvidence,
@@ -18,6 +20,7 @@ import type {
     SongMeta,
     StructureEvaluationReport,
 } from "../../core/pipeline/types.js";
+import { computeInternalCriticApproval } from "../../core/evaluate/internalCriticApproval.js";
 import type { CandidateScoringProfiles } from "../../core/evaluate/scoringProfile.js";
 
 export interface StructureCandidateIndexEntry {
@@ -91,8 +94,25 @@ export interface StructureCandidateManifest {
     internalScores?: Record<string, number>;
     /** Structured per-dimension listener scores written at approval/rejection time */
     listenerScores?: Record<string, number>;
-    /** Full structured listener feedback attached when a human approves or rejects this candidate */
+    /**
+     * Full structured listener feedback attached when a human approves or rejects this candidate.
+     * @deprecated Prefer curatorCalibration. This field is kept for backward compatibility.
+     * Role: calibration signal only — does NOT drive SFT dataset inclusion.
+     */
     listenerFeedback?: ListenerFeedback;
+    /**
+     * Internal AXIOM critic approval decision.
+     * Primary gate for SFT dataset curation and export.
+     * Computed automatically from craftScoreSummary when the manifest is saved.
+     * Human feedback (curatorCalibration) does NOT override this decision.
+     */
+    internalCriticApproval?: InternalCriticApproval;
+    /**
+     * Optional curator calibration review.
+     * Purpose: sanity-check whether internal critic scores match trained human perception.
+     * NOT a reward signal — does not drive SFT dataset inclusion.
+     */
+    curatorCalibration?: CuratorCalibrationReview;
     /**
      * Piano-specific craft scores.  Present only for solo-piano candidates that
      * passed the piano playability gate.  Mirrors pianoCraftScoreSummary in
@@ -364,6 +384,22 @@ export function saveStructureCandidateSnapshot(input: SaveStructureCandidateSnap
         },
     };
 
+    // Compute and attach internal critic approval from craft scores.
+    // This is the primary gate for SFT dataset curation — computed automatically,
+    // independent of human feedback.
+    const craftSummary = input.structureEvaluation?.craftScoreSummary;
+    if (craftSummary) {
+        const pianoSummary = input.structureEvaluation?.pianoCraftScoreSummary ?? input.pianoCraftScore;
+        candidateManifest.internalCriticApproval = computeInternalCriticApproval(
+            craftSummary,
+            pianoSummary,
+            {
+                scoringProfileId: craftSummary.scoringProfile ?? input.scoringProfiles?.scoringProfile ?? "unknown",
+                evaluatedAt,
+            },
+        );
+    }
+
     writeJsonFile(candidateManifestPath, candidateManifest);
 
     if (input.sectionArtifacts?.length) {
@@ -564,4 +600,54 @@ export function saveListenerFeedbackToCandidate(
 
     writeJsonFile(candidateManifestPath, candidateManifest);
     return candidateManifest;
+}
+
+// ─── Curator Calibration ──────────────────────────────────────────────────────
+//
+// saveCuratorCalibration() writes a CuratorCalibrationReview to a candidate
+// manifest.  This is a SECONDARY calibration signal — it does NOT drive SFT
+// dataset inclusion.  Use it to verify that internal critic scores align with
+// trained human perception (or domain-expert review).
+//
+// Use analyze:score-feedback to correlate calibration data with internal scores.
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Saves a curator calibration review to any candidate manifest by candidateId.
+ * Supports selected AND rejected candidates.
+ *
+ * This does NOT override the internal critic approval decision.
+ * Use it only for calibration and score-alignment analysis.
+ *
+ * @returns the updated manifest, or null when the manifest file is missing.
+ */
+export function saveCuratorCalibration(
+    songId: string,
+    candidateId: string,
+    review: CuratorCalibrationReview,
+): StructureCandidateManifest | null {
+    const candidateManifestPath = structureCandidateManifestPath(songId, candidateId);
+    const candidateManifest = readJsonFile<StructureCandidateManifest>(candidateManifestPath);
+    if (!candidateManifest) {
+        return null;
+    }
+    candidateManifest.curatorCalibration = cloneJson(review);
+    writeJsonFile(candidateManifestPath, candidateManifest);
+    return candidateManifest;
+}
+
+/**
+ * Saves a curator calibration review to the selected candidate of a song.
+ * No-ops gracefully when the candidate index or manifest is missing.
+ */
+export function saveCuratorCalibrationToSelectedCandidate(
+    songId: string,
+    review: CuratorCalibrationReview,
+): void {
+    const index = loadStructureCandidateIndex(songId);
+    const selectedId = index.selectedCandidateId;
+    if (!selectedId) {
+        return;
+    }
+    saveCuratorCalibration(songId, selectedId, review);
 }

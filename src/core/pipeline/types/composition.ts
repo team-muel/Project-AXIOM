@@ -92,6 +92,85 @@ export interface ReviewFeedback {
     listenerFeedback?: ListenerFeedback;
 }
 
+// ─── Internal Critic Approval ──────────────────────────────────────────────────
+//
+// AXIOM 작곡 철학: internal critic이 primary approval gate
+// listenerFeedback / curatorCalibration은 보정(calibration) 용도로만 사용
+//
+// Approval hierarchy:
+//   1. InternalCriticApproval (primary)  — criteria: finalCraftScore + evidenceCoverage + harmonyContract
+//   2. CuratorCalibrationReview (secondary) — optional human sanity check / score calibration
+//
+// Dataset curation (SFT export) uses InternalCriticApproval.approved as the sole gate.
+// CuratorCalibrationReview enriches metadata only — it does not override critic approval.
+
+export interface InternalCriticApprovalThresholds {
+    /** minimum finalCraftScore for approval */
+    finalCraftScore: number;
+    /** minimum advancedCraftScore for approval */
+    advancedCraftScore: number;
+    /** minimum harmonyContractScore for approval (0–1) */
+    harmonyContractScore: number;
+    /** minimum evidenceCoverageScore for approval (0–1) */
+    evidenceCoverageScore: number;
+}
+
+export const INTERNAL_CRITIC_APPROVAL_THRESHOLDS_V1: InternalCriticApprovalThresholds = {
+    finalCraftScore:       0.70,
+    advancedCraftScore:    0.60,
+    harmonyContractScore:  0.70,
+    evidenceCoverageScore: 0.55,
+} as const;
+
+/**
+ * Result of the AXIOM internal critic evaluation.
+ * This is the PRIMARY signal for dataset curation and SFT export.
+ * Human feedback is secondary calibration data only.
+ */
+export interface InternalCriticApproval {
+    /** True when all threshold dimensions pass. Primary gate for SFT dataset inclusion. */
+    approved: boolean;
+    /** Snapshot of key craft score dimensions at evaluation time. */
+    finalCraftScore: number;
+    advancedCraftScore: number;
+    harmonyContractScore: number;
+    evidenceCoverageScore: number;
+    /** Piano listenability score when present (piano candidates only). */
+    pianoListenabilityScore?: number;
+    /** Scoring profile ID used for the threshold decision. */
+    scoringProfileId: string;
+    /** Which dimensions fell below their threshold (empty when approved). */
+    failedDimensions: string[];
+    /** ISO timestamp when the approval was computed. */
+    evaluatedAt: string;
+}
+
+/**
+ * Optional curator calibration review.
+ * Purpose: sanity-check whether internal critic scores match trained human perception.
+ * NOT a reward signal — does not drive SFT dataset inclusion.
+ * Use analyze:score-feedback to verify calibration alignment.
+ */
+export interface CuratorCalibrationReview {
+    /** Source of the review ("human", "automated", "expert-review") */
+    source: "human" | "automated" | "expert-review";
+    /** 1–5 scale assessment of musical quality by the reviewer */
+    qualityRating: 1 | 2 | 3 | 4 | 5;
+    /** Optional per-dimension assessments */
+    harmonyRating?: 1 | 2 | 3 | 4 | 5;
+    structureRating?: 1 | 2 | 3 | 4 | 5;
+    motifRating?: 1 | 2 | 3 | 4 | 5;
+    pianoRating?: 1 | 2 | 3 | 4 | 5;
+    /** Free-form note about what the internal critic got right or wrong */
+    calibrationNote?: string;
+    /** CandidateId this was preferred over in a pairwise comparison */
+    preferredOver?: string;
+    /** Why this candidate was ranked lower (calibration insight, not reward) */
+    calibrationInsight?: string;
+    /** ISO timestamp */
+    reviewedAt: string;
+}
+
 export interface SelfAssessment {
     generatedAt: string;
     summary: string;

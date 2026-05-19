@@ -29,6 +29,7 @@ import "../sonata-cycle-planner.test.mjs";
 // ─── Feedback & preference ───────────────────────────────────────────────────
 import "../listener-feedback.test.mjs";
 import "../preference-model.test.mjs";
+import "../internal-critic-approval.test.mjs";
 // NOTE: candidate-feedback-api.test.mjs uses runNodeEval → lives in core.test.mjs
 
 // ─── Candidate pool & repair ─────────────────────────────────────────────────
