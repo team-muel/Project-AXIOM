@@ -8,7 +8,9 @@ import type {
     ComposeQualityPolicy,
     CompositionPlan,
     CraftScoreSummary,
+    CurationDecision,
     CuratorCalibrationReview,
+    HumanCalibrationFeedback,
     InternalCriticApproval,
     ListenerFeedback,
     PianoCraftScoreSummary,
@@ -95,11 +97,24 @@ export interface StructureCandidateManifest {
     /** Structured per-dimension listener scores written at approval/rejection time */
     listenerScores?: Record<string, number>;
     /**
-     * Full structured listener feedback attached when a human approves or rejects this candidate.
-     * @deprecated Prefer curatorCalibration. This field is kept for backward compatibility.
+     * Human calibration feedback — 사람이 들은 보조 의견.
      * Role: calibration signal only — does NOT drive SFT dataset inclusion.
+     * @deprecated The appeal field was previously required (ListenerFeedback).
+     *   New writers should use HumanCalibrationFeedback (all optional).
+     *   Readers should treat all fields as optional for backward compat.
      */
-    listenerFeedback?: ListenerFeedback;
+    listenerFeedback?: HumanCalibrationFeedback;
+    /**
+     * Official curation decision — 학습/선택에 쓸 공식 결정.
+     * Primary driver for SFT export and dataset inclusion.
+     * Computed automatically from InternalCriticApproval when the candidate is saved.
+     * May be overridden by human curator via saveCurationDecision().
+     *
+     * Semantic split:
+     *   listenerFeedback = 사람이 들은 보조 의견 (calibration only)
+     *   curationDecision = 공식 결정 (SFT / dataset gate)
+     */
+    curationDecision?: CurationDecision;
     /**
      * Internal AXIOM critic approval decision.
      * Primary gate for SFT dataset curation and export.
@@ -390,7 +405,7 @@ export function saveStructureCandidateSnapshot(input: SaveStructureCandidateSnap
     const craftSummary = input.structureEvaluation?.craftScoreSummary;
     if (craftSummary) {
         const pianoSummary = input.structureEvaluation?.pianoCraftScoreSummary ?? input.pianoCraftScore;
-        candidateManifest.internalCriticApproval = computeInternalCriticApproval(
+        const ica = computeInternalCriticApproval(
             craftSummary,
             pianoSummary,
             {
@@ -398,6 +413,16 @@ export function saveStructureCandidateSnapshot(input: SaveStructureCandidateSnap
                 evaluatedAt,
             },
         );
+        candidateManifest.internalCriticApproval = ica;
+        // Derive the official curation decision from the critic approval.
+        // This is the authoritative gate for SFT export and dataset inclusion.
+        candidateManifest.curationDecision = {
+            status: ica.approved ? "accepted" : (ica.failedDimensions.length > 0 ? "needs_rewrite" : "rejected"),
+            source: "axiom",
+            reasons: ica.approved ? [] : ica.failedDimensions.map((d) => `${d}_below_threshold`),
+            scoringProfileId: ica.scoringProfileId,
+            decidedAt: ica.evaluatedAt,
+        };
     }
 
     writeJsonFile(candidateManifestPath, candidateManifest);
@@ -513,13 +538,16 @@ export function saveStructureCandidateRerankerScore(score: StructureCandidateRer
 }
 
 /**
- * Saves listener feedback (and internalScores/listenerScores derived from it)
+ * Saves human calibration feedback (and internalScores/listenerScores derived from it)
  * to the selected candidate's sidecar manifest for a given song.
  * No-ops gracefully when the candidate index or manifest is missing.
+ *
+ * Role: calibration signal only — does NOT drive SFT dataset inclusion.
+ * The curationDecision field (populated by saveStructureCandidateSnapshot) is the SFT gate.
  */
 export function saveListenerFeedbackToSelectedCandidate(
     songId: string,
-    feedback: ListenerFeedback,
+    feedback: HumanCalibrationFeedback | ListenerFeedback,
     internalScores?: Record<string, number>,
 ): void {
     const index = loadStructureCandidateIndex(songId);
@@ -531,19 +559,20 @@ export function saveListenerFeedbackToSelectedCandidate(
 }
 
 /**
- * Saves listener feedback to any structure candidate manifest by candidateId,
+ * Saves human calibration feedback to any structure candidate manifest by candidateId,
  * regardless of whether the candidate is selected.  This is the canonical
  * low-level writer; {@link saveListenerFeedbackToSelectedCandidate} delegates here.
  *
  * Supports pairwise preference signals via `feedback.preferredOver` and
  * rejection rationale via `feedback.rejectionReason`.
  *
+ * Role: calibration signal only — does NOT drive SFT dataset inclusion.
  * @returns the updated manifest, or null when the manifest file is missing.
  */
 export function saveListenerFeedbackToCandidate(
     songId: string,
     candidateId: string,
-    feedback: ListenerFeedback,
+    feedback: HumanCalibrationFeedback | ListenerFeedback,
     internalScores?: Record<string, number>,
 ): StructureCandidateManifest | null {
     const candidateManifestPath = structureCandidateManifestPath(songId, candidateId);
@@ -650,4 +679,57 @@ export function saveCuratorCalibrationToSelectedCandidate(
         return;
     }
     saveCuratorCalibration(songId, selectedId, review);
+}
+
+// ─── Curation Decision ────────────────────────────────────────────────────────
+//
+// saveCurationDecision() writes a CurationDecision to a candidate manifest.
+// This is the OFFICIAL gate for SFT dataset inclusion.
+//
+// Automatic: saveStructureCandidateSnapshot() computes curationDecision from
+//   InternalCriticApproval and sets source="axiom".
+// Manual override: human curators can call saveCurationDecision() to set
+//   source="human" or source="hybrid" — e.g. when overriding a failed candidate
+//   that was musically excellent despite a low craft score.
+//
+// AXIOM 작곡 철학:
+//   listenerFeedback = 사람이 들은 보조 의견 (calibration only)
+//   curationDecision = 학습/선택에 쓸 공식 결정 (SFT gate)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Writes a CurationDecision to any candidate manifest by candidateId.
+ * Supports human override of the axiom-computed decision.
+ *
+ * @returns the updated manifest, or null when the manifest file is missing.
+ */
+export function saveCurationDecision(
+    songId: string,
+    candidateId: string,
+    decision: CurationDecision,
+): StructureCandidateManifest | null {
+    const candidateManifestPath = structureCandidateManifestPath(songId, candidateId);
+    const candidateManifest = readJsonFile<StructureCandidateManifest>(candidateManifestPath);
+    if (!candidateManifest) {
+        return null;
+    }
+    candidateManifest.curationDecision = cloneJson(decision);
+    writeJsonFile(candidateManifestPath, candidateManifest);
+    return candidateManifest;
+}
+
+/**
+ * Writes a CurationDecision to the selected candidate of a song.
+ * No-ops gracefully when the candidate index or manifest is missing.
+ */
+export function saveCurationDecisionToSelectedCandidate(
+    songId: string,
+    decision: CurationDecision,
+): void {
+    const index = loadStructureCandidateIndex(songId);
+    const selectedId = index.selectedCandidateId;
+    if (!selectedId) {
+        return;
+    }
+    saveCurationDecision(songId, selectedId, decision);
 }

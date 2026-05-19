@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { logger } from "../logging/logger.js";
-import type { ListenerFeedback } from "../core/pipeline/types.js";
+import type { HumanCalibrationFeedback } from "../core/pipeline/types.js";
 import {
     readStructureCandidateIndex,
     saveListenerFeedbackToCandidate,
@@ -66,7 +66,8 @@ router.post("/feedback/:songId/:candidateId", (req, res) => {
         return;
     }
 
-    const feedback: ListenerFeedback = { appeal };
+    const feedback: HumanCalibrationFeedback = {};
+    if (appeal !== undefined) feedback.appeal = appeal;
 
     const memorability = ratingField(body?.memorability);
     if (memorability !== undefined) feedback.memorability = memorability;
@@ -77,10 +78,10 @@ router.post("/feedback/:songId/:candidateId", (req, res) => {
     const emotionalImpact = ratingField(body?.emotionalImpact);
     if (emotionalImpact !== undefined) feedback.emotionalImpact = emotionalImpact;
 
-    const strongestDimension = compact(body?.strongestDimension) as ListenerFeedback["strongestDimension"];
+    const strongestDimension = compact(body?.strongestDimension) as HumanCalibrationFeedback["strongestDimension"];
     if (strongestDimension) feedback.strongestDimension = strongestDimension;
 
-    const weakestDimension = compact(body?.weakestDimension) as ListenerFeedback["weakestDimension"];
+    const weakestDimension = compact(body?.weakestDimension) as HumanCalibrationFeedback["weakestDimension"];
     if (weakestDimension) feedback.weakestDimension = weakestDimension;
 
     const notes = compact(body?.notes);
@@ -109,6 +110,7 @@ router.post("/feedback/:songId/:candidateId", (req, res) => {
             selected: updated.selected,
             listenerScores: updated.listenerScores,
             internalScores: updated.internalScores,
+            curationDecision: updated.curationDecision,
         });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

@@ -81,6 +81,60 @@ export interface ListenerFeedback {
     rejectionReason?: string;
 }
 
+/**
+ * Human calibration feedback attached to a candidate.
+ *
+ * AXIOM 작곡 철학:
+ *   - 이것은 사람의 "보조 의견"(sanity check / calibration signal)입니다.
+ *   - SFT 학습 선택의 primary gate가 아닙니다 — InternalCriticApproval이 그 역할을 합니다.
+ *   - analyze:score-feedback으로 내부 critic 점수와의 alignment를 검증하는 데 사용하세요.
+ *
+ * 모든 필드가 optional인 이유: feedback은 부분적으로 기록될 수 있고,
+ * 없는 차원은 calibration skip이지 reject이 아닙니다.
+ */
+export interface HumanCalibrationFeedback {
+    /** Overall appeal: 1 (poor) – 5 (excellent). Calibration signal only. */
+    appeal?: 1 | 2 | 3 | 4 | 5;
+    coherence?: 1 | 2 | 3 | 4 | 5;
+    memorability?: 1 | 2 | 3 | 4 | 5;
+    emotionalImpact?: 1 | 2 | 3 | 4 | 5;
+    strongestDimension?: "melody" | "harmony" | "form" | "texture" | "expression" | "orchestration";
+    weakestDimension?: "melody" | "harmony" | "form" | "texture" | "expression" | "orchestration";
+    /** CandidateId this piece was preferred over in a pairwise comparison. */
+    preferredOver?: string;
+    /** Why this candidate was less preferred (calibration insight, not reward). */
+    rejectionReason?: string;
+    /** Free-form human note (musical observation, perceptual impression). */
+    notes?: string;
+    /** Id of another candidate this piece was compared against. */
+    comparisonCandidateId?: string;
+}
+
+/**
+ * Official curation decision for a candidate — drives SFT export and dataset inclusion.
+ *
+ * AXIOM 작곡 철학:
+ *   - listenerFeedback (HumanCalibrationFeedback) = 사람이 들은 보조 의견
+ *   - curationDecision = 학습/선택에 쓸 공식 결정
+ *
+ * source 가이드:
+ *   "axiom"  — InternalCriticApproval.approved만으로 결정 (기본)
+ *   "human"  — 사람 curator가 명시적으로 override한 경우
+ *   "hybrid" — axiom 통과 + human calibration boost 둘 다 존재
+ */
+export interface CurationDecision {
+    /** Outcome of the curation decision. */
+    status: "accepted" | "rejected" | "needs_rewrite";
+    /** Who/what made this decision. */
+    source: "axiom" | "human" | "hybrid";
+    /** Machine-readable reasons (e.g. ["finalCraftScore_below_threshold", "no_abc_text"]). */
+    reasons: string[];
+    /** Scoring profile ID used when this decision was made. */
+    scoringProfileId: string;
+    /** ISO timestamp. */
+    decidedAt: string;
+}
+
 export interface ReviewFeedback {
     reviewRubricVersion?: string;
     note?: string;
@@ -88,8 +142,8 @@ export interface ReviewFeedback {
     strongestDimension?: string;
     weakestDimension?: string;
     comparisonReference?: string;
-    /** Structured per-dimension listener rating attached at approval/rejection time */
-    listenerFeedback?: ListenerFeedback;
+    /** Structured per-dimension human calibration feedback attached at review time */
+    listenerFeedback?: HumanCalibrationFeedback;
 }
 
 // ─── Internal Critic Approval ──────────────────────────────────────────────────
