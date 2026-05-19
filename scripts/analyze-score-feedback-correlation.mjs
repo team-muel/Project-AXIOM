@@ -161,6 +161,19 @@ function extractDataPoint(manifest) {
         point[`fb_${fb}`] = typeof raw === "number" ? raw : null;
     }
 
+    // Pairwise preference signal: when the listener preferred this over another candidate
+    point["preferredOver"] = typeof feedback.preferredOver === "string" && feedback.preferredOver
+        ? feedback.preferredOver
+        : null;
+
+    // Rejection reason tag (categorical)
+    point["rejectionReason"] = typeof feedback.rejectionReason === "string" && feedback.rejectionReason
+        ? feedback.rejectionReason
+        : null;
+
+    // Selected flag — lets pairwise analysis distinguish winner vs. competitors
+    point["selected"] = manifest.selected === true;
+
     return point;
 }
 
@@ -210,6 +223,75 @@ function spearman(xs, ys) {
     const n = xs.length;
     if (n < 3) return null;
     return pearson(rankArray(xs), rankArray(ys));
+}
+
+// ─── Pairwise preference analysis ─────────────────────────────────────────────
+
+/**
+ * Computes pairwise preference accuracy: for each preferredOver pair (A preferred
+ * over B), checks whether the winner (A) actually scored higher than the loser (B)
+ * on each score dimension.
+ *
+ * Result: pairwiseAccuracy[scoreDim] = fraction of pairs where higher-scored
+ * candidate was preferred (1.0 = score perfectly predicts preference).
+ */
+function buildPairwiseAnalysis(dataPoints) {
+    // Build lookup: songId+candidateId → point
+    const lookup = new Map();
+    for (const p of dataPoints) {
+        lookup.set(`${p.songId}::${p.candidateId}`, p);
+    }
+
+    const allDims = [...SCORE_DIMENSIONS, "pianoListenabilityScore"];
+    const correct = Object.fromEntries(allDims.map((d) => [d, 0]));
+    const total   = Object.fromEntries(allDims.map((d) => [d, 0]));
+    const pairs   = [];
+
+    for (const winner of dataPoints) {
+        if (!winner.preferredOver) continue;
+        const loser = lookup.get(`${winner.songId}::${winner.preferredOver}`);
+        if (!loser) continue;  // loser not in rated set
+
+        const pair = {
+            songId: winner.songId,
+            winnerId: winner.candidateId,
+            loserId: winner.preferredOver,
+            dimensions: {},
+        };
+
+        for (const dim of allDims) {
+            const ws = winner[dim];
+            const ls = loser[dim];
+            if (typeof ws === "number" && typeof ls === "number") {
+                total[dim]++;
+                const isCorrect = ws > ls;
+                if (isCorrect) correct[dim]++;
+                pair.dimensions[dim] = {
+                    winnerScore: ws,
+                    loserScore:  ls,
+                    scoreCorrect: isCorrect,
+                    delta: round4(ws - ls),
+                };
+            }
+        }
+        pairs.push(pair);
+    }
+
+    const accuracy = Object.fromEntries(
+        allDims.map((dim) => [
+            dim,
+            total[dim] >= 1
+                ? { accuracy: round4(correct[dim] / total[dim]), n: total[dim] }
+                : null,
+        ]).filter(([, v]) => v !== null),
+    );
+
+    return {
+        pairCount: pairs.length,
+        dimensionAccuracy: accuracy,
+        note: "accuracy = fraction of pairs where the preferred candidate scored higher. 1.0 = score perfectly predicts preference; 0.5 = random.",
+        pairs: pairs.length <= 50 ? pairs : `(${pairs.length} pairs — omitted for brevity; re-run with --include-pairs)`,
+    };
 }
 
 // ─── Report building ──────────────────────────────────────────────────────────
@@ -364,6 +446,7 @@ if (dataPoints.length < minSamples) {
 
 const correlationTable = buildCorrelationTable(dataPoints);
 const summary          = buildSummary(correlationTable, minSamples);
+const pairwiseAnalysis = buildPairwiseAnalysis(dataPoints);
 
 const report = {
     ok: true,
@@ -373,6 +456,7 @@ const report = {
     candidatesWithFeedback,
     minSamplesThreshold: minSamples,
     summary,
+    pairwiseAnalysis,
     correlations: correlationTable,
     rawDataPoints: dataPoints,
 };
@@ -382,9 +466,11 @@ if (outFile) {
     if (writeCsv) {
         const csvPath = outFile.replace(/\.json$/, "") + ".csv";
         const csvRows = dataPoints.map((p) => {
-            const row = { songId: p.songId, candidateId: p.candidateId };
+            const row = { songId: p.songId, candidateId: p.candidateId, selected: p.selected ?? "" };
             for (const d of [...SCORE_DIMENSIONS, "pianoListenabilityScore"]) row[d] = p[d] ?? "";
             for (const f of FEEDBACK_DIMENSIONS) row[`fb_${f}`] = p[`fb_${f}`] ?? "";
+            row["preferredOver"]   = p.preferredOver   ?? "";
+            row["rejectionReason"] = p.rejectionReason ?? "";
             return row;
         });
         writeCsvFile(csvPath, csvRows);

@@ -29,7 +29,10 @@
         "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\"",
         "benchmark:soundfont:metrics": "node scripts/generate-soundfont-benchmark-metrics.mjs",
         "benchmark:soundfont:playlist": "node scripts/generate-soundfont-benchmark-playlist.mjs",
-        "analyze:score-feedback": "node scripts/analyze-score-feedback-correlation.mjs --root=outputs --out=outputs/_system/score-feedback-correlation.json --csv"
+        "benchmark:notagen-ablation": "node scripts/benchmark-notagen-control-ablation.mjs",
+        "benchmark:notagen-ablation:json": "node scripts/benchmark-notagen-control-ablation.mjs --json",
+        "analyze:score-feedback": "node scripts/analyze-score-feedback-correlation.mjs --root=outputs --out=outputs/_system/score-feedback-correlation.json --csv",
+        "export:sft-dataset": "node scripts/export-sft-dataset.mjs --out=outputs/_system/sft-dataset.jsonl"
     },
     "dependencies": {
         "dotenv": "^16.4.7",

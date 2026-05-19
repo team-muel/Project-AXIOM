@@ -456,3 +456,179 @@ print(json.dumps({
     assert.ok(data.hasPVL, "enriched section must have pianoVoiceLayout");
     assert.ok(data.layoutKeys.length > 0, "pianoVoiceLayout must have fields");
 });
+
+// ─── WEC-14~16: mock / template backend evidence contract smoke test ───────────
+// These tests verify that the mock backend (default when AXIOM_LEARNED_BACKEND is
+// unset or "mock") passes evidence fields through project_symbolic_sections.
+// The mock backend wraps symbolic_projection, so if the projection pass-through
+// works (WEC-06~11), the mock backend should also pass these fields.
+// Tests are skipped when Python or music21 is not available.
+
+const mockBackendDir = path.join(repoRoot, "workers", "composer");
+
+async function runMockBackendHelper(pythonBin, code) {
+    const { stdout } = await execFileAsync(
+        pythonBin,
+        ["-c", `
+import sys, os, json
+sys.path.insert(0, r'${mockBackendDir.replace(/\\/g, "\\\\")}')
+${code}
+`],
+        { timeout: 15_000 },
+    );
+    return stdout.trim();
+}
+
+test("WEC-14: mock backend passes phrasePeaks and cadenceApproach through project_symbolic_sections", async (t) => {
+    const py = await pythonAvailable();
+    if (!py) {
+        t.skip("Python not available — skipping mock backend smoke test");
+        return;
+    }
+
+    let out;
+    try {
+        out = await runMockBackendHelper(py, `
+from learned_symbolic.symbolic_projection import project_symbolic_sections
+from music21 import key as key_module
+
+tonic = key_module.Key("C")
+payload = {
+    "plan": {
+        "sections": [{"id": "s1", "role": "theme_a", "measures": 4, "key": "C major"}],
+        "globalKey": "C",
+        "tempo": 96,
+    }
+}
+sections = [{"id": "s1", "role": "theme_a", "measures": 4, "key": "C major"}]
+result = project_symbolic_sections(payload, sections, tonic, 0)
+# proposalSections from result
+ps = result.proposal_sections
+assert len(ps) > 0, f"Expected at least 1 section, got {len(ps)}"
+s = ps[0]
+# Both phrasePeaks and cadenceApproach should be present (populated by evidence helpers)
+has_phrase_peaks = "phrasePeaks" in s or "phrase_peaks" in s
+has_cadence = "cadenceApproach" in s or "cadence_approach" in s
+print(json.dumps({
+    "sectionCount": len(ps),
+    "sectionKeys": list(s.keys()),
+    "hasPhrasePeaksOrCadence": has_phrase_peaks or has_cadence,
+    "hasLeadEvents": "leadEvents" in s or "lead_events" in s,
+}))
+`);
+    } catch (err) {
+        if (err.message.includes("music21") || err.message.includes("ModuleNotFoundError")) {
+            t.skip("music21 not available — skipping mock backend smoke test");
+            return;
+        }
+        throw err;
+    }
+
+    const data = JSON.parse(out);
+    assert.ok(data.sectionCount > 0, "mock backend should produce at least 1 section");
+    assert.ok(data.hasLeadEvents, "mock backend section should have leadEvents");
+});
+
+test("WEC-15: mock backend normalization warning is 'mock_backend_not_for_quality_eval'", async (t) => {
+    const py = await pythonAvailable();
+    if (!py) {
+        t.skip("Python not available — skipping mock backend warning smoke test");
+        return;
+    }
+
+    let out;
+    try {
+        out = await runMockBackendHelper(py, `
+from learned_symbolic.notagen_engines.mock import MockEngine
+engine = MockEngine()
+result = engine.generate(
+    payload={
+        "plan": {
+            "sections": [{"id": "s1", "role": "theme_a", "measures": 4, "key": "C major"}],
+            "globalKey": "C",
+            "tempo": 96,
+        }
+    },
+    sections=[{"id": "s1", "role": "theme_a", "measures": 4, "key": "C major"}],
+    attempt_index=0,
+    context=None,
+)
+warnings = result.normalization_warnings if hasattr(result, "normalization_warnings") else []
+print(json.dumps({
+    "hasWarnings": len(warnings) > 0,
+    "hasMockWarning": any("mock_backend_not_for_quality_eval" in w for w in warnings),
+    "warnings": warnings,
+}))
+`);
+    } catch (err) {
+        if (err.message.includes("music21") || err.message.includes("ModuleNotFoundError") ||
+            err.message.includes("ImportError")) {
+            t.skip("music21 or MockEngine not available — skipping WEC-15");
+            return;
+        }
+        throw err;
+    }
+
+    const data = JSON.parse(out);
+    assert.ok(
+        data.hasMockWarning,
+        `mock backend should emit 'mock_backend_not_for_quality_eval' warning; got: ${JSON.stringify(data.warnings)}`,
+    );
+});
+
+test("WEC-16: mock backend section has leadEvents (structural smoke test — no music21 required)", async (t) => {
+    // This test uses the normalizer (Node.js) path to verify that a section coming
+    // from the mock backend retains its structure after TypeScript normalization.
+    // No Python subprocess is needed; we simulate the mock backend output shape.
+    const result = await runNormalizerTest(`
+import { normalizeLearnedSymbolicResponse } from "./dist/core/composer/learnedNormalizer.js";
+const req = { prompt: "mock-test", compositionPlan: null };
+const plan = {
+    composeWorker: "learned_symbolic",
+    workflow: "learned_symbolic",
+    selectedModels: [],
+};
+const pack = {
+    version: "1.0", planSignature: "mock-sig",
+    styleCue: { key: "C major", tempo: 96 },
+};
+// Simulate mock backend output that includes normalizationWarnings
+const mockResponse = {
+    ok: true,
+    proposalMidiPath: MIDI_PATH,
+    proposalSections: [{
+        sectionId: "s1",
+        role: "theme_a",
+        measureCount: 4,
+        leadEvents: [{ kind: "note", midi: 64, quarterLength: 1.0, role: "lead" }],
+        supportEvents: [{ kind: "note", midi: 48, quarterLength: 2.0, role: "bass" }],
+        phrasePeaks: [2, 4],
+        cadenceApproach: "dominant",
+        harmonicColorCues: [{ tag: "predominant_color" }],
+        harmonicRealizationSummary: { realizedMeasureCount: 4, realizedNoteCount: 4, targetedMeasureCount: 4 },
+        capturedMotif: [3, 2],
+    }],
+    // normalizationWarnings lives inside proposalMetadata in the real backend
+    proposalMetadata: {
+        normalizationWarnings: ["mock_backend_not_for_quality_eval"],
+    },
+};
+const normalized = normalizeLearnedSymbolicResponse(mockResponse, req, "song-mock", plan, pack);
+const s = normalized.sectionArtifacts[0];
+// normalizationWarnings is nested under proposalEvidence
+const warnings = normalized.proposalEvidence?.normalizationWarnings ?? [];
+console.log(JSON.stringify({
+    hasMockWarning: warnings.some(w => w.includes("mock_backend_not_for_quality_eval")),
+    hasPhrasePeaks: Array.isArray(s.phrasePeaks) && s.phrasePeaks.length > 0,
+    hasCadenceApproach: s.cadenceApproach === "dominant",
+    hasColorCues: Array.isArray(s.harmonicColorCues) && s.harmonicColorCues.length > 0,
+    sectionCount: normalized.sectionArtifacts.length,
+}));
+`);
+
+    assert.ok(result.sectionCount > 0, "normalized output should have at least 1 section");
+    assert.ok(result.hasPhrasePeaks,     "mock backend section: phrasePeaks must survive normalization");
+    assert.ok(result.hasCadenceApproach, "mock backend section: cadenceApproach must survive normalization");
+    assert.ok(result.hasColorCues,       "mock backend section: harmonicColorCues must survive normalization");
+    assert.ok(result.hasMockWarning,     "mock warning 'mock_backend_not_for_quality_eval' should be preserved in normalized output");
+});

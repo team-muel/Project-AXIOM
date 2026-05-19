@@ -288,3 +288,176 @@ test("RIB-12: recap identity rises from 0.0 (no capturedMotif) to 1.0 (exact con
     assert.equal(scoreAfter,  1.0, "after (exact contour match) recap identity should be 1.0");
     assert.ok(scoreAfter > scoreBefore, "after should strictly exceed before");
 });
+
+// ─── SCORE DELTA BENCHMARKS ───────────────────────────────────────────────────
+// RIB-13..18 measure numeric score changes (before→after delta), not just
+// directive counts. These confirm that the rewrite loop produces measurable
+// improvements when the right fields are supplied.
+
+test("RIB-13: harmony contractScore rises proportionally as required fields are added", () => {
+    const plan = makePlan([makePlanSection("s1")]);
+
+    // 0 of 3 required fields → score ≈ 0
+    const zero = checkHarmonyRealizationContract(
+        [makeArtifact("s1", "theme_a", { harmonicColorCues: [] })], plan,
+    );
+
+    // 1 of 3 required fields present
+    const oneField = checkHarmonyRealizationContract(
+        [makeArtifact("s1", "theme_a", {
+            cadenceApproach: "dominant",
+            harmonicColorCues: [],
+        })],
+        plan,
+    );
+
+    // 3 of 3 required fields present
+    const full = checkHarmonyRealizationContract(
+        [makeArtifact("s1", "theme_a", {
+            cadenceApproach: "dominant",
+            harmonicColorCues: [{ tag: "predominant_color" }],
+            harmonicRealizationSummary: { key: "C" },
+        })],
+        plan,
+    );
+
+    assert.ok(zero.contractScore < oneField.contractScore,
+        `adding cadenceApproach should raise contractScore (${zero.contractScore} → ${oneField.contractScore})`);
+    assert.ok(oneField.contractScore < full.contractScore,
+        `adding all fields should raise contractScore further (${oneField.contractScore} → ${full.contractScore})`);
+    assert.equal(full.contractScore, 1.0, "all fields present → contractScore = 1.0");
+});
+
+test("RIB-14: harmony requiredViolationCount drops 3 → 2 → 0 as fields are added", () => {
+    const plan = makePlan([makePlanSection("s1")]);
+
+    const v3 = checkHarmonyRealizationContract(
+        [makeArtifact("s1", "theme_a", { harmonicColorCues: [] })], plan,
+    );
+    const v2 = checkHarmonyRealizationContract(
+        [makeArtifact("s1", "theme_a", {
+            cadenceApproach: "dominant",
+            harmonicColorCues: [],
+        })], plan,
+    );
+    const v0 = checkHarmonyRealizationContract(
+        [makeArtifact("s1", "theme_a", {
+            cadenceApproach: "dominant",
+            harmonicColorCues: [{ tag: "predominant_color" }],
+            harmonicRealizationSummary: { key: "C" },
+        })], plan,
+    );
+
+    assert.ok(v3.requiredViolationCount > v2.requiredViolationCount,
+        `violations should drop when cadenceApproach added (${v3.requiredViolationCount} → ${v2.requiredViolationCount})`);
+    assert.equal(v0.requiredViolationCount, 0, "full evidence → 0 required violations");
+    assert.ok(v0.requiredViolationCount < v3.requiredViolationCount);
+});
+
+test("RIB-15: piano directive count drops from ≥3 to 0 as dimension scores rise", () => {
+    const before = makePianoSummary({
+        melodyProminenceScore:  0.2,  // triggers clarify_right_hand_melody
+        bassRootSupportScore:   0.1,  // triggers strengthen_left_hand_bass
+        accompanimentPatternCoherence: 0.2,  // triggers increase_accompaniment_consistency
+    });
+    const after = makePianoSummary({
+        melodyProminenceScore:  0.9,
+        bassRootSupportScore:   0.9,
+        accompanimentPatternCoherence: 0.9,
+        pianoListenabilityScore: 0.9,
+    });
+
+    const beforeCount = buildPianoListenabilityRepairDirectives(before).length;
+    const afterCount  = buildPianoListenabilityRepairDirectives(after).length;
+
+    assert.ok(beforeCount >= 3,
+        `before should have ≥3 piano directives, got ${beforeCount}`);
+    assert.equal(afterCount, 0,
+        "after (all dimensions repaired) should produce 0 piano directives");
+    assert.ok(afterCount < beforeCount,
+        `after count (${afterCount}) must be less than before (${beforeCount})`);
+});
+
+test("RIB-16: motif diversityScore rises 0.0 → 0.5 → 1.0 as unique transforms accumulate", () => {
+    const allOriginal = [
+        { sectionId: "s1", transform: "original", motifId: "A", startBeat: 0 },
+        { sectionId: "s2", transform: "original", motifId: "A", startBeat: 0 },
+    ];
+    const twoUnique = [
+        { sectionId: "s1", transform: "original",  motifId: "A", startBeat: 0 },
+        { sectionId: "s2", transform: "sequence",  motifId: "A", startBeat: 0 },
+        { sectionId: "s3", transform: "fragment",  motifId: "A", startBeat: 0 },
+    ];
+    const fourUnique = [
+        { sectionId: "s1", transform: "original",     motifId: "A", startBeat: 0 },
+        { sectionId: "s2", transform: "sequence",     motifId: "A", startBeat: 0 },
+        { sectionId: "s3", transform: "fragment",     motifId: "A", startBeat: 0 },
+        { sectionId: "s4", transform: "inversion",    motifId: "A", startBeat: 0 },
+        { sectionId: "s5", transform: "augmentation", motifId: "A", startBeat: 0 },
+    ];
+
+    const s0  = computeMotifDiversityScore(allOriginal);
+    const s05 = computeMotifDiversityScore(twoUnique);
+    const s1  = computeMotifDiversityScore(fourUnique);
+
+    assert.equal(s0,  0.0, "all-original → diversityScore = 0.0");
+    assert.equal(s05, 0.5, "2 unique non-original transforms → diversityScore = 0.5");
+    assert.equal(s1,  1.0, "4 unique non-original transforms → diversityScore = 1.0");
+    assert.ok(s0 < s05 && s05 < s1, "scores must be strictly monotone increasing");
+});
+
+test("RIB-17: harmony cadenceApproach evidence: before absent → after present (repair confirmed)", () => {
+    const plan = makePlan([makePlanSection("s1")]);
+
+    const reportBefore = checkHarmonyRealizationContract(
+        [makeArtifact("s1", "theme_a", {
+            harmonicColorCues: [{ tag: "predominant_color" }],
+            harmonicRealizationSummary: { key: "C" },
+            // cadenceApproach intentionally absent
+        })],
+        plan,
+    );
+    const reportAfter = checkHarmonyRealizationContract(
+        [makeArtifact("s1", "theme_a", {
+            cadenceApproach: "dominant",
+            harmonicColorCues: [{ tag: "predominant_color" }],
+            harmonicRealizationSummary: { key: "C" },
+        })],
+        plan,
+    );
+
+    // Before: cadenceApproach absent → at least one violation
+    assert.ok(
+        reportBefore.violations.some((v) => v.field === "cadenceApproach"),
+        "before should have a cadenceApproach violation",
+    );
+    // After: no cadenceApproach violation
+    assert.ok(
+        !reportAfter.violations.some((v) => v.field === "cadenceApproach"),
+        "after should have no cadenceApproach violation",
+    );
+    assert.ok(
+        reportAfter.contractScore > reportBefore.contractScore,
+        `contractScore must rise after adding cadenceApproach (${reportBefore.contractScore} → ${reportAfter.contractScore})`,
+    );
+});
+
+test("RIB-18: recapIdentityScore rises from 0.0 (mismatched contour) to 1.0 (identical contour)", () => {
+    const contour     = [2, 1, -1, -2, 0, 3];
+    const mismatched  = [5, -3, 4, -1, 2, -4];
+
+    const theme       = makeArtifact("s1", "theme_a",   { capturedMotif: contour });
+    const recapMatch  = makeArtifact("s3", "recap",     { capturedMotif: contour });
+    const recapBad    = makeArtifact("s3", "recap",     { capturedMotif: mismatched });
+
+    const scoreBad   = computeMotifRecapIdentityScore(theme, recapBad);
+    const scoreGood  = computeMotifRecapIdentityScore(theme, recapMatch);
+
+    // scoreBad may not be exactly 0, but must be strictly less than 1.0
+    assert.ok(scoreBad < 1.0,
+        `mismatched contour should produce score < 1.0, got ${scoreBad}`);
+    assert.equal(scoreGood, 1.0,
+        "identical contour should produce recapIdentityScore = 1.0");
+    assert.ok(scoreGood > scoreBad,
+        `recapIdentityScore must be higher with matching contour (${scoreBad} → ${scoreGood})`);
+});
