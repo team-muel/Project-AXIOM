@@ -32,7 +32,10 @@
         "benchmark:notagen-ablation": "node scripts/benchmark-notagen-control-ablation.mjs",
         "benchmark:notagen-ablation:json": "node scripts/benchmark-notagen-control-ablation.mjs --json",
         "analyze:score-feedback": "node scripts/analyze-score-feedback-correlation.mjs --root=outputs --out=outputs/_system/score-feedback-correlation.json --csv",
-        "export:sft-dataset": "node scripts/export-sft-dataset.mjs --out=outputs/_system/sft-dataset.jsonl"
+        "export:sft-dataset": "node scripts/export-sft-dataset.mjs --out=outputs/_system/sft-dataset.jsonl",
+        "export:notagen-sft": "node scripts/export-notagen-sft-dataset.mjs --root=outputs",
+        "export:notagen-sft:dry-run": "node scripts/export-notagen-sft-dataset.mjs --root=outputs --dry-run",
+        "export:notagen-sft:selected-only": "node scripts/export-notagen-sft-dataset.mjs --root=outputs --selected-only"
     },
     "dependencies": {
         "dotenv": "^16.4.7",
