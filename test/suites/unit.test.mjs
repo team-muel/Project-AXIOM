@@ -47,3 +47,9 @@ import "../axiom-critic-dpo.test.mjs";
 // Validates AXIOM control blocks (A–F) emit correct provider request fields AND
 // that D/E score delta < 0.02 with current backend (fine-tuning metadata status).
 import "../benchmark-notagen-control-ablation.test.mjs";
+
+// ─── Adapter promotion gate ───────────────────────────────────────────────────
+import "../adapter-promotion-policy.test.mjs";
+
+// ─── NotaGen inference connection ─────────────────────────────────────────────
+import "../notagen-inference-connection.test.mjs";

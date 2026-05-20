@@ -156,6 +156,40 @@ node --test test/benchmark-masterpiece-direction.test.mjs
 
 ---
 
+### ⑧ Adapter Promotion Gate
+
+비교 benchmark를 통과한 candidate adapter는 **frozen benchmark gate**를 추가로 통과해야
+production/default로 승격된다.
+
+```bash
+# frozen benchmark set에 대해 baseline과 candidate 점수 수집
+node scripts/collect-benchmark-scores.mjs \
+  --adapter=baseline \
+  --out=outputs/_system/ml/benchmarks/baseline/scores.jsonl
+
+node scripts/collect-benchmark-scores.mjs \
+  --adapter=candidate-v2 \
+  --out=outputs/_system/ml/benchmarks/candidate-v2/scores.jsonl
+
+# Promotion gate 평가 (exit code 0 = promoted, 1 = not promoted)
+node scripts/evaluate-notagen-adapter-promotion.mjs \
+  --baseline=outputs/_system/ml/benchmarks/baseline/scores.jsonl \
+  --candidate=outputs/_system/ml/benchmarks/candidate-v2/scores.jsonl \
+  --out=outputs/_system/ml/benchmarks/candidate-v2/promotion-decision.json
+```
+
+통과 조건 (평균만 보면 안 됨):
+
+| 게이트 | 조건 | 비고 |
+|--------|------|------|
+| G-01..G-07 | per-metric 하락 없음 | syntaxValidity, evidence, craft, harmony, motif, piano |
+| D-* | stddev ≥ baseline stddev × 50% | 다양성 붕괴 방지 — 평균 상승 + stddev 붕괴는 실패 |
+| X-* | 한 지표 +10% 이상 시 paired 지표 -5% 이상 하락 없음 | 편향 훈련 패턴 차단 |
+
+자세한 내용: [`docs/adapter-promotion-policy.md`](adapter-promotion-policy.md)
+
+---
+
 ## 루프 반복 cadence
 
 | 단계 | 주기 |
@@ -180,6 +214,7 @@ node --test test/benchmark-masterpiece-direction.test.mjs
 | ⑥ SFT 훈련 스크립트 | ✅ `train-notagen-axiom-adapter.py` |
 | ⑥ DPO 훈련 스크립트 | ✅ `train-notagen-axiom-adapter-dpo.py` |
 | ⑦ 비교 벤치마크 | ✅ `test/benchmark-notagen-control-ablation.test.mjs` |
+| ⑧ Adapter promotion gate | ✅ `scripts/evaluate-notagen-adapter-promotion.mjs` |
 | `NOTAGEN_ENGINE=axiom_adapter` 추론 경로 | ⬜ adapter 준비 후 추가 |
 | NotaGen native 가중치 직접 fine-tuning | ⬜ NotaGen 레포 통합 필요 |
 

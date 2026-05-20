@@ -375,11 +375,15 @@ function buildDpoPairs(byPlanSignature) {
         const rejected = group.filter((c) => !c.criticPass && c.isHardNegative && c.instruction && c.abcText);
 
         for (const pos of chosen) {
+            // P3: upgrade label when listener expressed a preference for this candidate
+            const humanSignal = pos.humanCalibration?.preferredOver ? "listener_preferred" : null;
+            const label = humanSignal ? "listener_preference" : "axiom_critic_dpo";
+
             for (const neg of rejected) {
                 pairs.push({
                     pairId: stableHash([pos.id, neg.id]),
                     planSignature: sig,
-                    label: "axiom_critic_dpo",
+                    label,
                     chosen: {
                         id: pos.id,
                         songId: pos.songId,
@@ -409,6 +413,7 @@ function buildDpoPairs(byPlanSignature) {
                     rejectionReasonSummary: summarizeRejection(neg),
                     meta: {
                         planSignature: sig,
+                        humanSignal,
                         rejectionReason: classifyRejectionReason(neg),
                         scoreGap: computeScoreGap(pos, neg),
                         craftScores: {
