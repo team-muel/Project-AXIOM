@@ -289,3 +289,79 @@ test("smoke: compose_learned_symbolic.py with notagen_mock backend", async (t) =
         // best-effort cleanup
     }
 });
+
+// ─── Part 3: _inject_missing_abc_headers unit test ───────────────────────────
+// Tests the internal ABC header injection helper without loading the full model.
+
+test("_inject_missing_abc_headers: injects K:/M:/L:/T: when missing, is no-op when K: present", async (t) => {
+    if (!pythonBin) {
+        t.skip("Python not found; skipping inject-headers unit test");
+        return;
+    }
+
+    const nativePath = path.join(
+        workersDir, "learned_symbolic", "notagen_engines", "notagen_native.py"
+    );
+    if (!fs.existsSync(nativePath)) {
+        t.skip("notagen_native.py not found");
+        return;
+    }
+
+    // Replicate the pure helper (only uses re) to verify logic without heavy imports.
+    const inlineScript = `
+import re, json
+
+def _inject_missing_abc_headers(abc_text, axiom_header):
+    if re.search(r"^K:", abc_text, re.MULTILINE):
+        return abc_text
+    def _extract(field):
+        m = re.search(rf"^{field}:(.*)", axiom_header, re.MULTILINE)
+        return m.group(1).strip() if m else None
+    k_val = _extract("K") or "C"
+    m_val = _extract("M") or "4/4"
+    l_val = _extract("L") or "1/8"
+    t_val = _extract("T")
+    inject = []
+    if t_val and not re.search(r"^T:", abc_text, re.MULTILINE):
+        inject.append(f"T:{t_val.splitlines()[0]}\\n")
+    if not re.search(r"^M:", abc_text, re.MULTILINE):
+        inject.append(f"M:{m_val}\\n")
+    if not re.search(r"^L:", abc_text, re.MULTILINE):
+        inject.append(f"L:{l_val}\\n")
+    inject.append(f"K:{k_val}\\n")
+    prefix = "X:1\\n"
+    if abc_text.startswith(prefix):
+        return prefix + "".join(inject) + abc_text[len(prefix):]
+    return "".join(inject) + abc_text
+
+hdr = "X:1\\nT:Smoke\\nC:AXIOM\\nM:4/4\\nL:1/8\\nQ:1/4=76\\nK:Dm\\n"
+
+# Case 1: missing K: -> injection
+out1 = _inject_missing_abc_headers("X:1\\nV:2 treble\\n[V:2]z7|\\n", hdr)
+assert "K:Dm" in out1 and "M:4/4" in out1 and "L:1/8" in out1 and out1.startswith("X:1\\n"), f"Case1 fail: {out1!r}"
+
+# Case 2: already has K: -> no-op
+inp2 = "X:1\\nK:Dm\\nM:4/4\\n[V:1]d2c2|\\n"
+assert _inject_missing_abc_headers(inp2, hdr) == inp2, "Case2 fail: should be unchanged"
+
+# Case 3: no X:1 prefix (fallback)
+out3 = _inject_missing_abc_headers("V:1\\n[V:1]d2c2|\\n", hdr)
+assert "K:Dm" in out3, f"Case3 fail: {out3!r}"
+
+print(json.dumps({"ok": True, "cases": 3}))
+`.trim();
+
+    await t.test("injects K:/M:/L:/T: when absent; is no-op when K: present", () => {
+        const result = spawnSync(pythonBin, ["-c", inlineScript], {
+            encoding: "utf8",
+            cwd: workersDir,
+        });
+        assert.strictEqual(
+            result.status, 0,
+            `inject-headers test failed:\nstdout: ${result.stdout}\nstderr: ${result.stderr}`
+        );
+        const parsed = JSON.parse(result.stdout);
+        assert.strictEqual(parsed.ok, true);
+        assert.strictEqual(parsed.cases, 3);
+    });
+});

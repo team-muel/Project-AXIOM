@@ -22,6 +22,7 @@
         "test:python": "node --test test/suites/python.test.mjs",
         "test:ops": "node --test test/suites/ops.test.mjs",
         "test:slow": "node --test test/suites/slow.test.mjs",
+        "test:notagen-native": "node --test test/python-notagen-native-smoke.test.mjs",
         "test:all": "node --test test/all.test.mjs",
         "test:ci": "npm run build && npm run typecheck && npm run test:all",
         "test:profile": "node scripts/profile-tests.mjs",

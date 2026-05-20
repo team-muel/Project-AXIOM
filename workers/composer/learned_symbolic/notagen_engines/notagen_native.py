@@ -578,8 +578,56 @@ def _run_generation_loop(
         line for line in unreduced_lines
         if not (line.startswith("%") and not line.startswith("%%"))
     ]
+    # Drop any X:1 lines that the model may have emitted (we prepend one below).
+    cleaned = [line for line in cleaned if not re.match(r"^X:\s*\d", line)]
     cleaned = ["X:1\n"] + cleaned
     return "".join(cleaned), True
+
+
+def _inject_missing_abc_headers(abc_text: str, axiom_header: str) -> str:
+    """Inject mandatory ABC header fields that the model may have skipped.
+
+    NotaGen sometimes generates body content (V: / [V:] lines) immediately
+    without emitting the standard ABC field headers (K:, M:, L:, T:).  This
+    function extracts those fields from the AXIOM conditioning header and
+    inserts any that are absent into the generated output, right after X:1.
+
+    Only ``K:`` is strictly required for downstream validation; M:, L:, and T:
+    are also injected when missing because they make the score more useful and
+    prevent downstream warnings.
+    """
+    # Already has K: — nothing to do.
+    if re.search(r"^K:", abc_text, re.MULTILINE):
+        return abc_text
+
+    # Extract header fields from the AXIOM conditioning text.
+    def _extract(field: str) -> str | None:
+        m = re.search(rf"^{field}:(.*)", axiom_header, re.MULTILINE)
+        return m.group(1).strip() if m else None
+
+    k_val = _extract("K") or "C"
+    m_val = _extract("M") or "4/4"
+    l_val = _extract("L") or "1/8"
+    t_val = _extract("T")
+
+    # Build the fields to inject (only those not already present).
+    inject_lines: list[str] = []
+    if t_val and not re.search(r"^T:", abc_text, re.MULTILINE):
+        # Sanitise: take only the first line of T: (guard against multi-line titles).
+        inject_lines.append(f"T:{t_val.splitlines()[0]}\n")
+    if not re.search(r"^M:", abc_text, re.MULTILINE):
+        inject_lines.append(f"M:{m_val}\n")
+    if not re.search(r"^L:", abc_text, re.MULTILINE):
+        inject_lines.append(f"L:{l_val}\n")
+    inject_lines.append(f"K:{k_val}\n")
+
+    # Insert the missing fields directly after the leading "X:1\n".
+    prefix = "X:1\n"
+    if abc_text.startswith(prefix):
+        return prefix + "".join(inject_lines) + abc_text[len(prefix):]
+
+    # Fallback: prepend before everything.
+    return "".join(inject_lines) + abc_text
 
 
 # ─── Public API ───────────────────────────────────────────────────────────────
@@ -763,5 +811,8 @@ def generate(
             "or rest_unreduce error).  "
             "Try increasing NOTAGEN_TIMEOUT_MS or reducing NOTAGEN_MAX_TOKENS."
         )
+
+    # Guard: inject any mandatory ABC header fields that the model skipped.
+    abc_text = _inject_missing_abc_headers(abc_text, abc_header)
 
     return abc_text

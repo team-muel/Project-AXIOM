@@ -51,7 +51,10 @@ import "./cycle-evaluation.test.mjs";
 import "./learned-backend-routing.test.mjs";
 import "./python-compose-piano-lane.test.mjs";
 import "./python-compose-piano-e2e.test.mjs";
-import "./python-notagen-native-smoke.test.mjs";
+// python-notagen-native-smoke.test.mjs intentionally excluded from all.test.mjs:
+// real NotaGen inference requires checkpoint + GPU. Use:
+//   npm run test:notagen-native   — direct run (self-skips if prerequisites absent)
+//   AXIOM_RUN_SLOW_TESTS=1 npm run test:slow  — full slow suite including PNS
 import "./piano-strict-gates.test.mjs";
 import "./piano-benchmark.test.mjs";
 import "./musical-quality-regression.test.mjs";
