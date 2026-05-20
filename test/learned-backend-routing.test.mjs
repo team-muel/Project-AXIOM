@@ -7,7 +7,8 @@
  *   2. AXIOM_LEARNED_BACKEND=template succeeds (explicit template backend).
  *   3. AXIOM_LEARNED_BACKEND=notagen returns ok:false with a clear error
  *      (no checkpoint available in CI — explicit failure, NOT silent fallback).
- *   4. candidateCount=2 produces a proposalCandidatePool with 2 entries.
+ *   4. candidateCount is ignored by the Python worker — single-candidate contract.
+ *      proposalCandidatePool is NEVER present in the worker response.
  *   5. candidateCount=1 (default) does NOT include proposalCandidatePool.
  *   6. Malformed providerRequest (missing required fields) returns validation error.
  */
@@ -199,25 +200,20 @@ test("backend-routing: AXIOM_LEARNED_BACKEND=notagen returns ok:false when check
     }
 });
 
-test("backend-routing: candidateCount=2 produces proposalCandidatePool with 2 entries", async (t) => {
+test("backend-routing: candidateCount is ignored — Python worker never returns proposalCandidatePool", async (t) => {
     if (!pythonBin) { t.skip("No Python binary available"); return; }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "axiom-br-"));
     try {
+        // Even when the payload requests candidateCount=2, the Python worker
+        // must ignore it (single-candidate contract) and return exactly one
+        // result with no proposalCandidatePool.  TS orchestrator manages pools.
         const payload = { ...buildMinimalPayload(tmpDir), candidateCount: 2 };
         const result = runLearnedWorker(payload);
-        assert.equal(result.ok, true, "candidateCount=2 should succeed");
+        assert.equal(result.ok, true, "candidateCount=2 should still succeed");
         assert.ok(
-            Array.isArray(result.proposalCandidatePool),
-            "should have proposalCandidatePool"
+            !("proposalCandidatePool" in result),
+            "worker must NOT return proposalCandidatePool — TS orchestrator owns candidate pools"
         );
-        assert.equal(
-            result.proposalCandidatePool.length, 2,
-            "should have exactly 2 candidates"
-        );
-        for (const entry of result.proposalCandidatePool) {
-            assert.ok(typeof entry.candidateId === "string", "candidateId must be a string");
-            assert.ok(typeof entry.noteCount === "number", "noteCount must be a number");
-        }
     } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     }
