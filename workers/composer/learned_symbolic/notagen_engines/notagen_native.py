@@ -652,8 +652,15 @@ def load_model(
 
     device = torch.device(device_str)
     model = NotaGenLMHeadModel(encoder_config=patch_config, decoder_config=byte_config)
-    model = model.to(dtype=torch.float16)
+    # Use float16 on CUDA (native fp16 hardware), float32 on CPU (emulated fp16
+    # is ~2–4× slower than native fp32 on x86 CPUs).
+    model_dtype = torch.float16 if device.type == "cuda" else torch.float32
+    model = model.to(dtype=model_dtype)
     model.to(device)
+    # Multi-threaded inference on CPU — speeds up matrix multiplies significantly.
+    if device.type == "cpu":
+        import multiprocessing
+        torch.set_num_threads(multiprocessing.cpu_count())
 
     if not os.path.isfile(model_path):
         raise FileNotFoundError(
