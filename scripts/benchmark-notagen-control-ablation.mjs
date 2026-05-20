@@ -318,6 +318,10 @@ function extractScores(manifest) {
         motifRecapIdentity:      craft?.motifReturnScore ?? null,
         motifTransformVariety:   craft?.motifDevelopmentScore ?? null,
         pianoListenabilityScore: piano?.pianoListenabilityScore ?? null,
+        // Populated when pipeline stores it in structureEvaluation or manifest root
+        referenceDistanceScore:  manifest.structureEvaluation?.referenceDistanceScore
+            ?? manifest.referenceDistanceScore
+            ?? null,
     };
 }
 
@@ -370,7 +374,7 @@ function aggregateScores(rootDir) {
     const SCORE_KEYS = [
         "evidenceCoverageScore", "finalCraftScore", "advancedCraftScore",
         "harmonyContractScore", "motifRecapIdentity", "motifTransformVariety",
-        "pianoListenabilityScore",
+        "pianoListenabilityScore", "referenceDistanceScore",
     ];
     return Object.entries(groups).map(([level, items]) => {
         const stats = {};
@@ -454,7 +458,7 @@ function runScoreAggregation(rootDir) {
     const SCORE_KEYS = [
         "evidenceCoverageScore", "finalCraftScore", "advancedCraftScore",
         "harmonyContractScore", "motifRecapIdentity", "motifTransformVariety",
-        "pianoListenabilityScore",
+        "pianoListenabilityScore", "referenceDistanceScore",
     ];
 
     if (asJson || outFile) {

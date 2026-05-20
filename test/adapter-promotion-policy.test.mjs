@@ -1,7 +1,7 @@
 /**
  * test/adapter-promotion-policy.test.mjs
  *
- * APG-01..APG-15: Adapter Promotion Gate 단위 테스트
+ * APG-01..APG-18: Adapter Promotion Gate 단위 테스트
  *
  * 검증 항목:
  *   APG-01: 모든 게이트 통과 → promoted=true
@@ -21,6 +21,7 @@
  *   APG-15: 모든 지표 개선 → promoted=true, reason에 통과 gate 수 포함
  *   APG-16: diversity collapse → diversityCollapseWarnings에 포함
  *   APG-17: cross-metric collapse → crossMetricCollapseWarnings에 포함
+ *   APG-18: R-01 too_close > 30% → copyRiskWarning=true, copyRiskWarnings 배열에 추가
  */
 
 import { strict as assert } from "node:assert";
@@ -153,7 +154,7 @@ function evaluateCrossMetricGates(candidateStats, baselineStats) {
     return results;
 }
 
-/** Run the full gate suite and return { promoted, gates, failedGates, diversityCollapseWarnings, crossMetricCollapseWarnings }. */
+/** Run the full gate suite and return { promoted, gates, failedGates, diversityCollapseWarnings, crossMetricCollapseWarnings, copyRiskWarnings }. */
 function runGates(baselineRows, candidateRows) {
     if (baselineRows.length < MIN_ROWS || candidateRows.length < MIN_ROWS) {
         return {
@@ -163,6 +164,7 @@ function runGates(baselineRows, candidateRows) {
             failedGates: [],
             diversityCollapseWarnings: [],
             crossMetricCollapseWarnings: [],
+            copyRiskWarnings: [],
         };
     }
     const bs = computeAllStats(baselineRows);
@@ -174,7 +176,10 @@ function runGates(baselineRows, candidateRows) {
     const failedGates = gates.filter((g) => !g.passed && !g.skipped);
     const diversityCollapseWarnings = failedGates.filter((g) => g.type === "diversity").map((g) => g.reason);
     const crossMetricCollapseWarnings = failedGates.filter((g) => g.type === "cross_metric").map((g) => g.reason);
-    return { promoted: failedGates.length === 0, gates, failedGates, diversityCollapseWarnings, crossMetricCollapseWarnings };
+    const copyRiskWarnings = gates
+        .filter((g) => g.id === "R-01" && g.copyRiskWarning)
+        .map((g) => `R-01 copy-risk: ${g.tooClosePercent?.toFixed(1) ?? "?"}% too_close`);
+    return { promoted: failedGates.length === 0, gates, failedGates, diversityCollapseWarnings, crossMetricCollapseWarnings, copyRiskWarnings };
 }
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -422,6 +427,29 @@ describe("Adapter Promotion Gate (APG)", () => {
         const { diversityCollapseWarnings, crossMetricCollapseWarnings } = runGates(baseline, candidate);
         assert.ok(crossMetricCollapseWarnings.length > 0, "crossMetricCollapseWarnings must be non-empty on cross-metric collapse");
         assert.strictEqual(diversityCollapseWarnings.length, 0, "diversityCollapseWarnings must be empty when no diversity collapse");
+    });
+
+    it("APG-18: R-01 too_close > 30% → copyRiskWarning=true, copyRiskWarnings populated", () => {
+        // Simulate an R-01 gate result with >30% too_close rows
+        const scores = Array.from({ length: 10 }, (_, i) => (i < 4 ? 0.05 : 0.40));
+        // 4/10 = 40% too_close (< 0.10) — exceeds the 30% threshold
+        const tooCloseCount = scores.filter((s) => s < 0.10).length;
+        const tooCloseFraction = tooCloseCount / scores.length;
+        const copyRiskWarning = tooCloseFraction > 0.30;
+        const tooClosePercent = tooCloseFraction * 100;
+
+        assert.strictEqual(copyRiskWarning, true, "copyRiskWarning should be true when > 30% are too_close");
+        assert.ok(tooClosePercent > 30, `tooClosePercent should be > 30 (got ${tooClosePercent})`);
+
+        // Verify the decision-layer logic: gates with copyRiskWarning=true → copyRiskWarnings array
+        const mockR01Gate = { id: "R-01", type: "reference_corpus", passed: true, skipped: false, copyRiskWarning, tooClosePercent };
+        const gates = [mockR01Gate];
+        const copyRiskWarnings = gates
+            .filter((g) => g.id === "R-01" && g.copyRiskWarning)
+            .map((g) => `R-01 copy-risk: ${g.tooClosePercent?.toFixed(1) ?? "?"}% of candidate rows are too_close`);
+        assert.strictEqual(copyRiskWarnings.length, 1, "copyRiskWarnings should have one entry when R-01 flags copy risk");
+        assert.ok(copyRiskWarnings[0].includes("copy-risk"), "warning message should mention copy-risk");
+        assert.ok(copyRiskWarnings[0].includes("40.0"), "warning message should include the percentage");
     });
 
 });

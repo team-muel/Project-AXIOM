@@ -448,6 +448,10 @@ function main() {
     const crossMetricCollapseWarnings = failedGates
         .filter((g) => g.type === "cross_metric")
         .map((g) => g.reason);
+    // Copy-risk warnings: too_close rows detected by R-01 (not a gate fail, but tracked separately)
+    const copyRiskWarnings = gates
+        .filter((g) => g.id === "R-01" && g.copyRiskWarning)
+        .map((g) => `R-01 copy-risk: ${g.tooClosePercent?.toFixed(1) ?? "?"}% of candidate rows are too_close to reference corpus (may indicate over-copying or style regression)`);
 
     const decision = {
         promoted,
@@ -463,6 +467,7 @@ function main() {
         failedGates,
         diversityCollapseWarnings,
         crossMetricCollapseWarnings,
+        copyRiskWarnings,
         stats: { baseline: baselineStats, candidate: candidateStats },
     };
 
@@ -481,6 +486,7 @@ function buildEarlyDecision(promoted, reason, baselineRows, candidateRows) {
         failedGates: [],
         diversityCollapseWarnings: [],
         crossMetricCollapseWarnings: [],
+        copyRiskWarnings: [],
     };
 }
 
@@ -577,6 +583,10 @@ function output(decision, outPath, dryRun) {
         console.log("  Cross-metric collapse:");
         for (const w of decision.crossMetricCollapseWarnings) console.log(`    ⚠ ${w}`);
     }
+    if (decision.copyRiskWarnings?.length > 0) {
+        console.log("  Copy-risk (R-01 too_close):");
+        for (const w of decision.copyRiskWarnings) console.log(`    ⚠ ${w}`);
+    }
     console.log(`  Baseline rows:    ${decision.baselineRows ?? "?"}`);
     console.log(`  Candidate rows:   ${decision.candidateRows ?? "?"}`);
 
@@ -588,6 +598,7 @@ function output(decision, outPath, dryRun) {
         failedGateIds: (decision.failedGates ?? []).map((g) => g.id),
         diversityCollapseWarnings: decision.diversityCollapseWarnings ?? [],
         crossMetricCollapseWarnings: decision.crossMetricCollapseWarnings ?? [],
+        copyRiskWarnings: decision.copyRiskWarnings ?? [],
     }));
 
     if (dryRun) {

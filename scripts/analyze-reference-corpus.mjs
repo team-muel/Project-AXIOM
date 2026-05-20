@@ -6,29 +6,35 @@
  * and produces a corpus-profile.json that can be used by the adapter
  * promotion gate as a reference anchor.
  *
- * Usage:
+ * Usage (preferred):
+ *   node scripts/analyze-reference-corpus.mjs \
+ *     --root=config/reference-corpus \
+ *     --out=outputs/_system/reference-corpus/profile.json
+ *
+ * Usage (legacy):
  *   node scripts/analyze-reference-corpus.mjs \
  *     --corpus-dir=config/reference-corpus/abc \
  *     --out=config/reference-corpus/corpus-profile.json
  *
  * Options:
- *   --corpus-dir=<path>   Directory containing .abc files (required)
- *   --out=<path>          Output path for corpus-profile.json (required)
+ *   --root=<path>         Root directory; scans root/abc/ for .abc files.
+ *                         When provided, also writes by-composer/*.json and summary.json
+ *                         next to the --out file.
+ *   --corpus-dir=<path>   Explicit directory containing .abc files (legacy; use --root instead)
+ *   --out=<path>          Output path for profile.json (required unless --dry-run)
  *   --dry-run             Parse and print stats without writing output
  *   --verbose             Print per-file profile table
  *
- * Output format (corpus-profile.json):
- *   {
- *     "generatedAt": "...",
- *     "n": 12,
- *     "corpus": { "mean": {...}, "stddev": {...} },
- *     "perFile": [{ "file": "bach_bwv772.abc", "profile": {...} }, ...]
- *   }
+ * Multi-file output (when --root is used):
+ *   <out-dir>/profile.json          — full corpus profile (same as single-file mode)
+ *   <out-dir>/by-composer/<name>.json — per-composer profiles
+ *   <out-dir>/summary.json          — high-level operator summary
+ *
+ * Composer is inferred from the filename prefix: bach_minuet_g.abc → "bach"
  */
 
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, resolve, dirname, extname, basename } from "node:path";
-import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 
 const { extractStyleProfileFromAbc, computeCorpusProfile } = await import(
@@ -47,14 +53,20 @@ const args = Object.fromEntries(
         })
 );
 
-const corpusDir = args["corpus-dir"] ? resolve(args["corpus-dir"]) : null;
+// --root sets corpusDir to root/abc/ and enables multi-file output
+const rootArg = args["root"] ? resolve(args["root"]) : null;
+const corpusDir = rootArg
+    ? join(rootArg, "abc")
+    : (args["corpus-dir"] ? resolve(args["corpus-dir"]) : null);
+const multiFileOutput = rootArg != null;
+
 const outPath = args["out"] ? resolve(args["out"]) : null;
 const isDryRun = args["dry-run"] === true;
 const isVerbose = args["verbose"] === true;
 
 if (!corpusDir) {
-    console.error("ERROR: --corpus-dir=<path> is required");
-    console.error("Usage: node scripts/analyze-reference-corpus.mjs --corpus-dir=... --out=...");
+    console.error("ERROR: --root=<path> or --corpus-dir=<path> is required");
+    console.error("Usage: node scripts/analyze-reference-corpus.mjs --root=config/reference-corpus --out=...");
     process.exit(1);
 }
 if (!outPath && !isDryRun) {
@@ -139,7 +151,7 @@ if (isDryRun) {
     process.exit(0);
 }
 
-const output = {
+const mainOutput = {
     generatedAt: new Date().toISOString(),
     n: corpusProfile.n,
     parseErrors,
@@ -152,5 +164,66 @@ const output = {
 
 const outDir = dirname(outPath);
 await mkdir(outDir, { recursive: true });
-await writeFile(outPath, JSON.stringify(output, null, 2), "utf-8");
+await writeFile(outPath, JSON.stringify(mainOutput, null, 2), "utf-8");
 console.log(`\nCorpus profile written to: ${outPath}`);
+
+// ─── Multi-file output (when --root is used) ───────────────────────────────────
+
+if (multiFileOutput) {
+    // Group per-file entries by composer prefix (e.g., "bach_minuet.abc" → "bach")
+    const byComposerMap = new Map();
+    for (const entry of perFile) {
+        const namePart = basename(entry.file, ".abc");
+        const composerKey = namePart.includes("_") ? namePart.split("_")[0].toLowerCase() : "unknown";
+        if (!byComposerMap.has(composerKey)) byComposerMap.set(composerKey, []);
+        byComposerMap.get(composerKey).push(entry);
+    }
+
+    // Write by-composer/*.json
+    const byComposerDir = join(outDir, "by-composer");
+    await mkdir(byComposerDir, { recursive: true });
+    const composerNames = [...byComposerMap.keys()].sort();
+    for (const composer of composerNames) {
+        const works = byComposerMap.get(composer);
+        const profiles = works.map((w) => w.profile);
+        const composerCorpus = computeCorpusProfile(profiles);
+        const composerOutput = {
+            composer,
+            n: works.length,
+            works,
+            corpusProfile: {
+                mean: composerCorpus.mean,
+                stddev: composerCorpus.stddev,
+            },
+        };
+        const composerPath = join(byComposerDir, `${composer}.json`);
+        await writeFile(composerPath, JSON.stringify(composerOutput, null, 2), "utf-8");
+        if (isVerbose) console.log(`  by-composer/${composer}.json (${works.length} works)`);
+    }
+    console.log(`By-composer profiles written to: ${byComposerDir}/`);
+
+    // Write summary.json
+    const composerCounts = Object.fromEntries(
+        composerNames.map((c) => [c, byComposerMap.get(c).length])
+    );
+    const summary = {
+        generatedAt: mainOutput.generatedAt,
+        n: corpusProfile.n,
+        parseErrors,
+        composers: composerNames,
+        composerCounts,
+        corpusMeanPitchMidi:              round2(corpusProfile.mean.meanPitchMidi),
+        corpusMeanPhraseLengthMeasures:   round2(corpusProfile.mean.meanPhraseLengthMeasures),
+        corpusMeanLeapSmoothness:         round2(corpusProfile.mean.leapSmoothness),
+        corpusMeanNoteDensityPerMeasure:  round2(corpusProfile.mean.meanNoteDensityPerMeasure),
+        corpusMeanBassPresenceRatio:      round2(corpusProfile.mean.bassPresenceRatio),
+        corpusMeanPhraseRegularity:       round2(corpusProfile.mean.phraseRegularity),
+        corpusMeanClimax:                 round2(corpusProfile.mean.climaxPosition),
+        corpusMeanHarmonicRhythm:         round2(corpusProfile.mean.harmonicRhythmProxy),
+    };
+    const summaryPath = join(outDir, "summary.json");
+    await writeFile(summaryPath, JSON.stringify(summary, null, 2), "utf-8");
+    console.log(`Summary written to: ${summaryPath}`);
+}
+
+function round2(v) { return Math.round((v ?? 0) * 100) / 100; }
