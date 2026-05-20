@@ -29,3 +29,19 @@ full-test.txt
 multimodel-test-output.txt
 bridge-scripts.tap.txt
 *.tsbuildinfo
+# Test & temp output artifacts
+full-test-*.txt
+*-test-output.txt
+*_test_output.txt
+*_test_pid.txt
+*_test_run.txt
+abs-test-output.txt
+raw-test-output.txt
+tap-test-output.txt
+mcp-bridge-scripts.test.output.txt
+# Temp working files
+tmp_*.txt
+tmp-*.txt
+tmp_*.json
+# Local dev/diagnostic scripts (hardcoded paths, not repo artifacts)
+cuda_speed_test.py
