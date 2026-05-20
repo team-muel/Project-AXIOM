@@ -378,13 +378,14 @@ function loadScoreFile(filePath) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 function main() {
-    const baselinePath  = readOption("baseline");
-    const candidatePath = readOption("candidate");
-    const outPath       = readOption("out");
-    const dryRun        = hasFlag("dry-run");
+    const baselinePath   = readOption("baseline");
+    const candidatePath  = readOption("candidate");
+    const outPath        = readOption("out");
+    const corpusPath     = readOption("corpus-profile");
+    const dryRun         = hasFlag("dry-run");
 
     if (!baselinePath || !candidatePath) {
-        console.error("[evaluate-notagen-adapter-promotion] Usage: --baseline=<path> --candidate=<path> [--out=<path>] [--dry-run]");
+        console.error("[evaluate-notagen-adapter-promotion] Usage: --baseline=<path> --candidate=<path> [--out=<path>] [--corpus-profile=<path>] [--dry-run]");
         process.exit(1);
     }
 
@@ -399,28 +400,16 @@ function main() {
 
     // ── Minimum-rows guard ────────────────────────────────────────────────────
     if (baselineRows.length < MIN_ROWS) {
-        const decision = {
-            promoted: false,
-            evaluatedAt: new Date().toISOString(),
-            baselineRows: baselineRows.length,
-            candidateRows: candidateRows.length,
-            reason: `insufficient baseline rows (${baselineRows.length} < ${MIN_ROWS}) — cannot evaluate`,
-            gates: [],
-            failedGates: [],
-        };
+        const decision = buildEarlyDecision(false,
+            `insufficient baseline rows (${baselineRows.length} < ${MIN_ROWS}) — cannot evaluate`,
+            baselineRows.length, candidateRows.length);
         output(decision, outPath, dryRun);
         process.exit(1);
     }
     if (candidateRows.length < MIN_ROWS) {
-        const decision = {
-            promoted: false,
-            evaluatedAt: new Date().toISOString(),
-            baselineRows: baselineRows.length,
-            candidateRows: candidateRows.length,
-            reason: `insufficient candidate rows (${candidateRows.length} < ${MIN_ROWS}) — cannot evaluate`,
-            gates: [],
-            failedGates: [],
-        };
+        const decision = buildEarlyDecision(false,
+            `insufficient candidate rows (${candidateRows.length} < ${MIN_ROWS}) — cannot evaluate`,
+            baselineRows.length, candidateRows.length);
         output(decision, outPath, dryRun);
         process.exit(1);
     }
@@ -442,10 +431,23 @@ function main() {
 
     gates.push(...evaluateCrossMetricGates(candidateStats, baselineStats));
 
+    // ── Optional: Reference corpus distance gate (R-01) ───────────────────────
+    if (corpusPath) {
+        gates.push(evaluateReferenceCorpusGate(corpusPath, candidateRows));
+    }
+
     // ── Decision ──────────────────────────────────────────────────────────────
     const failedGates = gates.filter((g) => !g.passed && !g.skipped);
     const promoted = failedGates.length === 0;
     const activeGates = gates.filter((g) => !g.skipped);
+
+    // Separate warnings by gate type for easier operator consumption
+    const diversityCollapseWarnings = failedGates
+        .filter((g) => g.type === "diversity")
+        .map((g) => g.reason);
+    const crossMetricCollapseWarnings = failedGates
+        .filter((g) => g.type === "cross_metric")
+        .map((g) => g.reason);
 
     const decision = {
         promoted,
@@ -459,11 +461,100 @@ function main() {
             : `${failedGates.length} gate(s) failed: ${failedGates.map((g) => g.id).join(", ")}`,
         gates,
         failedGates,
+        diversityCollapseWarnings,
+        crossMetricCollapseWarnings,
         stats: { baseline: baselineStats, candidate: candidateStats },
     };
 
     output(decision, outPath, dryRun);
     process.exit(promoted ? 0 : 1);
+}
+
+function buildEarlyDecision(promoted, reason, baselineRows, candidateRows) {
+    return {
+        promoted,
+        evaluatedAt: new Date().toISOString(),
+        baselineRows,
+        candidateRows,
+        reason,
+        gates: [],
+        failedGates: [],
+        diversityCollapseWarnings: [],
+        crossMetricCollapseWarnings: [],
+    };
+}
+
+/**
+ * Optional R-01 gate: reference corpus distance.
+ *
+ * Reads a corpus-profile.json produced by analyze-reference-corpus.mjs and
+ * checks whether the mean `referenceDistanceScore` in the candidate rows falls
+ * within the healthy "in_range" band (0.10–0.75).
+ *
+ * Score rows must include a `referenceDistanceScore` field (numeric, 0–1).
+ * If no rows carry the field the gate is skipped with a warning.
+ *
+ * @param {string} corpusPath  Path to corpus-profile.json
+ * @param {object[]} candidateRows  Candidate score rows (JSONL)
+ * @returns {object} gate result
+ */
+function evaluateReferenceCorpusGate(corpusPath, candidateRows) {
+    const gateId = "R-01";
+
+    // Load corpus profile
+    let corpusProfile;
+    try {
+        corpusProfile = JSON.parse(fs.readFileSync(corpusPath, "utf8"));
+    } catch (e) {
+        return {
+            id: gateId, type: "reference_corpus", passed: true, skipped: true,
+            reason: `corpus-profile not readable: ${e.message} — R-01 skipped`,
+        };
+    }
+
+    // Extract referenceDistanceScore values from candidate rows
+    const scores = candidateRows
+        .map((r) => r["referenceDistanceScore"])
+        .filter((v) => typeof v === "number" && Number.isFinite(v));
+
+    if (scores.length === 0) {
+        return {
+            id: gateId, type: "reference_corpus", passed: true, skipped: true,
+            reason: "candidate rows have no referenceDistanceScore field — R-01 skipped (add it during benchmarking)",
+            corpusN: corpusProfile.n ?? 0,
+        };
+    }
+
+    const meanScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const tooFarCount  = scores.filter((s) => s > 0.75).length;
+    const tooCloseCount = scores.filter((s) => s < 0.10).length;
+    const tooFarFraction  = tooFarCount  / scores.length;
+    const tooCloseFraction = tooCloseCount / scores.length;
+
+    // Gate fails when > 50% of rows are idiom-drifted
+    const idiomDriftFail = tooFarFraction > 0.50;
+    // Warn only (not fail) when too many are too_close (copy risk)
+    const copyRiskFraction = tooCloseFraction;
+
+    const passed = !idiomDriftFail;
+    const classifyMean = meanScore < 0.10 ? "too_close" : meanScore > 0.75 ? "too_far" : "in_range";
+
+    return {
+        id: gateId,
+        type: "reference_corpus",
+        passed,
+        skipped: false,
+        corpusN: corpusProfile.n ?? 0,
+        candidateScoreN: scores.length,
+        meanReferenceDistanceScore: round3(meanScore),
+        classification: classifyMean,
+        tooFarPercent: round3(tooFarFraction * 100),
+        tooClosePercent: round3(copyRiskFraction * 100),
+        copyRiskWarning: copyRiskFraction > 0.30,
+        reason: passed
+            ? `R-01 OK: mean referenceDistance ${meanScore.toFixed(3)} (${classifyMean}), idiom-drift rows ${(tooFarFraction * 100).toFixed(1)}%`
+            : `IDIOM DRIFT: ${(tooFarFraction * 100).toFixed(1)}% of candidate rows are too_far from classical corpus (>50% threshold) — mean score ${meanScore.toFixed(3)}`,
+    };
 }
 
 function output(decision, outPath, dryRun) {
@@ -478,6 +569,14 @@ function output(decision, outPath, dryRun) {
             console.log(`    [${g.id}] ${g.reason}`);
         }
     }
+    if (decision.diversityCollapseWarnings?.length > 0) {
+        console.log("  Diversity collapse:");
+        for (const w of decision.diversityCollapseWarnings) console.log(`    ⚠ ${w}`);
+    }
+    if (decision.crossMetricCollapseWarnings?.length > 0) {
+        console.log("  Cross-metric collapse:");
+        for (const w of decision.crossMetricCollapseWarnings) console.log(`    ⚠ ${w}`);
+    }
     console.log(`  Baseline rows:    ${decision.baselineRows ?? "?"}`);
     console.log(`  Candidate rows:   ${decision.candidateRows ?? "?"}`);
 
@@ -487,6 +586,8 @@ function output(decision, outPath, dryRun) {
         gatesFailed: decision.gatesFailed ?? 0,
         reason: decision.reason,
         failedGateIds: (decision.failedGates ?? []).map((g) => g.id),
+        diversityCollapseWarnings: decision.diversityCollapseWarnings ?? [],
+        crossMetricCollapseWarnings: decision.crossMetricCollapseWarnings ?? [],
     }));
 
     if (dryRun) {

@@ -19,6 +19,8 @@
  *   APG-13: harmonyContractScore +5% + motifRecapIdentity -3% → X-gate 실패하지 않음
  *   APG-14: baseline 행 부족 (< 5) → promoted=false 즉시
  *   APG-15: 모든 지표 개선 → promoted=true, reason에 통과 gate 수 포함
+ *   APG-16: diversity collapse → diversityCollapseWarnings에 포함
+ *   APG-17: cross-metric collapse → crossMetricCollapseWarnings에 포함
  */
 
 import { strict as assert } from "node:assert";
@@ -151,7 +153,7 @@ function evaluateCrossMetricGates(candidateStats, baselineStats) {
     return results;
 }
 
-/** Run the full gate suite and return { promoted, gates, failedGates }. */
+/** Run the full gate suite and return { promoted, gates, failedGates, diversityCollapseWarnings, crossMetricCollapseWarnings }. */
 function runGates(baselineRows, candidateRows) {
     if (baselineRows.length < MIN_ROWS || candidateRows.length < MIN_ROWS) {
         return {
@@ -159,6 +161,8 @@ function runGates(baselineRows, candidateRows) {
             reason: `insufficient rows (baseline=${baselineRows.length}, candidate=${candidateRows.length})`,
             gates: [],
             failedGates: [],
+            diversityCollapseWarnings: [],
+            crossMetricCollapseWarnings: [],
         };
     }
     const bs = computeAllStats(baselineRows);
@@ -168,7 +172,9 @@ function runGates(baselineRows, candidateRows) {
     for (const metric of DIVERSITY_GATE_METRICS) gates.push(evaluateDiversityGate(metric, cs, bs));
     gates.push(...evaluateCrossMetricGates(cs, bs));
     const failedGates = gates.filter((g) => !g.passed && !g.skipped);
-    return { promoted: failedGates.length === 0, gates, failedGates };
+    const diversityCollapseWarnings = failedGates.filter((g) => g.type === "diversity").map((g) => g.reason);
+    const crossMetricCollapseWarnings = failedGates.filter((g) => g.type === "cross_metric").map((g) => g.reason);
+    return { promoted: failedGates.length === 0, gates, failedGates, diversityCollapseWarnings, crossMetricCollapseWarnings };
 }
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -386,6 +392,36 @@ describe("Adapter Promotion Gate (APG)", () => {
         const activeGates = gates.filter((g) => !g.skipped);
         assert.ok(activeGates.length >= 7, "Should have at least 7 active gates");
         assert.ok(activeGates.every((g) => g.passed), "All active gates should pass");
+    });
+
+    it("APG-16: diversity collapse → diversityCollapseWarnings populated, crossMetricCollapseWarnings empty", () => {
+        // finalCraftScore stddev collapses → D-gate fails → diversityCollapseWarnings filled
+        const bRows = Array.from({ length: 10 }, (_, i) => ({
+            ...BASE_SCORES, id: `b-${i}`,
+            finalCraftScore: 0.76 + (i % 2 === 0 ? 0.12 : -0.12),
+        }));
+        const cRows = Array.from({ length: 10 }, (_, i) => ({
+            ...BASE_SCORES, id: `c-${i}`,
+            finalCraftScore: 0.77 + (i % 2 === 0 ? 0.005 : -0.005),
+        }));
+        const { diversityCollapseWarnings, crossMetricCollapseWarnings } = runGates(bRows, cRows);
+        assert.ok(diversityCollapseWarnings.length > 0, "diversityCollapseWarnings must be non-empty on stddev collapse");
+        assert.strictEqual(crossMetricCollapseWarnings.length, 0, "crossMetricCollapseWarnings must be empty when no cross-metric collapse");
+    });
+
+    it("APG-17: cross-metric collapse → crossMetricCollapseWarnings populated, diversityCollapseWarnings empty", () => {
+        // harmonyContractScore +12%, motifRecapIdentity -6% → X-gate fails → crossMetricCollapseWarnings filled
+        const baseline = makeRows(10, {
+            ...BASE_SCORES, harmonyContractScore: 0.70, motifRecapIdentity: 0.70,
+        });
+        const candidate = makeRows(10, {
+            ...BASE_SCORES,
+            harmonyContractScore: 0.70 * 1.12,  // +12%
+            motifRecapIdentity:   0.70 * 0.94,  // -6%
+        });
+        const { diversityCollapseWarnings, crossMetricCollapseWarnings } = runGates(baseline, candidate);
+        assert.ok(crossMetricCollapseWarnings.length > 0, "crossMetricCollapseWarnings must be non-empty on cross-metric collapse");
+        assert.strictEqual(diversityCollapseWarnings.length, 0, "diversityCollapseWarnings must be empty when no diversity collapse");
     });
 
 });
