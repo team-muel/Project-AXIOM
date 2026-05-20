@@ -155,10 +155,17 @@ def _load_notagen_utils() -> "types.ModuleType":
 
         module = importlib.util.module_from_spec(spec)
         sys.modules["notagen_official_utils"] = module
+        # Add the candidate directory to sys.path so intra-package imports inside
+        # utils.py (e.g. `import config`) resolve to the same directory.
+        _path_inserted = candidate not in sys.path
+        if _path_inserted:
+            sys.path.insert(0, candidate)
         try:
             spec.loader.exec_module(module)  # type: ignore[union-attr]
         except Exception as exc:  # noqa: BLE001
             del sys.modules["notagen_official_utils"]
+            if _path_inserted and candidate in sys.path:
+                sys.path.remove(candidate)
             raise ImportError(
                 f"Failed to exec NotaGen utils.py at {utils_py!r}: {exc}"
             ) from exc
