@@ -5,6 +5,11 @@ import type {
     LearnedSymbolicPromptPackSection,
     LearnedSymbolicPromptPackStyleCue,
 } from "./learnedAdapter.js";
+import {
+    AXIOM_IDENTITY_COMPOSER_PRIMARY,
+    AXIOM_IDENTITY_COMPOSER_LYRICAL,
+    SCHUBERT_FORM_KEYWORDS,
+} from "../identity/axiomStyleIdentity.js";
 
 export const LEARNED_NOTAGEN_ADAPTER_VERSION = "learned_notagen_adapter_v1" as const;
 
@@ -463,22 +468,13 @@ export function buildPianoRewriteBlock(spec: LocalizedPianoRewriteSpec): string 
 }
 
 /**
- * AXIOM identity composers.
- * Beethoven is the primary identity (dramatic, structural forms).
- * Schubert is the secondary identity for lyrical/characteristic forms.
+ * AXIOM identity composers — imported from src/core/identity/axiomStyleIdentity.ts.
+ * JSON profile: config/style-profiles/axiom_beethoven_schubert_v1.json
+ *
+ * Beethoven = primary identity (dramatic, structural forms).
+ * Schubert  = secondary identity (lyrical, characteristic forms).
+ * SCHUBERT_FORM_KEYWORDS = form-keyword routing set for Schubert.
  */
-const AXIOM_IDENTITY_COMPOSER_PRIMARY = "Beethoven, Ludwig van";
-const AXIOM_IDENTITY_COMPOSER_LYRICAL = "Schubert, Franz";
-
-/**
- * Form keywords that route to Schubert rather than Beethoven.
- * These are lyrical, song-like, or characteristic-piece forms that align more
- * naturally with Schubert's aesthetic than Beethoven's architectural style.
- */
-const SCHUBERT_FORM_KEYWORDS = new Set([
-    "lied", "song", "nocturne", "impromptu", "moment musical", "moment_musical",
-    "romanze", "romance", "fantasia lyrisch", "ballade", "wiegenlied", "serenade",
-]);
 
 /** Resolve the NotaGen composer identity string for this prompt pack. */
 function resolveComposerIdentity(styleCue: LearnedSymbolicPromptPackStyleCue): string {

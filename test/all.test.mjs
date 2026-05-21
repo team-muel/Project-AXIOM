@@ -75,3 +75,4 @@ import "./scoring-profile-registry.test.mjs";
 import "./rewrite-improvement.test.mjs";
 import "./adapter-promotion-policy.test.mjs";
 import "./reference-style-profile.test.mjs";
+import "./axiom-style-identity-profile.test.mjs";

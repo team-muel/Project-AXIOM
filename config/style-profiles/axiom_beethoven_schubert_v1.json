@@ -1,0 +1,77 @@
+{
+  "id": "axiom_beethoven_schubert_v1",
+  "version": "1",
+  "description": "AXIOM's core aesthetic identity profile. Declares the composers AXIOM aspires to sound like, at what weight, and what musical traits define that aspiration. This is the single source of truth for identity-routing logic in the composition pipeline.",
+  "status": "active",
+  "primaryInfluences": [
+    {
+      "composer": "Beethoven, Ludwig van",
+      "notagenComposerId": "Beethoven, Ludwig van",
+      "weight": 0.55,
+      "formRouting": "structural",
+      "description": "Primary identity. Governs dramatic, architecturally-driven forms.",
+      "traits": [
+        "motivic inevitability",
+        "dramatic contrast",
+        "sonata architecture",
+        "long-range tonal resolution",
+        "rhythmic drive"
+      ],
+      "traitDescriptions": {
+        "motivic inevitability": "Short motifs developed to large-scale consequences — the whole grows from a small seed.",
+        "dramatic contrast": "Sudden dynamic and tonal shifts that heighten structural tension.",
+        "sonata architecture": "Exposition, development, and recapitulation as structural necessity.",
+        "long-range tonal resolution": "Tonal conflict sustained across sections; resolution feels earned, not given.",
+        "rhythmic drive": "Dotted rhythms, syncopation, and propulsive forward motion — rhythm as argument."
+      },
+      "formExamples": [
+        "sonata", "miniature", "theme_and_variations", "scherzo", "rondo"
+      ]
+    },
+    {
+      "composer": "Schubert, Franz",
+      "notagenComposerId": "Schubert, Franz",
+      "weight": 0.45,
+      "formRouting": "lyrical",
+      "description": "Secondary identity. Governs lyrical, song-like, and characteristic forms.",
+      "traits": [
+        "lyrical melody",
+        "song-like phrase expansion",
+        "mediant harmonic color",
+        "major-minor ambiguity",
+        "wandering but coherent modulation"
+      ],
+      "traitDescriptions": {
+        "lyrical melody": "Singable, long-breathed, expanded phrases that carry the emotional weight.",
+        "song-like phrase expansion": "Periods that breathe, repeat, and vary like a strophic song.",
+        "mediant harmonic color": "Sudden moves to III, bVI, VI for tonal surprise and color without losing tonal center.",
+        "major-minor ambiguity": "Bittersweet shifts between parallel major and minor as a structural expressive device.",
+        "wandering but coherent modulation": "Tonally adventurous yet always finding home — exploration without drift."
+      },
+      "formExamples": [
+        "lied", "song", "nocturne", "impromptu", "moment musical", "romanze",
+        "romance", "serenade", "ballade", "wiegenlied", "fantasia lyrisch"
+      ]
+    }
+  ],
+  "generalTheorySources": [
+    "Bach: counterpoint and voice leading",
+    "Haydn/Mozart: phrase clarity and classical proportion",
+    "Chopin: piano figuration only",
+    "Brahms: motivic density only"
+  ],
+  "avoidAsPrimaryIdentity": [
+    "generic romantic average",
+    "virtuosity without structure",
+    "impressionistic harmonic drift",
+    "surface-level composer pastiche"
+  ],
+  "futurePhases": {
+    "note": "These may be added as separate technical references only — NOT blended into the primary identity.",
+    "potentialAdditions": [
+      { "composer": "Rachmaninoff, Sergei", "role": "long_lyric_arc_reference" },
+      { "composer": "Schumann, Robert",    "role": "character_piece_reference" }
+    ]
+  },
+  "referenceCorpusLink": "../reference-corpus/corpus-manifest.json"
+}
