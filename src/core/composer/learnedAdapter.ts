@@ -62,6 +62,24 @@ export interface LearnedSymbolicPromptPackStyleCue {
      * both Beethoven and Schubert).
      */
     period?: string;
+    /**
+     * Style identity profile ID (e.g. "axiom_beethoven_schubert_v1").
+     * Emitted as `lineage_profile=` control line; used by the adapter for
+     * candidate-level composer routing when influenceBlend is also present.
+     */
+    lineageProfileId?: string;
+    /**
+     * Per-composer blend for candidate-level routing.
+     * When present, the adapter maps each candidateIndex to a composer
+     * based on the cumulative weight of the blend entries.
+     * Primary/secondary roles drive actual NotaGen %Composer conditioning;
+     * theory_only roles are excluded from candidate routing.
+     */
+    influenceBlend?: Array<{
+        composer: string;
+        weight: number;
+        role: "primary" | "secondary" | "theory_only";
+    }>;
 }
 
 export interface LearnedSymbolicPromptPackSection {
@@ -328,6 +346,8 @@ function buildStyleCue(request: ComposeRequest, instrumentation: InstrumentAssig
         ...(plan?.humanizationStyle ? { humanizationStyle: plan.humanizationStyle } : {}),
         ...(plan?.composer ? { composer: plan.composer } : {}),
         ...(plan?.period ? { period: plan.period } : {}),
+        ...(plan?.lineageProfileId ? { lineageProfileId: plan.lineageProfileId } : {}),
+        ...(plan?.influenceBlend?.length ? { influenceBlend: plan.influenceBlend } : {}),
     };
 }
 

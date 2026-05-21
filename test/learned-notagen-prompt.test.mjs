@@ -330,6 +330,102 @@ test("notagen-adapter: identity — period= control line absent when not set", (
         "period= control line must be absent when styleCue.period is not set");
 });
 
+test("notagen-adapter: identity — lineage_profile= control line emitted when lineageProfileId set", () => {
+    const req = makeRequest();
+    req.compositionPlan.lineageProfileId = "axiom_beethoven_schubert_v1";
+    const payload = buildLearnedSymbolicWorkerPayload(req, "test-song", "/tmp/test.mid", EXECUTION_PLAN);
+    const line = payload.providerRequest.controlLines.find((l) => l.startsWith("lineage_profile="));
+    assert.equal(line, "lineage_profile=axiom_beethoven_schubert_v1",
+        "lineageProfileId must be emitted as lineage_profile= control line");
+});
+
+test("notagen-adapter: identity — influence_blend= control line emitted when influenceBlend set", () => {
+    const req = makeRequest();
+    req.compositionPlan.influenceBlend = [
+        { composer: "Beethoven, Ludwig van", weight: 0.55, role: "primary" },
+        { composer: "Schubert, Franz", weight: 0.45, role: "secondary" },
+    ];
+    const payload = buildLearnedSymbolicWorkerPayload(req, "test-song", "/tmp/test.mid", EXECUTION_PLAN);
+    const line = payload.providerRequest.controlLines.find((l) => l.startsWith("influence_blend="));
+    assert.ok(line, "influence_blend= control line must be present when influenceBlend is set");
+    assert.ok(line.includes("Beethoven, Ludwig van:0.55"), "Beethoven entry must be present");
+    assert.ok(line.includes("Schubert, Franz:0.45"), "Schubert entry must be present");
+});
+
+test("notagen-adapter: identity — candidateIndex 0-3 routes to Beethoven (influenceBlend 0.55/0.45)", () => {
+    // influenceBlend split with 8 candidates: indices 0-4 → Beethoven, 5-7 → Schubert
+    const blend = [
+        { composer: "Beethoven, Ludwig van", weight: 0.55, role: "primary" },
+        { composer: "Schubert, Franz", weight: 0.45, role: "secondary" },
+    ];
+    const promptPack = {
+        version: "2",
+        lane: "string_trio_symbolic",
+        planSignature: "test",
+        promptText: "test",
+        styleCue: {
+            brief: "test", mood: [], form: "sonata", key: "C major",
+            meter: "4/4", tempo: 120, instrumentationLabel: "Violin, Viola, Cello",
+            influenceBlend: blend,
+        },
+        instrumentation: [
+            { name: "Violin", family: "strings", roles: ["lead"] },
+            { name: "Viola", family: "strings", roles: ["counterline"] },
+            { name: "Cello", family: "strings", roles: ["bass"] },
+        ],
+        sections: [],
+    };
+    for (const idx of [0, 1, 2, 3]) {
+        const pr = buildLearnedNotagenProviderRequest(promptPack, undefined, { candidateIndex: idx });
+        const composerLine = pr.controlLines.find((l) => l.startsWith("composer="));
+        assert.equal(composerLine, "composer=Beethoven, Ludwig van",
+            `candidate ${idx} must route to Beethoven`);
+    }
+});
+
+test("notagen-adapter: identity — candidateIndex 5-7 routes to Schubert (influenceBlend 0.55/0.45)", () => {
+    const blend = [
+        { composer: "Beethoven, Ludwig van", weight: 0.55, role: "primary" },
+        { composer: "Schubert, Franz", weight: 0.45, role: "secondary" },
+    ];
+    const promptPack = {
+        version: "2",
+        lane: "string_trio_symbolic",
+        planSignature: "test",
+        promptText: "test",
+        styleCue: {
+            brief: "test", mood: [], form: "sonata", key: "C major",
+            meter: "4/4", tempo: 120, instrumentationLabel: "Violin, Viola, Cello",
+            influenceBlend: blend,
+        },
+        instrumentation: [
+            { name: "Violin", family: "strings", roles: ["lead"] },
+            { name: "Viola", family: "strings", roles: ["counterline"] },
+            { name: "Cello", family: "strings", roles: ["bass"] },
+        ],
+        sections: [],
+    };
+    for (const idx of [5, 6, 7]) {
+        const pr = buildLearnedNotagenProviderRequest(promptPack, undefined, { candidateIndex: idx });
+        const composerLine = pr.controlLines.find((l) => l.startsWith("composer="));
+        assert.equal(composerLine, "composer=Schubert, Franz",
+            `candidate ${idx} must route to Schubert`);
+    }
+});
+
+test("notagen-adapter: identity — theory_only entries excluded from influence_blend control line", () => {
+    const req = makeRequest();
+    req.compositionPlan.influenceBlend = [
+        { composer: "Beethoven, Ludwig van", weight: 0.55, role: "primary" },
+        { composer: "Schubert, Franz", weight: 0.45, role: "secondary" },
+        { composer: "Bach, Johann Sebastian", weight: 0.0, role: "theory_only" },
+    ];
+    const payload = buildLearnedSymbolicWorkerPayload(req, "test-song", "/tmp/test.mid", EXECUTION_PLAN);
+    const line = payload.providerRequest.controlLines.find((l) => l.startsWith("influence_blend="));
+    assert.ok(line, "influence_blend= must be present");
+    assert.ok(!line.includes("Bach"), "theory_only Bach must NOT appear in influence_blend= line");
+});
+
 // ─── Python abc_prompt.py tests ───────────────────────────────────────────
 
 /**

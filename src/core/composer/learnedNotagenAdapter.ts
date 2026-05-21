@@ -477,13 +477,50 @@ export function buildPianoRewriteBlock(spec: LocalizedPianoRewriteSpec): string 
  */
 
 /** Resolve the NotaGen composer identity string for this prompt pack. */
-function resolveComposerIdentity(styleCue: LearnedSymbolicPromptPackStyleCue): string {
+function resolveComposerIdentity(
+    styleCue: LearnedSymbolicPromptPackStyleCue,
+    candidateIndex?: number,
+): string {
+    // Explicit override always wins
     if (styleCue.composer) return normalizeText(styleCue.composer);
+
+    // If an influenceBlend is present and we have a candidateIndex,
+    // split candidates by cumulative weight among non-theory_only entries.
+    // e.g. Beethoven 0.55 + Schubert 0.45 with 8 candidates:
+    //   threshold = round(8 * 0.55) = 5 → candidates 0-4 → Beethoven, 5-7 → Schubert
+    if (styleCue.influenceBlend?.length && candidateIndex !== undefined) {
+        const active = styleCue.influenceBlend.filter((e) => e.role !== "theory_only");
+        if (active.length >= 2) {
+            const totalWeight = active.reduce((s, e) => s + e.weight, 0);
+            let cumulative = 0;
+            for (const entry of active) {
+                cumulative += entry.weight / totalWeight;
+                // The threshold is evaluated against a normalised 0-1 position
+                // derived from the candidate index within an assumed pool of 8.
+                const normIndex = (candidateIndex + 1) / 8;
+                if (normIndex <= cumulative) return normalizeText(entry.composer);
+            }
+            // Fallback: last active entry
+            return normalizeText(active[active.length - 1].composer);
+        }
+    }
+
+    // Form-based fallback
     const formLower = (styleCue.form ?? "").toLowerCase();
     for (const kw of SCHUBERT_FORM_KEYWORDS) {
         if (formLower.includes(kw)) return AXIOM_IDENTITY_COMPOSER_LYRICAL;
     }
     return AXIOM_IDENTITY_COMPOSER_PRIMARY;
+}
+
+/** Render an influence_blend control line from an influenceBlend array. */
+function buildInfluenceBlendLine(
+    blend: Array<{ composer: string; weight: number; role: string }>,
+): string {
+    const parts = blend
+        .filter((e) => e.role !== "theory_only")
+        .map((e) => `${normalizeText(e.composer)}:${e.weight}`);
+    return `influence_blend=${parts.join(",")}`;
 }
 
 export function buildLearnedNotagenProviderRequest(
@@ -499,7 +536,7 @@ export function buildLearnedNotagenProviderRequest(
     const tempo = promptPack.styleCue.tempo ?? 92;
     const abcKey = resolveAbcKey(promptPack.styleCue.key ?? "C major");
     const instrumentationLine = resolveInstrumentationControlLine(promptPack, warnings);
-    const composerIdentity = resolveComposerIdentity(promptPack.styleCue);
+    const composerIdentity = resolveComposerIdentity(promptPack.styleCue, opts?.candidateIndex);
 
     // Hard constraints + structural control lines in deterministic order
     const controlLines: string[] = [
@@ -514,6 +551,12 @@ export function buildLearnedNotagenProviderRequest(
         instrumentationLine,
         `composer=${composerIdentity}`,
         ...(promptPack.styleCue.period ? [`period=${normalizeText(promptPack.styleCue.period)}`] : []),
+        ...(promptPack.styleCue.lineageProfileId
+            ? [`lineage_profile=${normalizeText(promptPack.styleCue.lineageProfileId)}`]
+            : []),
+        ...(promptPack.styleCue.influenceBlend?.length
+            ? [buildInfluenceBlendLine(promptPack.styleCue.influenceBlend)]
+            : []),
         // Piano-specific global header lines(present only when a PianoPlan is attached).
         // Preserved verbatim even when native NotaGen cannot follow all fields —
         // projection, evaluator, repair solver, and fine-tuning export pipelines rely on them.

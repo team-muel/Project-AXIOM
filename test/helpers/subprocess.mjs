@@ -5,12 +5,18 @@ const execFileAsync = promisify(execFile);
 
 export async function runNodeEval(code, options = {}) {
     const { cwd, env } = options;
+    // Merge parent env with test-specific overrides.
+    // Keys explicitly set to undefined in `env` are deleted from the child env
+    // so tests can isolate themselves from parent-process env vars.
+    const merged = { ...process.env, ...env };
+    if (env) {
+        for (const key of Object.keys(env)) {
+            if (env[key] === undefined) delete merged[key];
+        }
+    }
     const result = await execFileAsync(process.execPath, ["--input-type=module", "--eval", code], {
         cwd,
-        env: {
-            ...process.env,
-            ...env,
-        },
+        env: merged,
         maxBuffer: 1024 * 1024,
     });
 

@@ -186,7 +186,8 @@ test("config.ts exposes learnedSymbolicBackend with default=template", async () 
         console.log(JSON.stringify({ mode: config.learnedSymbolicBackend }));
     `, {
         cwd: repoRoot,
-        env: { LOG_LEVEL: "error" },  // No LEARNED_SYMBOLIC_BACKEND set
+        // Explicitly set to "template" so dotenv (.env file) cannot override the expected value
+        env: { LOG_LEVEL: "error", LEARNED_SYMBOLIC_BACKEND: "template" },
     });
     const result = parseLastJsonLine(stdout);
     assert.equal(result.mode, "template");
@@ -247,7 +248,8 @@ test("Readiness shows notagenBackend.mode=template when LEARNED_SYMBOLIC_BACKEND
                 OUTPUT_DIR: outputDir,
                 LOG_DIR: logDir,
                 LOG_LEVEL: "error",
-                // No LEARNED_SYMBOLIC_BACKEND
+                // Explicitly set to "template" so dotenv (.env file) cannot override the expected value
+                LEARNED_SYMBOLIC_BACKEND: "template",
             },
         });
 

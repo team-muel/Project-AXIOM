@@ -297,6 +297,22 @@ export interface CompositionPlan {
      * When absent, defaults to "Romantic" (appropriate for Beethoven and Schubert).
      */
     period?: string;
+    /**
+     * Style identity profile ID (e.g. "axiom_beethoven_schubert_v1").
+     * When set, the adapter emits a `lineage_profile=` control line and uses the
+     * profile's influenceBlend for candidate-level composer routing.
+     */
+    lineageProfileId?: string;
+    /**
+     * Per-candidate composer blend.  Overrides form-based routing when present.
+     * The adapter splits candidates by cumulative weight threshold:
+     * e.g. Beethoven 0.55 + Schubert 0.45 with 8 candidates → first 5 Beethoven, last 3 Schubert.
+     */
+    influenceBlend?: Array<{
+        composer: string;
+        weight: number;
+        role: "primary" | "secondary" | "theory_only";
+    }>;
     targetDurationSec?: number;
     targetMeasures?: number;
     meter?: string;
