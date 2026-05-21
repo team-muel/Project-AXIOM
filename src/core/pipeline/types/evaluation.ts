@@ -163,6 +163,30 @@ export interface CraftScoreSummary {
 
     /** Scoring profile used to compute finalCraftScore (e.g. "classical_default_v1"). */
     scoringProfile?: string;
+
+    // ── AXIOM aesthetic identity scores ──────────────────────────────────────
+    // Supplementary — not included in finalCraftScore formula.
+    // Evaluated against the Beethoven·Schubert lineage aesthetic identity.
+
+    /**
+     * Measures Beethovenian motivic drive: motif cell recurrence, rhythmic
+     * cell repetition, transformation variety, development pressure, and
+     * recap inevitability (0–1).
+     */
+    beethovenianMotivicPressureScore?: number;
+
+    /**
+     * Measures Schubertian lyric expansion: phrase length expansion, stepwise
+     * melodic continuity, delayed cadence, lyrical contour arch, and
+     * repetition with harmonic color shift (0–1).
+     */
+    schubertianLyricExpansionScore?: number;
+
+    /**
+     * Measures Schubertian mediant color: chromatic third relations, major/minor
+     * ambiguity, remote key areas, and sudden color shifts with phrase continuity (0–1).
+     */
+    mediantColorScore?: number;
 }
 
 // ─── Piano-specific craft scoring ────────────────────────────────────────────

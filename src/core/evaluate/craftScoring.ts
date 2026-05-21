@@ -13,6 +13,7 @@ import { computeHarmonyGrammarScoreSummary } from "./harmonyGrammarScoring.js";
 import { computeMotifDevelopmentScoreSummary } from "./motifDevelopmentScoring.js";
 import { computeEvidenceCoverageReport } from "./evidenceCoverage.js";
 import { checkHarmonyRealizationContract } from "./harmonyRealizationContract.js";
+import { computeAxiomAestheticScores } from "./axiomAestheticEvaluators.js";
 import {
     CLASSICAL_DEFAULT_V1,
     type CraftScoringProfile,
@@ -1217,6 +1218,7 @@ export function computeCraftScoreSummary(
     const planPhraseGrammarResult  = computePlanAwarePhraseGrammarScore(sectionArtifacts, plan);
     const planHarmonyGrammarResult = computePlanAwareHarmonyGrammarScore(sectionArtifacts, plan);
     const planMotifDevResult       = computePlanAwareMotifDevelopmentScore(sectionArtifacts, plan);
+    const axiomAesthetic           = computeAxiomAestheticScores(sectionArtifacts, plan);
 
     if (motifTransformResult.notes)  dimensionNotes["motifTransformVariety"]      = motifTransformResult.notes;
     if (harmonicRhythmResult.notes)  dimensionNotes["harmonicRhythmVariance"]     = harmonicRhythmResult.notes;
@@ -1228,6 +1230,12 @@ export function computeCraftScoreSummary(
     if (planPhraseGrammarResult.notes)  dimensionNotes["planAwarePhraseGrammarScore"]  = planPhraseGrammarResult.notes;
     if (planHarmonyGrammarResult.notes) dimensionNotes["planAwareHarmonyGrammarScore"] = planHarmonyGrammarResult.notes;
     if (planMotifDevResult.notes)       dimensionNotes["planAwareMotifDevelopmentScore"] = planMotifDevResult.notes;
+    if (axiomAesthetic.beethovenianMotivicPressure.notes)
+        dimensionNotes["beethovenianMotivicPressureScore"] = axiomAesthetic.beethovenianMotivicPressure.notes;
+    if (axiomAesthetic.schubertianLyricExpansion.notes)
+        dimensionNotes["schubertianLyricExpansionScore"]   = axiomAesthetic.schubertianLyricExpansion.notes;
+    if (axiomAesthetic.mediantColor.notes)
+        dimensionNotes["mediantColorScore"]                = axiomAesthetic.mediantColor.notes;
 
     return {
         syntaxValidity: Number(syntaxValidity.toFixed(4)),
@@ -1267,5 +1275,8 @@ export function computeCraftScoreSummary(
         harmonyContractViolations:        contractReport.requiredViolationCount,
         harmonyContractScore:             Number(contractReport.contractScore.toFixed(4)),
         scoringProfile:                   (profile ?? CLASSICAL_DEFAULT_V1).profile,
+        beethovenianMotivicPressureScore: Number(axiomAesthetic.beethovenianMotivicPressure.score.toFixed(4)),
+        schubertianLyricExpansionScore:   Number(axiomAesthetic.schubertianLyricExpansion.score.toFixed(4)),
+        mediantColorScore:                Number(axiomAesthetic.mediantColor.score.toFixed(4)),
     };
 }
