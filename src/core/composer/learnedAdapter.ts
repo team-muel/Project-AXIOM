@@ -49,6 +49,19 @@ export interface LearnedSymbolicPromptPackStyleCue {
     riskProfile?: string;
     structureVisibility?: string;
     humanizationStyle?: string;
+    /**
+     * Explicit NotaGen composer identity (e.g. "Beethoven, Ludwig van").
+     * When absent, `buildLearnedNotagenProviderRequest` derives the identity
+     * from the form: lyrical/song forms map to "Schubert, Franz"; all other
+     * forms default to "Beethoven, Ludwig van".
+     */
+    composer?: string;
+    /**
+     * Explicit NotaGen period identity (e.g. "Romantic").
+     * When absent, the Python engine defaults to "Romantic" (appropriate for
+     * both Beethoven and Schubert).
+     */
+    period?: string;
 }
 
 export interface LearnedSymbolicPromptPackSection {
@@ -313,6 +326,8 @@ function buildStyleCue(request: ComposeRequest, instrumentation: InstrumentAssig
         ...(plan?.riskProfile ? { riskProfile: plan.riskProfile } : {}),
         ...(plan?.structureVisibility ? { structureVisibility: plan.structureVisibility } : {}),
         ...(plan?.humanizationStyle ? { humanizationStyle: plan.humanizationStyle } : {}),
+        ...(plan?.composer ? { composer: plan.composer } : {}),
+        ...(plan?.period ? { period: plan.period } : {}),
     };
 }
 

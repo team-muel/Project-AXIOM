@@ -286,6 +286,17 @@ export interface CompositionPlan {
     riskProfile?: PlanRiskProfile;
     structureVisibility?: StructureVisibility;
     humanizationStyle?: HumanizationStyle;
+    /**
+     * Explicit NotaGen composer identity (e.g. "Beethoven, Ludwig van", "Schubert, Franz").
+     * When absent, the adapter derives identity from form: lyrical forms → Schubert,
+     * structural/dramatic forms → Beethoven.
+     */
+    composer?: string;
+    /**
+     * Explicit NotaGen period identity (e.g. "Romantic", "Classical", "Baroque").
+     * When absent, defaults to "Romantic" (appropriate for Beethoven and Schubert).
+     */
+    period?: string;
     targetDurationSec?: number;
     targetMeasures?: number;
     meter?: string;

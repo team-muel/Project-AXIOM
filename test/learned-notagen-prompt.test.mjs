@@ -47,7 +47,7 @@ const pythonBin = detectPythonBin();
 // ─── TypeScript imports from compiled dist ────────────────────────────────
 
 const { buildLearnedSymbolicWorkerPayload } = await import("../dist/composer/learnedAdapter.js");
-const { buildPianoRewriteBlock } = await import("../dist/composer/learnedNotagenAdapter.js");
+const { buildPianoRewriteBlock, buildLearnedNotagenProviderRequest } = await import("../dist/composer/learnedNotagenAdapter.js");
 
 const STRING_TRIO_LANE = "string_trio_symbolic";
 
@@ -262,6 +262,72 @@ test("notagen-adapter: metadataLines contains riskProfile and intentRationale wh
     const meta = payload.providerRequest.metadataLines ?? [];
     assert.ok(meta.some((l) => l.startsWith("risk_profile=")), "risk_profile missing from metadataLines");
     assert.ok(meta.some((l) => l.startsWith("intent_rationale=")), "intent_rationale missing from metadataLines");
+});
+
+// ─── AXIOM Beethoven/Schubert identity tests ──────────────────────────────
+
+test("notagen-adapter: identity — default form routes to Beethoven", () => {
+    const payload = buildPayload();
+    const composerLine = payload.providerRequest.controlLines.find((l) => l.startsWith("composer="));
+    assert.ok(composerLine, "composer= control line must be present");
+    assert.equal(composerLine, "composer=Beethoven, Ludwig van",
+        "default (non-lyrical) form must resolve to Beethoven");
+});
+
+test("notagen-adapter: identity — lyrical form (nocturne) routes to Schubert", () => {
+    // Test resolveComposerIdentity directly via buildLearnedNotagenProviderRequest
+    // to avoid resolveLane() which requires form=miniature for string_trio_symbolic lane.
+    const promptPack = {
+        version: "2",
+        lane: "string_trio_symbolic",
+        planSignature: "lane=string_trio_symbolic|form=nocturne|key=g_minor|inst=cello,viola,violin|roles=theme_a>recap|sig=aabb1122",
+        promptText: "Test nocturne",
+        styleCue: {
+            brief: "Test nocturne",
+            mood: [],
+            form: "nocturne",
+            key: "G minor",
+            meter: "4/4",
+            tempo: 72,
+            instrumentationLabel: "Violin, Viola, Cello",
+            instrumentationFamilies: ["strings"],
+        },
+        instrumentation: [
+            { name: "Violin", family: "strings", roles: ["lead"] },
+            { name: "Viola", family: "strings", roles: ["counterline"] },
+            { name: "Cello", family: "strings", roles: ["bass"] },
+        ],
+        sections: [],
+    };
+    const pr = buildLearnedNotagenProviderRequest(promptPack, undefined, {});
+    const composerLine = pr.controlLines.find((l) => l.startsWith("composer="));
+    assert.equal(composerLine, "composer=Schubert, Franz",
+        "nocturne form must resolve to Schubert");
+});
+
+test("notagen-adapter: identity — explicit composer in styleCue overrides routing", () => {
+    const req = makeRequest();
+    req.compositionPlan.composer = "Mozart, Wolfgang Amadeus";
+    const payload = buildLearnedSymbolicWorkerPayload(req, "test-song", "/tmp/test.mid", EXECUTION_PLAN);
+    const composerLine = payload.providerRequest.controlLines.find((l) => l.startsWith("composer="));
+    assert.equal(composerLine, "composer=Mozart, Wolfgang Amadeus",
+        "explicit composer in styleCue must override the identity default");
+});
+
+test("notagen-adapter: identity — period= control line emitted when explicitly set", () => {
+    const req = makeRequest();
+    req.compositionPlan.period = "Classical";
+    const payload = buildLearnedSymbolicWorkerPayload(req, "test-song", "/tmp/test.mid", EXECUTION_PLAN);
+    const periodLine = payload.providerRequest.controlLines.find((l) => l.startsWith("period="));
+    assert.equal(periodLine, "period=Classical",
+        "explicit period in styleCue must appear as period= control line");
+});
+
+test("notagen-adapter: identity — period= control line absent when not set", () => {
+    const payload = buildPayload();
+    const periodLine = payload.providerRequest.controlLines.find((l) => l.startsWith("period="));
+    assert.equal(periodLine, undefined,
+        "period= control line must be absent when styleCue.period is not set");
 });
 
 // ─── Python abc_prompt.py tests ───────────────────────────────────────────

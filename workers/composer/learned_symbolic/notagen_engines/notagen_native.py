@@ -38,7 +38,7 @@ using the control-line hints embedded in the header.  Two env vars let operators
 override the default mapping:
 
     NOTAGEN_DEFAULT_PERIOD        e.g. "Romantic"  (default: "Romantic")
-    NOTAGEN_DEFAULT_COMPOSER      e.g. "Brahms, Johannes"  (default: "Brahms, Johannes")
+    NOTAGEN_DEFAULT_COMPOSER      e.g. "Beethoven, Ludwig van"  (default: "Beethoven, Ludwig van")
 
 Instrumentation is derived from AXIOM's ``instrumentation=`` control line via a
 built-in mapping table.
@@ -264,7 +264,7 @@ def _axiom_header_to_notagen_prompt(abc_header: str) -> str:
     period = _PERIOD_MAP.get(period_raw, period_default)
 
     # ── Composer ──────────────────────────────────────────────────────────────
-    composer_default = _env("NOTAGEN_DEFAULT_COMPOSER", "Brahms, Johannes")
+    composer_default = _env("NOTAGEN_DEFAULT_COMPOSER", "Beethoven, Ludwig van")
     composer = ctrl.get("composer", composer_default) or composer_default
 
     # ── Instrumentation ───────────────────────────────────────────────────────

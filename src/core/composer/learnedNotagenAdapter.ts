@@ -3,6 +3,7 @@ import { SOLO_PIANO_SYMBOLIC_LANE, STRING_TRIO_SYMBOLIC_LANE } from "../generate
 import type {
     LearnedSymbolicPromptPack,
     LearnedSymbolicPromptPackSection,
+    LearnedSymbolicPromptPackStyleCue,
 } from "./learnedAdapter.js";
 
 export const LEARNED_NOTAGEN_ADAPTER_VERSION = "learned_notagen_adapter_v1" as const;
@@ -461,6 +462,34 @@ export function buildPianoRewriteBlock(spec: LocalizedPianoRewriteSpec): string 
     return `<AXIOM_PIANO_REWRITE>\n${innerLines.join("\n")}\n</AXIOM_PIANO_REWRITE>`;
 }
 
+/**
+ * AXIOM identity composers.
+ * Beethoven is the primary identity (dramatic, structural forms).
+ * Schubert is the secondary identity for lyrical/characteristic forms.
+ */
+const AXIOM_IDENTITY_COMPOSER_PRIMARY = "Beethoven, Ludwig van";
+const AXIOM_IDENTITY_COMPOSER_LYRICAL = "Schubert, Franz";
+
+/**
+ * Form keywords that route to Schubert rather than Beethoven.
+ * These are lyrical, song-like, or characteristic-piece forms that align more
+ * naturally with Schubert's aesthetic than Beethoven's architectural style.
+ */
+const SCHUBERT_FORM_KEYWORDS = new Set([
+    "lied", "song", "nocturne", "impromptu", "moment musical", "moment_musical",
+    "romanze", "romance", "fantasia lyrisch", "ballade", "wiegenlied", "serenade",
+]);
+
+/** Resolve the NotaGen composer identity string for this prompt pack. */
+function resolveComposerIdentity(styleCue: LearnedSymbolicPromptPackStyleCue): string {
+    if (styleCue.composer) return normalizeText(styleCue.composer);
+    const formLower = (styleCue.form ?? "").toLowerCase();
+    for (const kw of SCHUBERT_FORM_KEYWORDS) {
+        if (formLower.includes(kw)) return AXIOM_IDENTITY_COMPOSER_LYRICAL;
+    }
+    return AXIOM_IDENTITY_COMPOSER_PRIMARY;
+}
+
 export function buildLearnedNotagenProviderRequest(
     promptPack: LearnedSymbolicPromptPack,
     selectedModels: ModelBinding[] | undefined,
@@ -474,6 +503,7 @@ export function buildLearnedNotagenProviderRequest(
     const tempo = promptPack.styleCue.tempo ?? 92;
     const abcKey = resolveAbcKey(promptPack.styleCue.key ?? "C major");
     const instrumentationLine = resolveInstrumentationControlLine(promptPack, warnings);
+    const composerIdentity = resolveComposerIdentity(promptPack.styleCue);
 
     // Hard constraints + structural control lines in deterministic order
     const controlLines: string[] = [
@@ -486,7 +516,9 @@ export function buildLearnedNotagenProviderRequest(
         `meter=${meter}`,
         `tempo=${tempo}`,
         instrumentationLine,
-        // Piano-specific global header lines (present only when a PianoPlan is attached).
+        `composer=${composerIdentity}`,
+        ...(promptPack.styleCue.period ? [`period=${normalizeText(promptPack.styleCue.period)}`] : []),
+        // Piano-specific global header lines(present only when a PianoPlan is attached).
         // Preserved verbatim even when native NotaGen cannot follow all fields —
         // projection, evaluator, repair solver, and fine-tuning export pipelines rely on them.
         ...(promptPack.pianoPlan
