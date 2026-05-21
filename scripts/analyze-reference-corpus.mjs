@@ -37,6 +37,58 @@ import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, resolve, dirname, extname, basename } from "node:path";
 import { existsSync } from "node:fs";
 
+// ─── Corpus manifest helpers ───────────────────────────────────────────────────
+
+/**
+ * Loads and returns the corpus-manifest.json from rootArg, or null if absent.
+ * Logs a warning on parse error.
+ *
+ * @param {string|null} root
+ * @returns {Promise<object|null>}
+ */
+async function loadCorpusManifest(root) {
+    if (!root) return null;
+    const manifestPath = join(root, "corpus-manifest.json");
+    if (!existsSync(manifestPath)) return null;
+    try {
+        return JSON.parse(await readFile(manifestPath, "utf-8"));
+    } catch (e) {
+        console.warn(`WARN: could not read corpus-manifest.json: ${e.message}`);
+        return null;
+    }
+}
+
+/**
+ * Extracts the composer prefix from a filename.
+ * "beethoven_moonlight.abc" → "beethoven"
+ *
+ * @param {string} file  Filename (not full path)
+ * @returns {string}
+ */
+function composerKeyFromFile(file) {
+    const namePart = basename(file, ".abc");
+    return namePart.includes("_") ? namePart.split("_")[0].toLowerCase() : "unknown";
+}
+
+/**
+ * Builds a profile group object for a set of perFile entries.
+ *
+ * @param {string[]} composers
+ * @param {string} description
+ * @param {{ file: string, profile: object }[]} entries
+ * @returns {object}
+ */
+function buildProfileGroup(composers, description, entries) {
+    const profiles = entries.map((e) => e.profile);
+    const corpus = computeCorpusProfile(profiles);
+    return {
+        composers,
+        description,
+        n: entries.length,
+        corpus: { mean: corpus.mean, stddev: corpus.stddev },
+    };
+}
+
 const { extractStyleProfileFromAbc, computeCorpusProfile } = await import(
     "../dist/core/analyze/referenceStyleProfile.js"
 );
@@ -91,6 +143,16 @@ if (files.length === 0) {
 
 console.log(`Analyzing ${files.length} ABC file(s) in ${corpusDir}...`);
 
+// ─── Load corpus manifest (optional) ──────────────────────────────────────────
+
+const manifest = await loadCorpusManifest(rootArg);
+if (manifest) {
+    const primaryComposers = (manifest.primary?.composers ?? []).join(", ") || "(none)";
+    console.log(`Corpus manifest loaded — primary composers: ${primaryComposers}`);
+} else if (rootArg) {
+    console.log("No corpus-manifest.json found — tiered output will be omitted. Consider adding one to separate primary/technical composers.");
+}
+
 // ─── Extract style profile from each file ─────────────────────────────────────
 
 const perFile = [];
@@ -131,9 +193,62 @@ if (allProfiles.length === 0) {
 
 const corpusProfile = computeCorpusProfile(allProfiles);
 
+// ─── Build tiered profiles from manifest ──────────────────────────────────────
+
+/** @type {{ composers: string[], description: string, n: number, corpus: object }|null} */
+let primaryGroup = null;
+/** @type {Record<string, { composers: string[], description: string, n: number, corpus: object }>} */
+let technicalGroups = {};
+
+if (manifest) {
+    // Primary group: Beethoven + Schubert (AXIOM aesthetic DNA)
+    if (manifest.primary?.composers?.length) {
+        const primarySet = new Set(manifest.primary.composers);
+        const primaryEntries = perFile.filter((e) => primarySet.has(composerKeyFromFile(e.file)));
+        if (primaryEntries.length > 0) {
+            primaryGroup = buildProfileGroup(
+                manifest.primary.composers,
+                manifest.primary.description ?? "AXIOM primary aesthetic identity",
+                primaryEntries,
+            );
+            if (manifest.primary.note) primaryGroup.note = manifest.primary.note;
+            console.log(`Primary profile: ${primaryEntries.length} works (${manifest.primary.composers.join(", ")})`);
+        } else {
+            console.warn(`WARN: primary composers declared in manifest but no matching ABC files found (${manifest.primary.composers.join(", ")})`);
+        }
+    }
+
+    // Technical groups: Bach, Mozart, Chopin, Brahms (skill references, not identity)
+    if (manifest.technical) {
+        for (const [role, roleDef] of Object.entries(manifest.technical)) {
+            if (!roleDef.composers?.length) continue;
+            const roleSet = new Set(roleDef.composers);
+            const roleEntries = perFile.filter((e) => roleSet.has(composerKeyFromFile(e.file)));
+            if (roleEntries.length > 0) {
+                const group = buildProfileGroup(roleDef.composers, roleDef.description ?? role, roleEntries);
+                if (roleDef.note) group.note = roleDef.note;
+                technicalGroups[role] = group;
+            }
+        }
+        if (Object.keys(technicalGroups).length > 0) {
+            console.log(`Technical profiles: ${Object.entries(technicalGroups).map(([r, g]) => `${r}(${g.n})`).join(", ")}`);
+        }
+    }
+}
+
 // ─── Print summary ─────────────────────────────────────────────────────────────
 
-console.log(`\nCorpus summary (${corpusProfile.n} works, ${parseErrors} parse errors):`);
+const primaryLabel = primaryGroup ? ` — primary: ${primaryGroup.n} works (${primaryGroup.composers.join(", ")})` : "";
+console.log(`\nCorpus summary (${corpusProfile.n} total works${primaryLabel}, ${parseErrors} parse errors):`);
+if (primaryGroup) {
+    console.log(`  ★ Primary (R-01 anchor) — ${primaryGroup.n} works:`);
+    console.log(`    mean phrase length:  ${primaryGroup.corpus.mean.meanPhraseLengthMeasures.toFixed(2)} measures`);
+    console.log(`    pitch range:         ${primaryGroup.corpus.mean.pitchRangeSemitones.toFixed(1)} semitones`);
+    console.log(`    harmonic rhythm:     ${primaryGroup.corpus.mean.harmonicRhythmProxy.toFixed(2)} pitch-classes/bar`);
+    console.log(`  ─ Global (all ${corpusProfile.n} works):`);
+} else {
+    console.log(`  (No corpus-manifest.json → global average only; R-01 gate will use this)`);
+}
 console.log(`  mean phrase length:  ${corpusProfile.mean.meanPhraseLengthMeasures.toFixed(2)} measures`);
 console.log(`  phrase regularity:   ${corpusProfile.mean.phraseRegularity.toFixed(3)} CV`);
 console.log(`  climax position:     ${corpusProfile.mean.climaxPosition.toFixed(3)}`);
@@ -153,6 +268,17 @@ if (isDryRun) {
 
 const mainOutput = {
     generatedAt: new Date().toISOString(),
+    // ── Tiered identity taxonomy ──────────────────────────────────────────────
+    // `primary`   — Beethoven + Schubert: AXIOM's aesthetic DNA.
+    //               The R-01 gate in evaluate-notagen-adapter-promotion.mjs uses
+    //               this profile exclusively. Absent when no manifest is found.
+    // `technical` — Skill-specific reference groups (Bach, Mozart, Chopin, Brahms).
+    //               Used for per-dimension benchmarks, NOT for identity scoring.
+    // `global`    — All composers merged. Kept for backward compatibility only.
+    //               Do NOT use for referenceDistanceScore — it blurs identity.
+    ...(primaryGroup ? { primary: primaryGroup } : {}),
+    ...(Object.keys(technicalGroups).length > 0 ? { technical: technicalGroups } : {}),
+    // ── Backward-compatible root fields ───────────────────────────────────────
     n: corpusProfile.n,
     parseErrors,
     corpus: {

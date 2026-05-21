@@ -518,6 +518,23 @@ function evaluateReferenceCorpusGate(corpusPath, candidateRows) {
         };
     }
 
+    // Use primary profile (Beethoven/Schubert) when available.
+    // Fallback to global corpus only for backward compat with old profile.json files.
+    const hasTieredProfile = !!corpusProfile.primary;
+    const activeN = hasTieredProfile ? (corpusProfile.primary.n ?? 0) : (corpusProfile.n ?? 0);
+    const tierLabel = hasTieredProfile
+        ? `primary (${corpusProfile.primary.composers?.join("/") ?? "Beethoven/Schubert"})`
+        : "global (no manifest — all composers averaged)";
+
+    if (hasTieredProfile && corpusProfile.primary.n === 0) {
+        return {
+            id: gateId, type: "reference_corpus", passed: true, skipped: true,
+            reason: `corpus primary profile has 0 works — R-01 skipped (add Beethoven/Schubert ABC files)`,
+            corpusN: 0,
+            corpusTier: "primary",
+        };
+    }
+
     // Extract referenceDistanceScore values from candidate rows
     const scores = candidateRows
         .map((r) => r["referenceDistanceScore"])
@@ -550,7 +567,9 @@ function evaluateReferenceCorpusGate(corpusPath, candidateRows) {
         type: "reference_corpus",
         passed,
         skipped: false,
-        corpusN: corpusProfile.n ?? 0,
+        corpusN: activeN,
+        corpusTier: hasTieredProfile ? "primary" : "global",
+        corpusTierLabel: tierLabel,
         candidateScoreN: scores.length,
         meanReferenceDistanceScore: round3(meanScore),
         classification: classifyMean,
@@ -558,8 +577,8 @@ function evaluateReferenceCorpusGate(corpusPath, candidateRows) {
         tooClosePercent: round3(copyRiskFraction * 100),
         copyRiskWarning: copyRiskFraction > 0.30,
         reason: passed
-            ? `R-01 OK: mean referenceDistance ${meanScore.toFixed(3)} (${classifyMean}), idiom-drift rows ${(tooFarFraction * 100).toFixed(1)}%`
-            : `IDIOM DRIFT: ${(tooFarFraction * 100).toFixed(1)}% of candidate rows are too_far from classical corpus (>50% threshold) — mean score ${meanScore.toFixed(3)}`,
+            ? `R-01 OK: mean referenceDistance ${meanScore.toFixed(3)} (${classifyMean}), idiom-drift rows ${(tooFarFraction * 100).toFixed(1)}% [${tierLabel}]`
+            : `IDIOM DRIFT: ${(tooFarFraction * 100).toFixed(1)}% of candidate rows are too_far from ${tierLabel} corpus (>50% threshold) — mean score ${meanScore.toFixed(3)}`,
     };
 }
 

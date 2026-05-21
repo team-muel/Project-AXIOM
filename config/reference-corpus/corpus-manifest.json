@@ -1,0 +1,39 @@
+{
+  "version": "1",
+  "description": "AXIOM aesthetic identity taxonomy for the reference corpus. Separates primary aesthetic DNA from technical knowledge sources to prevent identity blurring.",
+  "primary": {
+    "composers": ["beethoven", "schubert"],
+    "description": "AXIOM's core aesthetic DNA. All referenceDistanceScore (R-01 gate) measurements are computed against this profile only — NOT the global average.",
+    "aestheticTraits": [
+      "Beethovenian architecture: motivic inevitability, dramatic contrast, long-range tonal conflict and resolution",
+      "Schubertian lyricism: song-like melody, harmonic wandering, mediant color shifts, major/minor bittersweet ambiguity"
+    ],
+    "note": "Mixing other composers into this group will dilute AXIOM's identity. Add only Beethoven and Schubert works here."
+  },
+  "technical": {
+    "counterpoint": {
+      "composers": ["bach"],
+      "description": "Voice-leading discipline and contrapuntal technique. Used as a technical benchmark for voice independence scoring, NOT for stylistic identity.",
+      "note": "Bach is a technical textbook, not part of AXIOM's primary aesthetic lineage."
+    },
+    "classical_proportion": {
+      "composers": ["mozart"],
+      "description": "Classical phrase clarity, balanced periods, and formal proportion. Reference for phrase-length regularity metrics.",
+      "note": "Mozart/Haydn teach proportion as craft knowledge. They are not AXIOM's identity."
+    },
+    "piano_idiom": {
+      "composers": ["chopin"],
+      "description": "Piano keyboard texture, figurations, and cantabile writing. Auxiliary reference for piano lane idiom benchmarks.",
+      "note": "Chopin piano textures are a knowledge source for the piano lane, not AXIOM's compositional identity."
+    },
+    "motivic_density_reference": {
+      "composers": ["brahms"],
+      "description": "Dense motivic development and chromatic voice leading. Comparison reference for motivic complexity upper bound.",
+      "note": "Brahms is a future comparison reference. Do not blend into primary identity — AXIOM should lean Beethoven/Schubert, not Brahms."
+    }
+  },
+  "notIncluded": {
+    "reason": "The following composers are excluded from the current corpus to prevent identity dilution. They may be added as separate technical references in future phases.",
+    "composers": ["rachmaninoff", "debussy", "liszt", "ravel", "schumann"]
+  }
+}
