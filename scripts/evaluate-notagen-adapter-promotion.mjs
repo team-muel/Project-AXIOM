@@ -493,14 +493,18 @@ function buildEarlyDecision(promoted, reason, baselineRows, candidateRows) {
 /**
  * Optional R-01 gate: reference corpus distance.
  *
- * Reads a corpus-profile.json produced by analyze-reference-corpus.mjs and
- * checks whether the mean `referenceDistanceScore` in the candidate rows falls
- * within the healthy "in_range" band (0.10–0.75).
+ * Supports three corpus-profile formats:
+ *   1. profile-beethoven-schubert-lineage.json — flat lineage profile (preferred; use with R-01)
+ *      Schema: { label: "beethoven-schubert-lineage", n, mean: {...}, stddev: {...} }
+ *   2. profile.json with `primary` tier (tiered format from analyze-reference-corpus.mjs)
+ *      Schema: { primary: { n, corpus: { mean, stddev } } }
+ *   3. Legacy flat profile.json (global average; backward compat)
+ *      Schema: { n, corpus: { mean, stddev } }
  *
  * Score rows must include a `referenceDistanceScore` field (numeric, 0–1).
- * If no rows carry the field the gate is skipped with a warning.
+ * Also supports `referenceDistanceScore.lineage` for split-score rows.
  *
- * @param {string} corpusPath  Path to corpus-profile.json
+ * @param {string} corpusPath  Path to corpus-profile.json or lineage profile
  * @param {object[]} candidateRows  Candidate score rows (JSONL)
  * @returns {object} gate result
  */
@@ -518,45 +522,59 @@ function evaluateReferenceCorpusGate(corpusPath, candidateRows) {
         };
     }
 
-    // Use primary profile (Beethoven/Schubert) when available.
-    // Fallback to global corpus only for backward compat with old profile.json files.
-    const hasTieredProfile = !!corpusProfile.primary;
-    const activeN = hasTieredProfile ? (corpusProfile.primary.n ?? 0) : (corpusProfile.n ?? 0);
-    const tierLabel = hasTieredProfile
-        ? `primary (${corpusProfile.primary.composers?.join("/") ?? "Beethoven/Schubert"})`
-        : "global (no manifest — all composers averaged)";
+    // Detect profile format and extract active tier
+    // Format 1: flat lineage profile (label field present, direct mean/stddev)
+    const isLinageProfile = typeof corpusProfile.label === "string" && corpusProfile.mean && corpusProfile.stddev;
+    // Format 2: tiered profile (primary tier)
+    const hasTieredProfile = !isLinageProfile && !!corpusProfile.primary;
 
-    if (hasTieredProfile && corpusProfile.primary.n === 0) {
+    let activeN, tierLabel;
+    if (isLinageProfile) {
+        activeN = corpusProfile.n ?? 0;
+        tierLabel = `lineage (${corpusProfile.label ?? "beethoven-schubert"}, ${activeN} works)`;
+    } else if (hasTieredProfile) {
+        activeN = corpusProfile.primary.n ?? 0;
+        tierLabel = `primary (${corpusProfile.primary.composers?.join("/") ?? "Beethoven/Schubert"})`;
+    } else {
+        activeN = corpusProfile.n ?? 0;
+        tierLabel = "global (no manifest — all composers averaged)";
+    }
+
+    if ((isLinageProfile || hasTieredProfile) && activeN === 0) {
         return {
             id: gateId, type: "reference_corpus", passed: true, skipped: true,
-            reason: `corpus primary profile has 0 works — R-01 skipped (add Beethoven/Schubert ABC files)`,
+            reason: `corpus lineage/primary profile has 0 works — R-01 skipped (add Beethoven/Schubert ABC files)`,
             corpusN: 0,
-            corpusTier: "primary",
+            corpusTier: isLinageProfile ? "lineage" : "primary",
         };
     }
 
-    // Extract referenceDistanceScore values from candidate rows
+    // Extract referenceDistanceScore values from candidate rows.
+    // Prefer .lineage sub-field when present (split-score format), then fall back to root field.
     const scores = candidateRows
-        .map((r) => r["referenceDistanceScore"])
+        .map((r) => {
+            const split = r["referenceDistanceScore"];
+            if (split && typeof split === "object") return split["lineage"] ?? split["score"];
+            return split;
+        })
         .filter((v) => typeof v === "number" && Number.isFinite(v));
 
     if (scores.length === 0) {
         return {
             id: gateId, type: "reference_corpus", passed: true, skipped: true,
             reason: "candidate rows have no referenceDistanceScore field — R-01 skipped (add it during benchmarking)",
-            corpusN: corpusProfile.n ?? 0,
+            corpusN: activeN,
         };
     }
 
     const meanScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const tooFarCount  = scores.filter((s) => s > 0.75).length;
+    const tooFarCount   = scores.filter((s) => s > 0.75).length;
     const tooCloseCount = scores.filter((s) => s < 0.10).length;
-    const tooFarFraction  = tooFarCount  / scores.length;
+    const tooFarFraction   = tooFarCount   / scores.length;
     const tooCloseFraction = tooCloseCount / scores.length;
 
     // Gate fails when > 50% of rows are idiom-drifted
     const idiomDriftFail = tooFarFraction > 0.50;
-    // Warn only (not fail) when too many are too_close (copy risk)
     const copyRiskFraction = tooCloseFraction;
 
     const passed = !idiomDriftFail;
@@ -568,7 +586,7 @@ function evaluateReferenceCorpusGate(corpusPath, candidateRows) {
         passed,
         skipped: false,
         corpusN: activeN,
-        corpusTier: hasTieredProfile ? "primary" : "global",
+        corpusTier: isLinageProfile ? "lineage" : hasTieredProfile ? "primary" : "global",
         corpusTierLabel: tierLabel,
         candidateScoreN: scores.length,
         meanReferenceDistanceScore: round3(meanScore),

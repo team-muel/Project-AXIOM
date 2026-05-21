@@ -9,7 +9,7 @@ import type { SectionArtifactSummary } from "../pipeline/types.js";
 // Purpose: prevent self-training collapse by anchoring AXIOM output against
 // structural statistics from classical reference works (Bach, Mozart, etc.).
 //
-// 9 structural dimensions (none of these are melodic content; no copyright risk):
+// 9 classical structural dimensions (backward-compatible, used in R-01 gate):
 //   1. meanPhraseLengthMeasures   — average phrase length in measures
 //   2. phraseRegularity           — CV of phrase lengths (0=very regular, ∞=chaotic)
 //   3. climaxPosition             — relative position of pitch climax (0–1)
@@ -19,7 +19,16 @@ import type { SectionArtifactSummary } from "../pipeline/types.js";
 //   7. meanNoteDensityPerMeasure  — notes per measure (all voices)
 //   8. bassPresenceRatio          — fraction of notes below MIDI 60
 //   9. harmonicRhythmProxy        — mean distinct pitch-class count per measure
-//      (used as a proxy for harmonic rhythm; higher = faster harmonic motion)
+//
+// 6 Schubert-lineage dimensions (SCHUBERT_STYLE_DIMENSIONS, used for lineage gate):
+//  10. melodicContinuity          — stepwise motion ratio in high-register voice (0–1)
+//  11. phraseBreath               — phrase expansion ratio: how far longest phrase > mean (0–1)
+//  12. harmonicColorDepth         — distinct pitch-class coverage across piece (0–1)
+//  13. mediantModulationScore     — fraction of bass-voice leaps that are 3rds (0–1)
+//  14. lyricExpansionScore        — phrase-length variability score (0–1)
+//  15. majorMinorAmbiguityScore   — accidental density proxy for modal mixture (0–1)
+//
+// Lineage distance uses all 15 dimensions (LINEAGE_DIMENSIONS).
 //
 // referenceDistanceScore classification:
 //   "too_close" (score < 0.10) — unusual proximity to corpus center; copy risk
@@ -50,6 +59,20 @@ export interface StyleProfile {
     bassPresenceRatio: number;
     /** Mean distinct pitch-class count per measure. Proxy for harmonic rhythm (0–12). Classical: 3–6. */
     harmonicRhythmProxy: number;
+    // ── Schubert-lineage dimensions ─────────────────────────────────────────
+    /** Fraction of stepwise (≤2 semitone) intervals in the high-register (melody) voice. Schubertian: 0.65–0.80. */
+    melodicContinuity: number;
+    /** Phrase expansion ratio: (maxPhrase - meanPhrase) / (meanPhrase + 1). Schubertian: 0.20–0.60. */
+    phraseBreath: number;
+    /** Distinct pitch-class coverage: totalDistinctPitchClasses / 12. Schubertian: 0.65–0.85. */
+    harmonicColorDepth: number;
+    /** Fraction of bass-voice leaps that are minor/major 3rds (3–4 semitones). Proxy for mediant usage. Schubertian: 0.15–0.35. */
+    mediantModulationScore: number;
+    /** Phrase-length variability: stddev(phraseLengths) / (mean + 1). Schubertian: 0.25–0.55. */
+    lyricExpansionScore: number;
+    /** Accidental density proxy for modal mixture: accidentalTokens / totalNoteCount. Schubertian: 0.10–0.30. */
+    majorMinorAmbiguityScore: number;
+
     /** Total measure count — metadata, not used in distance computation. */
     totalMeasures: number;
     /** Total note count (all voices) — metadata. */
@@ -82,6 +105,21 @@ export interface ReferenceDistanceResult {
     dimensionZScores: Partial<Record<StyleProfileKey, number>>;
 }
 
+/**
+ * Per-lineage reference distance results.
+ * Returned by computeReferenceDistanceScoreSplit().
+ */
+export interface ReferenceDistanceSplit {
+    /** Distance from Beethoven-only corpus. */
+    beethoven: ReferenceDistanceResult;
+    /** Distance from Schubert-only corpus. */
+    schubert: ReferenceDistanceResult;
+    /** Distance from combined Beethoven+Schubert lineage corpus (primary R-01 anchor). */
+    lineage: ReferenceDistanceResult;
+    /** Distance from general theory corpus (Bach/Mozart/Chopin/Brahms). Auxiliary only. */
+    generalTheory: ReferenceDistanceResult;
+}
+
 // ---------------------------------------------------------------------------
 // Thresholds (all configurable)
 // ---------------------------------------------------------------------------
@@ -90,7 +128,7 @@ const TOO_CLOSE_THRESHOLD = 0.10;
 const TOO_FAR_THRESHOLD = 0.75;
 const Z_SCALE_DIVISOR = 3.0; // rmsZ / 3 ≈ score; rmsZ=3 → score≈1.0
 
-/** Dimensions included in distance computation (9 total). */
+/** Dimensions included in distance computation (9 total, backward-compatible). */
 const DISTANCE_DIMENSIONS: StyleProfileKey[] = [
     "meanPhraseLengthMeasures",
     "phraseRegularity",
@@ -101,6 +139,22 @@ const DISTANCE_DIMENSIONS: StyleProfileKey[] = [
     "meanNoteDensityPerMeasure",
     "bassPresenceRatio",
     "harmonicRhythmProxy",
+];
+
+/** Schubert-specific lyrical dimensions (6 total). */
+export const SCHUBERT_STYLE_DIMENSIONS: StyleProfileKey[] = [
+    "melodicContinuity",
+    "phraseBreath",
+    "harmonicColorDepth",
+    "mediantModulationScore",
+    "lyricExpansionScore",
+    "majorMinorAmbiguityScore",
+];
+
+/** Full lineage dimension set: all 15 dimensions. Used for lineage distance computation. */
+export const LINEAGE_DIMENSIONS: StyleProfileKey[] = [
+    ...DISTANCE_DIMENSIONS,
+    ...SCHUBERT_STYLE_DIMENSIONS,
 ];
 
 // ---------------------------------------------------------------------------
@@ -239,6 +293,14 @@ export function extractStyleProfileFromSections(
         meanNoteDensityPerMeasure: meanNoteDensity,
         bassPresenceRatio: clamp(bassRatio, 0, 1),
         harmonicRhythmProxy: clamp(harmonicProxy, 0, 12),
+        // Schubert dimensions: best-effort approximations from section artifacts.
+        // ABC-based extraction is more accurate; these are used for distance comparison.
+        melodicContinuity: clamp(leapSmoothness, 0, 1),  // same stepwise ratio as proxy
+        phraseBreath: clamp(phraseMean > 0 ? (Math.max(...phraseLengths) - phraseMean) / (phraseMean + 1) : 0, 0, 1),
+        harmonicColorDepth: clamp(harmonicProxy / 12, 0, 1),
+        mediantModulationScore: 0.2,  // neutral default; not computable from section events
+        lyricExpansionScore: clamp(phraseSD / (phraseMean + 1), 0, 1),
+        majorMinorAmbiguityScore: 0.15,  // neutral default; not computable from section events
         totalMeasures,
         totalNotes,
     };
@@ -542,6 +604,48 @@ export function extractStyleProfileFromAbc(abcText: string): StyleProfile {
     }
     const harmonicProxy = mean([...pitchClassesPerMeasure.values()].map((s) => s.size));
 
+    // ── Schubert-lineage dimensions ────────────────────────────────────────────
+
+    // melodicContinuity: stepwise ratio among high-register notes (top 40% by pitch)
+    const pitchThreshold = pitchMin + (pitchRange * 0.6);
+    const melodyNotes = pitchNotes.filter((n) => n.pitch >= pitchThreshold);
+    const melodyPitches = melodyNotes.map((n) => n.pitch);
+    const melodyIntervals: number[] = [];
+    for (let i = 1; i < melodyPitches.length; i++) {
+        melodyIntervals.push(Math.abs(melodyPitches[i]! - melodyPitches[i - 1]!));
+    }
+    const melodyStepwise = melodyIntervals.filter((d) => d <= 2).length;
+    const melodicContinuity = melodyIntervals.length > 0 ? melodyStepwise / melodyIntervals.length : leapSmoothness;
+
+    // phraseBreath: how far the longest phrase exceeds the mean (expansion ratio)
+    const maxPhrase = phraseLengths.length > 0 ? Math.max(...phraseLengths) : phraseMean;
+    const phraseBreath = clamp(phraseMean > 0 ? (maxPhrase - phraseMean) / (phraseMean + 1) : 0, 0, 1);
+
+    // harmonicColorDepth: total distinct pitch classes across whole piece
+    const allPitchClasses = new Set<number>();
+    for (const n of pitchNotes) allPitchClasses.add(n.pitch % 12);
+    const harmonicColorDepth = clamp(allPitchClasses.size / 12, 0, 1);
+
+    // mediantModulationScore: fraction of bass-voice leaps that are 3rds (3–4 semitones)
+    const bassVoiceNotes = pitchNotes.filter((n) => n.pitch < 60);
+    const bassIntervals: number[] = [];
+    for (let i = 1; i < bassVoiceNotes.length; i++) {
+        bassIntervals.push(Math.abs(bassVoiceNotes[i]!.pitch - bassVoiceNotes[i - 1]!.pitch));
+    }
+    const bassMediants = bassIntervals.filter((d) => d === 3 || d === 4).length;
+    const mediantModulationScore = bassIntervals.length > 0 ? clamp(bassMediants / bassIntervals.length, 0, 1) : 0.2;
+
+    // lyricExpansionScore: phrase-length variability (stddev / (mean + 1))
+    const lyricExpansionScore = clamp(phraseSD / (phraseMean + 1), 0, 1);
+
+    // majorMinorAmbiguityScore: accidental density — count ^ and _ tokens in body
+    // Strip header lines to avoid counting key-signature accidentals
+    const bodySection = abcText.split(/\r?\n/)
+        .filter((line) => !line.match(/^[A-Z]:/))
+        .join(" ");
+    const accidentalCount = (bodySection.match(/[\^_]/g) ?? []).length;
+    const majorMinorAmbiguityScore = totalNotes > 0 ? clamp(accidentalCount / totalNotes, 0, 1) : 0;
+
     return {
         meanPhraseLengthMeasures: phraseMean,
         phraseRegularity: clamp(phraseRegularity, 0, 3),
@@ -552,6 +656,12 @@ export function extractStyleProfileFromAbc(abcText: string): StyleProfile {
         meanNoteDensityPerMeasure: meanDensity,
         bassPresenceRatio: clamp(bassRatio, 0, 1),
         harmonicRhythmProxy: clamp(harmonicProxy, 0, 12),
+        melodicContinuity: clamp(melodicContinuity, 0, 1),
+        phraseBreath,
+        harmonicColorDepth,
+        mediantModulationScore,
+        lyricExpansionScore,
+        majorMinorAmbiguityScore,
         totalMeasures,
         totalNotes,
     };
@@ -655,6 +765,80 @@ export function computeReferenceDistanceScore(
     };
 }
 
+/**
+ * Computes distance against a specific set of dimensions.
+ * Useful for Schubert-only or lineage-only comparisons.
+ */
+export function computeReferenceDistanceScoreWithDimensions(
+    candidate: StyleProfile,
+    corpus: CorpusProfile,
+    dimensions: StyleProfileKey[],
+): ReferenceDistanceResult {
+    if (corpus.n === 0 || dimensions.length === 0) {
+        return {
+            score: 0.5,
+            classification: "in_range",
+            copyRisk: false,
+            idiomDrift: false,
+            meanZScore: 0,
+            dimensionZScores: {},
+        };
+    }
+
+    const zScores: Partial<Record<StyleProfileKey, number>> = {};
+    let sumSq = 0;
+
+    for (const dim of dimensions) {
+        const candidateVal = (candidate[dim] as number | undefined) ?? 0;
+        const corpusMean = (corpus.mean[dim] as number | undefined) ?? 0;
+        const corpusSd = (corpus.stddev[dim] as number | undefined) ?? 1e-6;
+        const z = (candidateVal - corpusMean) / Math.max(corpusSd, 1e-6);
+        zScores[dim] = z;
+        sumSq += z * z;
+    }
+
+    const rmsZ = Math.sqrt(sumSq / dimensions.length);
+    const score = clamp(rmsZ / Z_SCALE_DIVISOR, 0, 1);
+    const classification: ReferenceDistanceResult["classification"] =
+        score < TOO_CLOSE_THRESHOLD ? "too_close" :
+        score > TOO_FAR_THRESHOLD   ? "too_far"   : "in_range";
+
+    return {
+        score,
+        classification,
+        copyRisk: score < TOO_CLOSE_THRESHOLD,
+        idiomDrift: score > TOO_FAR_THRESHOLD,
+        meanZScore: rmsZ,
+        dimensionZScores: zScores,
+    };
+}
+
+/**
+ * Computes per-lineage reference distance split.
+ * Provide null for any corpus that is not available; that leg returns score=0.5 (neutral).
+ */
+export function computeReferenceDistanceScoreSplit(
+    candidate: StyleProfile,
+    corpusBeeethoven: CorpusProfile | null,
+    corpusSchubert: CorpusProfile | null,
+    corpusLineage: CorpusProfile | null,
+    corpusGeneralTheory: CorpusProfile | null,
+): ReferenceDistanceSplit {
+    const neutral: ReferenceDistanceResult = {
+        score: 0.5, classification: "in_range",
+        copyRisk: false, idiomDrift: false, meanZScore: 0, dimensionZScores: {},
+    };
+    const linDims = LINEAGE_DIMENSIONS;
+    const classDims = DISTANCE_DIMENSIONS;
+
+    return {
+        beethoven: corpusBeeethoven ? computeReferenceDistanceScoreWithDimensions(candidate, corpusBeeethoven, linDims) : neutral,
+        schubert:  corpusSchubert   ? computeReferenceDistanceScoreWithDimensions(candidate, corpusSchubert,  linDims) : neutral,
+        lineage:   corpusLineage    ? computeReferenceDistanceScoreWithDimensions(candidate, corpusLineage,   linDims) : neutral,
+        generalTheory: corpusGeneralTheory ? computeReferenceDistanceScoreWithDimensions(candidate, corpusGeneralTheory, classDims) : neutral,
+    };
+}
+
 // ---------------------------------------------------------------------------
 // Utility
 // ---------------------------------------------------------------------------
@@ -670,6 +854,12 @@ function emptyProfile(): StyleProfile {
         meanNoteDensityPerMeasure: 0,
         bassPresenceRatio: 0,
         harmonicRhythmProxy: 0,
+        melodicContinuity: 0,
+        phraseBreath: 0,
+        harmonicColorDepth: 0,
+        mediantModulationScore: 0,
+        lyricExpansionScore: 0,
+        majorMinorAmbiguityScore: 0,
         totalMeasures: 0,
         totalNotes: 0,
     };

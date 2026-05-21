@@ -132,16 +132,39 @@ if (!existsSync(corpusDir)) {
 
 // ─── Scan corpus directory ─────────────────────────────────────────────────────
 
-const files = (await readdir(corpusDir))
-    .filter((f) => extname(f).toLowerCase() === ".abc")
-    .sort();
+/**
+ * Recursively collect .abc files from a directory.
+ * Returns entries with { file (basename), path (full), subdir (immediate subdir name or ".") }.
+ */
+async function scanAbcFiles(dir) {
+    const results = [];
+    if (!existsSync(dir)) return results;
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+        if (entry.isDirectory()) {
+            const subEntries = await readdir(join(dir, entry.name));
+            for (const f of subEntries) {
+                if (extname(f).toLowerCase() === ".abc") {
+                    results.push({ file: f, path: join(dir, entry.name, f), subdir: entry.name });
+                }
+            }
+        } else if (extname(entry.name).toLowerCase() === ".abc") {
+            results.push({ file: entry.name, path: join(dir, entry.name), subdir: "." });
+        }
+    }
+    return results.sort((a, b) => a.file.localeCompare(b.file));
+}
+
+const scannedEntries = await scanAbcFiles(corpusDir);
+const files = scannedEntries.map((e) => e.file);
 
 if (files.length === 0) {
-    console.error(`ERROR: no .abc files found in ${corpusDir}`);
+    console.error(`ERROR: no .abc files found in ${corpusDir} (including subdirectories)`);
     process.exit(1);
 }
 
-console.log(`Analyzing ${files.length} ABC file(s) in ${corpusDir}...`);
+const hasSubdirs = scannedEntries.some((e) => e.subdir !== ".");
+console.log(`Analyzing ${files.length} ABC file(s) in ${corpusDir}${hasSubdirs ? " (with subdirectories)" : ""}...`);
 
 // ─── Load corpus manifest (optional) ──────────────────────────────────────────
 
@@ -159,16 +182,15 @@ const perFile = [];
 const allProfiles = [];
 let parseErrors = 0;
 
-for (const file of files) {
-    const filePath = join(corpusDir, file);
+for (const entry of scannedEntries) {
     try {
-        const abcText = await readFile(filePath, "utf-8");
+        const abcText = await readFile(entry.path, "utf-8");
         const profile = extractStyleProfileFromAbc(abcText);
-        perFile.push({ file, profile });
+        perFile.push({ file: entry.file, subdir: entry.subdir, profile });
         allProfiles.push(profile);
 
         if (isVerbose) {
-            console.log(`\n  ${file}`);
+            console.log(`\n  ${entry.subdir !== "." ? entry.subdir + "/" : ""}${entry.file}`);
             console.log(`    phrases:     ${profile.meanPhraseLengthMeasures.toFixed(1)} measures mean (regularity CV=${profile.phraseRegularity.toFixed(2)})`);
             console.log(`    pitch range: ${profile.pitchRangeSemitones} semitones, mean=${profile.meanPitchMidi.toFixed(1)} MIDI`);
             console.log(`    climax:      position=${profile.climaxPosition.toFixed(2)}`);
@@ -176,10 +198,12 @@ for (const file of files) {
             console.log(`    density:     ${profile.meanNoteDensityPerMeasure.toFixed(1)} notes/bar`);
             console.log(`    bass ratio:  ${(profile.bassPresenceRatio * 100).toFixed(0)}%`);
             console.log(`    harm rhythm: ${profile.harmonicRhythmProxy.toFixed(1)} pitch-classes/bar`);
+            console.log(`    melodic cont:${(profile.melodicContinuity * 100).toFixed(0)}%`);
+            console.log(`    harm color:  ${(profile.harmonicColorDepth * 100).toFixed(0)}%`);
             console.log(`    measures:    ${profile.totalMeasures}, notes: ${profile.totalNotes}`);
         }
     } catch (err) {
-        console.error(`  WARN: failed to parse ${file}: ${err.message}`);
+        console.error(`  WARN: failed to parse ${entry.file}: ${err.message}`);
         parseErrors++;
     }
 }
@@ -193,18 +217,69 @@ if (allProfiles.length === 0) {
 
 const corpusProfile = computeCorpusProfile(allProfiles);
 
-// ─── Build tiered profiles from manifest ──────────────────────────────────────
+// ─── Build tiered profiles from manifest and/or subdirectory structure ──────────
 
+/**
+ * Resolve lineage group for a perFile entry.
+ * Priority: subdirectory name ("beethoven", "schubert", "theory_general")
+ * Fallback: composer key from filename prefix.
+ */
+function resolveLineageKey(entry) {
+    if (entry.subdir && entry.subdir !== ".") {
+        return entry.subdir.toLowerCase();
+    }
+    return composerKeyFromFile(entry.file);
+}
+
+// Lineage-split groups (new)
+/** @type {{ n: number, corpus: object }|null} */
+let lineageBeethovenGroup = null;
+/** @type {{ n: number, corpus: object }|null} */
+let lineageSchubertGroup = null;
+/** @type {{ n: number, corpus: object }|null} */
+let lineageCombinedGroup = null;
+/** @type {{ n: number, corpus: object }|null} */
+let lineageGeneralTheoryGroup = null;
+
+// Manifest-tiered groups (for backward-compat primary/technical output in profile.json)
 /** @type {{ composers: string[], description: string, n: number, corpus: object }|null} */
 let primaryGroup = null;
 /** @type {Record<string, { composers: string[], description: string, n: number, corpus: object }>} */
 let technicalGroups = {};
 
+// Build subdirectory-based lineage groups
+const beethovenEntries = perFile.filter((e) => resolveLineageKey(e) === "beethoven");
+const schubertEntries  = perFile.filter((e) => resolveLineageKey(e) === "schubert");
+const theoryEntries    = perFile.filter((e) => resolveLineageKey(e) === "theory_general");
+
+if (beethovenEntries.length > 0) {
+    const g = buildProfileGroup(["beethoven"], "Beethoven — AXIOM structural DNA", beethovenEntries);
+    lineageBeethovenGroup = g;
+    console.log(`Beethoven profile: ${g.n} works`);
+}
+if (schubertEntries.length > 0) {
+    const g = buildProfileGroup(["schubert"], "Schubert — AXIOM lyrical DNA", schubertEntries);
+    lineageSchubertGroup = g;
+    console.log(`Schubert profile: ${g.n} works`);
+}
+const primaryLineageEntries = [...beethovenEntries, ...schubertEntries];
+if (primaryLineageEntries.length > 0) {
+    const g = buildProfileGroup(["beethoven", "schubert"], "Beethoven+Schubert lineage — R-01 primary anchor", primaryLineageEntries);
+    lineageCombinedGroup = g;
+}
+if (theoryEntries.length > 0) {
+    const g = buildProfileGroup(["bach", "mozart", "chopin", "brahms"], "General theory corpus (Bach/Mozart/Chopin/Brahms) — auxiliary", theoryEntries);
+    lineageGeneralTheoryGroup = g;
+    console.log(`General theory profile: ${g.n} works`);
+}
+
 if (manifest) {
     // Primary group: Beethoven + Schubert (AXIOM aesthetic DNA)
     if (manifest.primary?.composers?.length) {
         const primarySet = new Set(manifest.primary.composers);
-        const primaryEntries = perFile.filter((e) => primarySet.has(composerKeyFromFile(e.file)));
+        const primaryEntries = perFile.filter((e) =>
+            primarySet.has(composerKeyFromFile(e.file)) || primarySet.has(resolveLineageKey(e))
+        );
         if (primaryEntries.length > 0) {
             primaryGroup = buildProfileGroup(
                 manifest.primary.composers,
@@ -212,7 +287,10 @@ if (manifest) {
                 primaryEntries,
             );
             if (manifest.primary.note) primaryGroup.note = manifest.primary.note;
-            console.log(`Primary profile: ${primaryEntries.length} works (${manifest.primary.composers.join(", ")})`);
+            if (!beethovenEntries.length && !schubertEntries.length) {
+                // Only log if we didn't already log from subdirectory grouping
+                console.log(`Primary profile: ${primaryEntries.length} works (${manifest.primary.composers.join(", ")})`);
+            }
         } else {
             console.warn(`WARN: primary composers declared in manifest but no matching ABC files found (${manifest.primary.composers.join(", ")})`);
         }
@@ -223,7 +301,9 @@ if (manifest) {
         for (const [role, roleDef] of Object.entries(manifest.technical)) {
             if (!roleDef.composers?.length) continue;
             const roleSet = new Set(roleDef.composers);
-            const roleEntries = perFile.filter((e) => roleSet.has(composerKeyFromFile(e.file)));
+            const roleEntries = perFile.filter((e) =>
+                roleSet.has(composerKeyFromFile(e.file)) || roleSet.has(resolveLineageKey(e))
+            );
             if (roleEntries.length > 0) {
                 const group = buildProfileGroup(roleDef.composers, roleDef.description ?? role, roleEntries);
                 if (roleDef.note) group.note = roleDef.note;
@@ -258,6 +338,9 @@ console.log(`  leap smoothness:     ${(corpusProfile.mean.leapSmoothness * 100).
 console.log(`  note density:        ${corpusProfile.mean.meanNoteDensityPerMeasure.toFixed(2)} notes/bar`);
 console.log(`  bass presence:       ${(corpusProfile.mean.bassPresenceRatio * 100).toFixed(1)}%`);
 console.log(`  harmonic rhythm:     ${corpusProfile.mean.harmonicRhythmProxy.toFixed(2)} pitch-classes/bar`);
+if (lineageCombinedGroup) {
+    console.log(`  ★ Lineage (B+S):     melodicCont=${round2(lineageCombinedGroup.corpus.mean.melodicContinuity)}, harmColor=${round2(lineageCombinedGroup.corpus.mean.harmonicColorDepth)}`);
+}
 
 // ─── Write output ──────────────────────────────────────────────────────────────
 
@@ -285,7 +368,7 @@ const mainOutput = {
         mean: corpusProfile.mean,
         stddev: corpusProfile.stddev,
     },
-    perFile,
+    perFile: perFile.map(({ file, subdir, profile }) => ({ file, subdir, profile })),
 };
 
 const outDir = dirname(outPath);
@@ -296,6 +379,38 @@ console.log(`\nCorpus profile written to: ${outPath}`);
 // ─── Multi-file output (when --root is used) ───────────────────────────────────
 
 if (multiFileOutput) {
+    // ── Lineage-split profiles (new, separate files) ──────────────────────────
+    const buildSplitOutput = (label, group) => ({
+        generatedAt: mainOutput.generatedAt,
+        label,
+        n: group.n,
+        composers: group.composers,
+        description: group.description,
+        mean: group.corpus.mean,
+        stddev: group.corpus.stddev,
+    });
+
+    if (lineageBeethovenGroup) {
+        const p = join(outDir, "profile-beethoven.json");
+        await writeFile(p, JSON.stringify(buildSplitOutput("beethoven", lineageBeethovenGroup), null, 2), "utf-8");
+        console.log(`Beethoven profile written to: ${p}`);
+    }
+    if (lineageSchubertGroup) {
+        const p = join(outDir, "profile-schubert.json");
+        await writeFile(p, JSON.stringify(buildSplitOutput("schubert", lineageSchubertGroup), null, 2), "utf-8");
+        console.log(`Schubert profile written to: ${p}`);
+    }
+    if (lineageCombinedGroup) {
+        const p = join(outDir, "profile-beethoven-schubert-lineage.json");
+        await writeFile(p, JSON.stringify(buildSplitOutput("beethoven-schubert-lineage", lineageCombinedGroup), null, 2), "utf-8");
+        console.log(`Lineage profile written to: ${p}`);
+    }
+    if (lineageGeneralTheoryGroup) {
+        const p = join(outDir, "profile-general-theory.json");
+        await writeFile(p, JSON.stringify(buildSplitOutput("general-theory", lineageGeneralTheoryGroup), null, 2), "utf-8");
+        console.log(`General theory profile written to: ${p}`);
+    }
+
     // Group per-file entries by composer prefix (e.g., "bach_minuet.abc" → "bach")
     const byComposerMap = new Map();
     for (const entry of perFile) {
@@ -338,6 +453,18 @@ if (multiFileOutput) {
         parseErrors,
         composers: composerNames,
         composerCounts,
+        lineageSplit: {
+            beethoven:    lineageBeethovenGroup  ? { n: lineageBeethovenGroup.n  } : null,
+            schubert:     lineageSchubertGroup   ? { n: lineageSchubertGroup.n   } : null,
+            lineage:      lineageCombinedGroup   ? { n: lineageCombinedGroup.n   } : null,
+            generalTheory: lineageGeneralTheoryGroup ? { n: lineageGeneralTheoryGroup.n } : null,
+        },
+        splitProfiles: {
+            beethoven:    lineageBeethovenGroup  ? "profile-beethoven.json"                  : null,
+            schubert:     lineageSchubertGroup   ? "profile-schubert.json"                   : null,
+            lineage:      lineageCombinedGroup   ? "profile-beethoven-schubert-lineage.json" : null,
+            generalTheory: lineageGeneralTheoryGroup ? "profile-general-theory.json"         : null,
+        },
         corpusMeanPitchMidi:              round2(corpusProfile.mean.meanPitchMidi),
         corpusMeanPhraseLengthMeasures:   round2(corpusProfile.mean.meanPhraseLengthMeasures),
         corpusMeanLeapSmoothness:         round2(corpusProfile.mean.leapSmoothness),

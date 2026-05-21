@@ -321,3 +321,114 @@ describe("RSP-18: parseAbcToNotes — accidentals and octave modifiers", () => {
         assert.strictEqual(c5?.pitch, 72, `c' should be MIDI 72, got ${c5?.pitch}`);
     });
 });
+
+// ─── Schubert-lineage dimension tests ─────────────────────────────────────────
+
+const { SCHUBERT_STYLE_DIMENSIONS, LINEAGE_DIMENSIONS, computeReferenceDistanceScoreWithDimensions, computeReferenceDistanceScoreSplit } =
+    await import("../dist/core/analyze/referenceStyleProfile.js");
+
+describe("RSP-19: StyleProfile — Schubert dimension fields present", () => {
+    it("extractStyleProfileFromAbc returns all 6 Schubert dimensions", () => {
+        const abc = `X:1\nT:Test\nM:4/4\nL:1/8\nK:C\n|: C D E F G A B c | d e f g a b c' d' :|\n`;
+        const profile = extractStyleProfileFromAbc(abc);
+        const schubertFields = [
+            "melodicContinuity", "phraseBreath", "harmonicColorDepth",
+            "mediantModulationScore", "lyricExpansionScore", "majorMinorAmbiguityScore",
+        ];
+        for (const field of schubertFields) {
+            assert.ok(field in profile, `missing field: ${field}`);
+            assert.ok(typeof profile[field] === "number", `${field} should be number`);
+            assert.ok(profile[field] >= 0 && profile[field] <= 1, `${field}=${profile[field]} out of [0,1]`);
+        }
+    });
+
+    it("extractStyleProfileFromSections returns all 6 Schubert dimensions", () => {
+        const section = makeSection({ measureCount: 4, pitches: [60, 62, 64, 65, 67, 69, 71, 72] });
+        const profile = extractStyleProfileFromSections([section]);
+        const schubertFields = [
+            "melodicContinuity", "phraseBreath", "harmonicColorDepth",
+            "mediantModulationScore", "lyricExpansionScore", "majorMinorAmbiguityScore",
+        ];
+        for (const field of schubertFields) {
+            assert.ok(field in profile, `missing field: ${field}`);
+            assert.ok(typeof profile[field] === "number", `${field} should be number`);
+        }
+    });
+});
+
+describe("RSP-20: SCHUBERT_STYLE_DIMENSIONS and LINEAGE_DIMENSIONS exports", () => {
+    it("SCHUBERT_STYLE_DIMENSIONS has exactly 6 entries", () => {
+        assert.strictEqual(SCHUBERT_STYLE_DIMENSIONS.length, 6);
+        assert.ok(SCHUBERT_STYLE_DIMENSIONS.includes("melodicContinuity"));
+        assert.ok(SCHUBERT_STYLE_DIMENSIONS.includes("harmonicColorDepth"));
+        assert.ok(SCHUBERT_STYLE_DIMENSIONS.includes("majorMinorAmbiguityScore"));
+    });
+
+    it("LINEAGE_DIMENSIONS = 9 classical + 6 Schubert = 15", () => {
+        assert.strictEqual(LINEAGE_DIMENSIONS.length, 15);
+        // Must include both classical and Schubert dimensions
+        assert.ok(LINEAGE_DIMENSIONS.includes("meanPhraseLengthMeasures"));
+        assert.ok(LINEAGE_DIMENSIONS.includes("melodicContinuity"));
+    });
+});
+
+describe("RSP-21: melodicContinuity — stepwise melody → high value", () => {
+    it("ascending scale → melodicContinuity near 1.0", () => {
+        // Ascending stepwise scale in high register (all above MIDI threshold)
+        const abc = `X:1\nM:4/4\nL:1/4\nK:C\n| c d e f | g a b c' |\n`;
+        const profile = extractStyleProfileFromAbc(abc);
+        // All notes are stepwise so melodicContinuity should be high
+        assert.ok(profile.melodicContinuity > 0.5,
+            `melodicContinuity should be >0.5 for stepwise scale, got ${profile.melodicContinuity}`);
+    });
+});
+
+describe("RSP-22: harmonicColorDepth — chromatic passage → higher value", () => {
+    it("chromatic passage → harmonicColorDepth > diatonic", () => {
+        const diatonic = `X:1\nM:4/4\nL:1/4\nK:C\n| C D E F | G A B c |\n`;  // 7 pitch classes
+        const chromatic = `X:1\nM:4/4\nL:1/4\nK:C\n| C ^C D ^D | E F ^F G |\n`;  // 8 pitch classes
+        const diatonicProfile = extractStyleProfileFromAbc(diatonic);
+        const chromaticProfile = extractStyleProfileFromAbc(chromatic);
+        assert.ok(chromaticProfile.harmonicColorDepth >= diatonicProfile.harmonicColorDepth,
+            `chromatic should have >= harmonicColorDepth than diatonic: ${chromaticProfile.harmonicColorDepth} vs ${diatonicProfile.harmonicColorDepth}`);
+    });
+});
+
+describe("RSP-23: majorMinorAmbiguityScore — accidentals increase score", () => {
+    it("more accidentals → higher majorMinorAmbiguityScore", () => {
+        const clean = `X:1\nM:4/4\nL:1/4\nK:C\n| C D E F | G A B c |\n`;
+        const accidental = `X:1\nM:4/4\nL:1/4\nK:C\n| ^C _D ^E _F | ^G _A ^B c |\n`;  // 6 accidentals
+        const cleanProfile = extractStyleProfileFromAbc(clean);
+        const accProfile = extractStyleProfileFromAbc(accidental);
+        assert.ok(accProfile.majorMinorAmbiguityScore >= cleanProfile.majorMinorAmbiguityScore,
+            `accidental-heavy should have >= majorMinorAmbiguityScore: ${accProfile.majorMinorAmbiguityScore} vs ${cleanProfile.majorMinorAmbiguityScore}`);
+    });
+});
+
+describe("RSP-24: computeReferenceDistanceScoreSplit — returns 4-leg split", () => {
+    it("returns all four lineage legs", () => {
+        const abc = `X:1\nM:4/4\nL:1/4\nK:C\n| C D E F | G A B c |\n`;
+        const profile = extractStyleProfileFromAbc(abc);
+        const corpus = computeCorpusProfile([profile]);
+        const split = computeReferenceDistanceScoreSplit(profile, corpus, corpus, corpus, corpus);
+        assert.ok("beethoven" in split);
+        assert.ok("schubert" in split);
+        assert.ok("lineage" in split);
+        assert.ok("generalTheory" in split);
+        // All legs should be valid ReferenceDistanceResult
+        for (const leg of ["beethoven", "schubert", "lineage", "generalTheory"]) {
+            assert.ok(typeof split[leg].score === "number", `${leg}.score missing`);
+            assert.ok(["too_close", "in_range", "too_far"].includes(split[leg].classification));
+        }
+    });
+
+    it("null corpus → neutral score 0.5", () => {
+        const abc = `X:1\nM:4/4\nL:1/4\nK:C\n| C D E F |\n`;
+        const profile = extractStyleProfileFromAbc(abc);
+        const split = computeReferenceDistanceScoreSplit(profile, null, null, null, null);
+        assert.strictEqual(split.beethoven.score, 0.5);
+        assert.strictEqual(split.schubert.score, 0.5);
+        assert.strictEqual(split.lineage.score, 0.5);
+        assert.strictEqual(split.generalTheory.score, 0.5);
+    });
+});
