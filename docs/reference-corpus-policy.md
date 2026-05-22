@@ -92,15 +92,17 @@ AXIOM Beethoven·Schubert lineage anchor의 신뢰도는 코퍼스 크기에 직
 
 ## 파일 완결성 분류 (corpus-file-index.json)
 
-### 세 가지 완결성 수준
+### 다섯 가지 완결성 수준 (v2)
 
-코퍼스 파일은 세 가지 완결성 수준으로 분류됩니다. **referenceDistanceScore는 `complete_piece`와 `complete_movement`에서만 유효합니다.**
+코퍼스 파일은 다섯 가지 완결성 수준으로 분류됩니다. **referenceDistanceScore는 `complete_piece`와 `complete_movement`에서만 유효합니다.**
 
 | 분류 | 정의 | 사용 가능 메트릭 |
 |------|------|-----------------|
-| `complete_piece` | 자기완결적인 짧은 소품 (바가텔, 왈츠, 무곡, 에코세즈 등) | climaxPosition, phraseDistribution, pitchRange, referenceDistanceScore |
-| `complete_movement` | 대형 작품의 완전한 1개 악장 (소나타 악장, 즉흥곡 전체 등). 50마디 이상 | climaxPosition, phraseDistribution, pitchRange, referenceDistanceScore |
-| `excerpt` | 더 긴 작품의 일부 발췌 (8–20마디 opening, 주제 선율, 도입부 등) | pitchRange, noteDensity, harmonicColor, leapSmoothness, motifIncipit, openingGesture |
+| `complete_piece` | 자기완결적인 짧은 소품 (바가텔, 왈츠, 무곡, 에코세즈 등) | climaxPosition, phraseDistribution, pitchRange, referenceDistanceScore, formalArc, cadencePlacement |
+| `complete_movement` | 대형 작품의 완전한 1개 악장 (소나타 악장, 즉흥곡 전체 등) | climaxPosition, phraseDistribution, pitchRange, referenceDistanceScore, formalArc, cadencePlacement |
+| `complete_section` | 더 큰 형식 내의 완결된 구조 섹션 (변주곡 주제, 도입부 Grave, 다카포 섹션 등). **referenceDistanceScore·formalArc 사용 불가** | phraseDistribution, cadencePlacement, harmonicColor, texturePattern, cadenceFormula |
+| `excerpt` | 더 긴 작품의 일부 발췌 (8–20마디 opening, 주제 선율, 도입부 등). 로컬 분석만 가능 | pitchRange, noteDensity, harmonicColor, leapSmoothness, motivicCell, texturePattern, cadenceFormula |
+| `incipit_only` | 도입부 4–8마디만 (악보 시작 제스처). **구조 메트릭 전면 사용 불가** | openingMotif, openingGesture, openingTexture |
 
 ### excerpt를 referenceDistanceScore에 쓰면 안 되는 이유
 
@@ -128,14 +130,16 @@ config/reference-corpus/
 - `validate-aesthetic-evaluators.mjs`: index 로드 시 `excerpt` 파일을 변별력 검증에서 **자동 제외** (--all-files 플래그로 해제 가능)
 - `perFile` 배열에는 모든 파일이 포함됨 (local technique 분석용)
 
-### 현재 corpus 완결성 상태 (119개 기준)
+### 현재 corpus 완결성 상태 (v2, 119개 기준)
 
-| 작곡가 | complete_piece | complete_movement | excerpt |
-|--------|---------------|-------------------|---------|
-| Beethoven (60개) | ~25 (무곡류, 변주 주제, 소나티나) | 1 (소나티나) | ~34 (소나타 Opening, 사중주 등) |
-| Schubert (59개) | ~24 (왈츠, 에코세즈, 앙글레즈, 모멘트 뮤지칼) | 0 | ~35 (소나타 Opening, 즉흥곡 단편, 가곡 선율) |
+| 작곡가 | complete_piece | complete_movement | complete_section | excerpt | incipit_only |
+|--------|---------------|-------------------|-----------------|---------|-------------|
+| Beethoven (60개) | 25 (바가텔, 무곡류, 소품) | 1 (소나티나 I악장) | 4 (변주곡 주제) | 28 (소나타·사중주 Opening) | 2 (Moonlight mm.1-5, Op.2 No.1 incipit) |
+| Schubert (59개) | 23 (왈츠, 에코세즈, 모멘트 뮤지칼) | 0 | 2 (즉흥곡 Op.142 No.3 주제, Wanderer 주제) | 33 (소나타·즉흥곡 Opening, 가곡 선율) | 1 (Gretchen 도입 선율) |
 
-> 현재 **complete_piece + complete_movement** 기준으로 약 50개가 유효한 referenceDistanceScore 소스입니다.
+> 현재 **complete_piece + complete_movement** 기준으로 **49개**가 유효한 referenceDistanceScore 소스입니다.
+> `complete_section`은 phrase/cadence 분석에는 유효하지만 referenceDistanceScore에는 사용되지 않습니다.
+> `incipit_only`는 도입 제스처 분석 전용입니다. 구조 메트릭 완전 배제.
 > 진정한 100개 complete_piece/movement anchor 달성을 위해서는 소나타 악장 전체 파일 추가가 필요합니다.
 
 ---

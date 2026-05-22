@@ -63,6 +63,11 @@ async function loadCorpusFileIndex(root) {
  * filenames that are allowed for full-piece referenceDistanceScore (complete_piece
  * or complete_movement only). Returns null when index is absent (= use all files).
  *
+ * Excluded levels (v2 schema):
+ *   - complete_section: valid for phrase/cadence analysis but NOT referenceDistanceScore or formalArc
+ *   - excerpt: partial extract, cannot represent climax position or full phrase distribution
+ *   - incipit_only: opening bars only (≤8 measures), no structural metrics valid
+ *
  * @param {object|null} fileIndex
  * @param {string} composerKey
  * @returns {Set<string>|null}

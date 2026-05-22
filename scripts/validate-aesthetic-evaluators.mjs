@@ -61,6 +61,10 @@ function loadCorpusFileIndex(p) {
 /**
  * Builds a Set of filenames that may be used for full-piece referenceDistanceScore.
  * Only "complete_piece" and "complete_movement" entries are included.
+ * "complete_section", "excerpt", and "incipit_only" are intentionally excluded:
+ *   - complete_section: valid for phrase/cadence analysis but lacks formalArc and movement-level stats
+ *   - excerpt: partial extract, cannot represent climax position or phrase distribution
+ *   - incipit_only: opening gesture only (≤8 bars), no structural metrics valid
  * Returns null if the index is absent or the composer key is not found (= use all).
  */
 function buildFullPieceAllowedSet(fileIndex, composerKey) {
@@ -553,7 +557,7 @@ function main() {
     console.log(" AXIOM Aesthetic Evaluator Validation Report");
     console.log("══════════════════════════════════════════════════════════");
     const filterDesc = (beethovenAllowed || schubertAllowed)
-        ? "complete_piece + complete_movement only (excerpts excluded)"
+        ? "complete_piece + complete_movement only (complete_section, excerpt, incipit_only excluded)"
         : "all files (no completeness filter)";
     console.log(`  Corpus filter:    ${filterDesc}`);
     console.log(`  Beethoven corpus: ${beethovenProfiles.length} files (${beethovenDir})`);
