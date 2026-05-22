@@ -1,11 +1,14 @@
 X:1
-T:Seven Variations on God Save the King WoO 78
+T:Ten Variations on God Save the King WoO 78 Theme
 C:L. van Beethoven
 M:3/4
 L:1/8
-Q:1/4=76
+Q:1/4=80
 K:C
-G4 G2 | E4 G2 | c4 B2 | G6 |
-A4 A2 | F4 A2 | c4 B2 | A6 |
-G4 A2 | B4 c2 | d4 B2 | G6 |
-c4 B2 | A4 G2 | F4 G2 | E6 |
+G4 G2 | E4 G2 | c4 B2 | A6 |
+c4 G2 | E4 G2 | F4 E2 | D6 |
+G4 A2 | B4 A2 | G4 A2 | G6 |
+c4 G2 | E4 G2 | F4 E2 | C6 |
+G4 A2 | B4 c2 | d4 c2 | B6 |
+A4 G2 | F4 E2 | D4 G2 | G6 |
+c4 G2 | E4 G2 | F4 E2 | C6 |

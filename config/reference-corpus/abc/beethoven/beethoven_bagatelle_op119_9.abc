@@ -1,11 +1,15 @@
 X:1
-T:Bagatelle in A minor Op. 119 No. 9
+T:Bagatelle in A major Op. 119 No. 9
 C:L. van Beethoven
 M:3/4
 L:1/8
-Q:1/4=92
-K:Amin
-A4 G2 | F4 E2 | D4 ^C2 | E6 |
-A4 B2 | c4 B2 | A4 G2 | A6 |
-e4 d2 | c4 B2 | A4 ^G2 | A6 |
-f4 e2 | d4 c2 | B4 A2 | E6 |
+Q:1/4=100
+K:A
+e4 c2 | A4 e2 | f4 e2 | d6 |
+e4 c2 | A4 F2 | G4 E2 | A6 |
+a4 f2 | e4 c2 | d4 B2 | e6 |
+c4 e2 | a4 g2 | f4 e2 | d6 |
+e4 f2 | g4 a2 | b4 a2 | g6 |
+f4 e2 | d4 c2 | B4 A2 | B6 |
+e4 c2 | A4 e2 | f4 e2 | d6 |
+e4 c2 | A4 F2 | G4 E2 | A6 |

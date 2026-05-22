@@ -5,7 +5,11 @@ M:6/8
 L:1/8
 Q:3/8=52
 K:Bb
-d6 | f3 d3 | _e3 c3 | d6 |
-f3 g3 | _e3 f3 | d6 | d6 |
-g3 f3 | _e3 d3 | c3 _B3 | _A6 |
-d3 _e3 | f3 g3 | _b6 | _b6 |
+f3 | e2 d c2 B | B3 A3 |
+d3 c2 B A2 G | G3 F3 |
+f2 e d2 c B2 A | G3 A3 |
+B2 c d2 e f2 g | f3 e3 |
+d2 e f2 g a2 b | b3 a3 |
+g2 f e2 d c2 B | A3 G3 |
+B2 c d2 c B2 A | G3 F3 |
+f2 g a2 b c'2 a | b3 B3 |

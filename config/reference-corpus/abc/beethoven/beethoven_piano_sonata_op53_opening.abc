@@ -1,11 +1,13 @@
 X:1
-T:Piano Sonata in C major Op. 53 Waldstein - opening
+T:Piano Sonata in C major Op. 53 Waldstein - Allegro con brio
 C:L. van Beethoven
 M:4/4
-L:1/8
-Q:1/4=132
+L:1/16
+Q:1/4=144
 K:C
-C,8 | C,8 | B,,8 | B,,8 |
-C,8 | C,8 | G,4 E4 | C8 |
-D,8 | D,8 | _B,,8 | _B,,8 |
-C,8 | F,4 A,4 | G,4 E4 | C8 |
+C8 E8 | G8 c8 | B4A4G4F4 | G16 |
+G4G4G4G4 | E8 C8 | D4E4F4G4 | G16 |
+c8 e8 | g8 b8 | a4g4f4e4 | e16 |
+d4c4B4A4 | G8 c8 | e4d4c4B4 | c16 |
+G4G4G4G4 | G8 G8 | e4e4e4e4 | g16 |
+f4e4d4c4 | B8 G8 | A4B4c4d4 | G16 |

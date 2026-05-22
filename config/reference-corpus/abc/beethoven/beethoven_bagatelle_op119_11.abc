@@ -3,9 +3,13 @@ T:Bagatelle in B-flat major Op. 119 No. 11
 C:L. van Beethoven
 M:3/4
 L:1/8
-Q:1/4=80
+Q:1/4=84
 K:Bb
-f4 d2 | _B4 f2 | g4 f2 | f6 |
-e4 f2 | g4 f2 | d4 c2 | _B6 |
-f4 g2 | a4 g2 | f4 e2 | f6 |
-g4 f2 | e4 d2 | c4 _B2 | F6 |
+f4 d2 | B4 f2 | g4 f2 | e6 |
+f4 d2 | B4 G2 | A4 B2 | B6 |
+d4 f2 | b4 g2 | f4 e2 | d6 |
+c4 e2 | g4 c2 | d4 c2 | B6 |
+b4 g2 | f4 d2 | e4 f2 | g6 |
+a4 g2 | f4 e2 | d4 c2 | B6 |
+f4 d2 | B4 f2 | g4 f2 | e6 |
+d4 c2 | B4 A2 | B4 z2 | B6 |

@@ -1,10 +1,13 @@
 X:1
-T:Piano Sonata in C minor Op. 13 Pathetique - Allegro main theme
+T:Piano Sonata in C minor Op. 13 Pathetique - Allegro di molto
 C:L. van Beethoven
 M:4/4
 L:1/8
-Q:1/4=168
+Q:1/4=138
 K:Cmin
-G,4 G,4 | G,4 _E4 | D4 D4 | C8 |
-G,4 G,4 | _B,4 _E4 | D2 C2 D2 E2 | F8 |
-G4 _B4 | c4 _e4 | d2 c2 _B2 A2 | G8 |
+G,4 G,4 | C4 E4 | G4 B4 | c8 |
+G4 f4 | e4 d4 | c4 G4 | C8 |
+c4 e4 | g4 b4 | a4 g4 | f8 |
+e4 d4 | c4 B4 | A4 G4 | G8 |
+G4 A4 | B4 c4 | d4 e4 | f8 |
+e4 d4 | c4 B4 | G8 | C8 |

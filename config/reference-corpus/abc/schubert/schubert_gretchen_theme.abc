@@ -5,7 +5,11 @@ M:6/8
 L:1/8
 Q:3/8=88
 K:Dmin
-A3 A3 | c3 A3 | f3 e3 | d6 |
-d3 e3 | f3 g3 | a3 f3 | d6 |
-g3 f3 | e3 d3 | c3 _B3 | A6 |
-d3 d3 | f3 a3 | g3 f3 | e6 |
+d3 f3 | a3 g3 | f2 e d2 c | B3 A3 |
+d2 e f2 g a2 f | e3 d3 |
+g2 f e2 d c2 d | e3 f3 |
+g2 a b2 c' a2 g | f3 e3 |
+d2 c B2 A G2 A | B3 c3 |
+d2 e f2 g a2 b | a3 g3 |
+f2 e d2 c B2 c | d3 A3 |
+D3 F3 | A3 G3 | F2 E D2 C | D6 |

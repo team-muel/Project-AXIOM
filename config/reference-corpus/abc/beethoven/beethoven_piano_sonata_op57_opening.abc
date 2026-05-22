@@ -1,10 +1,11 @@
 X:1
-T:Piano Sonata in F minor Op. 57 Appassionata - opening
+T:Piano Sonata in F minor Op. 57 Appassionata - Allegro assai
 C:L. van Beethoven
 M:4/4
-L:1/8
-Q:1/4=108
+L:1/16
+Q:1/4=132
 K:Fmin
-F,4 C2 F2 | A4 C2 F2 | c4 _A2 F2 | G8 |
-F,4 D2 F2 | _B4 D2 F2 | d4 _B2 G2 | C8 |
-F4 _E4 | D4 C4 | _B4 A4 | G8 |
+F4A4c4f4 | f16 | ^G4B4d4g4 | g16 |
+A4c4f4a4 | a16 | ^G4B4d4g4 | g16 |
+f4g4a4_b4 | c4d4e4f4 | g4a4_b4c'4 | f'16 |
+c'4_b4a4g4 | f4e4d4c4 | _B4A4G4F4 | F16 |

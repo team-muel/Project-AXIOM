@@ -1,11 +1,15 @@
 X:1
-T:Bagatelle Lustig-Traurig WoO 54
+T:Lustig-Traurig WoO 54
 C:L. van Beethoven
-M:3/8
+M:3/4
 L:1/8
-Q:3/8=88
+Q:1/4=96
 K:C
-G3 | c2 e | G3 | E3 |
-c2 d | e2 f | G3 | C3 |
-G3 | _b2 g | _e3 | D3 |
-_B2 G | F2 D | _E3 | C3 |
+c4 G2 | E4 C2 | F4 G2 | E6 |
+c4 B2 | A4 G2 | F4 E2 | C6 |
+G4 A2 | B4 c2 | d4 e2 | f6 |
+e4 d2 | c4 B2 | A4 G2 | C6 |
+c4 e2 | g4 c2 | f4 e2 | d6 |
+c4 B2 | A4 G2 | F4 E2 | C6 |
+c4 G2 | E4 C2 | F4 G2 | E6 |
+c4 B2 | A4 G2 | F4 E2 | C6 |

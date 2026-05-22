@@ -3,8 +3,13 @@ T:Piano Sonata in A major Op. 101 - Etwas lebhaft
 C:L. van Beethoven
 M:6/8
 L:1/8
-Q:3/8=76
+Q:3/8=60
 K:A
-e3 A3 | B3 e3 | c3 A3 | d3 B3 |
-A3 f3 | e3 c3 | B3 G3 | A6 |
-a3 f3 | e3 c3 | d3 B3 | A6 |
+e2 f | g3 | f2 e | d3 |
+e2 c | A3 | B2 c | d3 |
+e2 f | g2 a | b2 a | g3 |
+f2 e | d2 c | B2 A | A3 |
+c2 d | e3 | d2 c | B3 |
+A2 B | c2 d | e2 f | g3 |
+f2 e | d2 c | B2 A | A3 |
+e2 f | g3 | a3 | e3 |

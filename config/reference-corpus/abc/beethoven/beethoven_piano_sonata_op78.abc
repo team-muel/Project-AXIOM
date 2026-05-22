@@ -1,10 +1,11 @@
 X:1
-T:Piano Sonata in F-sharp major Op. 78 - Adagio cantabile
+T:Piano Sonata in F-sharp major Op. 78 - Allegro ma non troppo
 C:L. van Beethoven
-M:3/4
-L:1/8
-Q:1/4=60
+M:2/4
+L:1/16
+Q:1/4=108
 K:F#
-a4 f2 | d4 A2 | f4 e2 | d6 |
-e4 d2 | c4 B2 | A4 G2 | F6 |
-a4 b2 | c'4 a2 | b4 a2 | f6 |
+f8 | d4e4f4g4 | a4^g4f4e4 | d8 |
+f4e4d4c4 | B4A4G4F4 | E8 | f8 |
+d4f4a4d'4 | c'4b4a4g4 | f4e4d4c4 | B8 |
+d4e4f4g4 | a4g4f4e4 | d4c4B4A4 | f8 |

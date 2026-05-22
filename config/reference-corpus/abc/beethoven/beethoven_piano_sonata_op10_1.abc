@@ -1,10 +1,13 @@
 X:1
-T:Piano Sonata in C minor Op. 10 No. 1 - Allegro molto
+T:Piano Sonata in C minor Op. 10 No. 1 - Allegro molto e con brio
 C:L. van Beethoven
 M:4/4
 L:1/8
-Q:1/4=144
+Q:1/4=132
 K:Cmin
-G,4 G,4 | G,4 _E4 | D4 D4 | C8 |
-_E4 D4 | C4 G,4 | G,4 F4 | G,8 |
-c4 _B4 | _A4 G4 | F4 G4 | C8 |
+c4 z4 | G,4 z4 | c4 e4 | g4 f4 |
+e4 d4 | c8 | G4 B4 | d4 c4 |
+B4 A4 | G8 | c4 d4 | e4 f4 |
+g4 f4 | e4 d4 | c4 B4 | c8 |
+e4 g4 | b4 a4 | g4 f4 | e8 |
+d4 c4 | B4 A4 | G8 | z8 |

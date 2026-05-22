@@ -1,11 +1,11 @@
 X:1
-T:Piano Sonata in E major Op. 109 - Vivace opening
+T:Piano Sonata in E major Op. 109 - Vivace
 C:L. van Beethoven
 M:2/4
 L:1/16
-Q:1/4=108
+Q:1/4=126
 K:E
-e4 B4 | G4 E4 | B4 e4 | g8 |
-b4 g4 | e4 B4 | G4 B4 | E8 |
-c'4 b4 | a4 g4 | f4 e4 | B8 |
-e4 f4 | g4 a4 | b4 e'4 | e'8 |
+e4f4g4a4 | b4a4g4f4 | e4d4c4B4 | A8 |
+B4c4d4e4 | f4e4d4c4 | B4A4G4F4 | E8 |
+e4g4b4e'4 | d'4c'4b4a4 | g4f4e4d4 | e8 |
+c4d4e4f4 | g4f4e4d4 | c4B4A4G4 | F8 |
