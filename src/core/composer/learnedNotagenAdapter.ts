@@ -247,6 +247,13 @@ function formatPianoSectionControlLine(section: PianoSectionPlan): string {
 
 export interface LearnedNotagenProviderRequestOpts {
     candidateIndex?: number;
+    /**
+     * Total number of candidates in the pool.
+     * Used by resolveComposerIdentity() to correctly split composers across
+     * arbitrary pool sizes (e.g. 8, 16, 32).
+     * Defaults to 8 when absent.
+     */
+    candidatePoolSize?: number;
     samplingParams?: LearnedSamplingParams;
     localizedRewriteSpec?: LocalizedRewriteSpec;
     /** Piano-specific localized rewrite spec; produces an AXIOM_PIANO_REWRITE block. */
@@ -480,25 +487,42 @@ export function buildPianoRewriteBlock(spec: LocalizedPianoRewriteSpec): string 
 function resolveComposerIdentity(
     styleCue: LearnedSymbolicPromptPackStyleCue,
     candidateIndex?: number,
+    candidatePoolSize?: number,
 ): string {
     // Explicit override always wins
     if (styleCue.composer) return normalizeText(styleCue.composer);
 
     // If an influenceBlend is present and we have a candidateIndex,
-    // split candidates by cumulative weight among non-theory_only entries.
-    // e.g. Beethoven 0.55 + Schubert 0.45 with 8 candidates:
-    //   threshold = round(8 * 0.55) = 5 → candidates 0-4 → Beethoven, 5-7 → Schubert
+    // pre-assign slots to each active composer proportional to their weight,
+    // then pick composer for candidateIndex by cumulative slot boundary.
+    //
+    // Example — Beethoven 0.55 + Schubert 0.45:
+    //   poolSize=8  → Beethoven slots=4 (0-3), Schubert slots=4 (4-7)
+    //   poolSize=16 → Beethoven slots=9 (0-8), Schubert slots=7 (9-15)
+    //   poolSize=32 → Beethoven slots=18 (0-17), Schubert slots=14 (18-31)
+    //
+    // Rounding: each composer gets floor(weight * poolSize) slots.
+    // Any remainder is given to the first composer to avoid under-assignment.
     if (styleCue.influenceBlend?.length && candidateIndex !== undefined) {
         const active = styleCue.influenceBlend.filter((e) => e.role !== "theory_only");
         if (active.length >= 2) {
+            const pool = Math.max(1, candidatePoolSize ?? 8);
             const totalWeight = active.reduce((s, e) => s + e.weight, 0);
-            let cumulative = 0;
-            for (const entry of active) {
-                cumulative += entry.weight / totalWeight;
-                // The threshold is evaluated against a normalised 0-1 position
-                // derived from the candidate index within an assumed pool of 8.
-                const normIndex = (candidateIndex + 1) / 8;
-                if (normIndex <= cumulative) return normalizeText(entry.composer);
+
+            // Assign floor slots first, then distribute remainder left-to-right
+            const slots = active.map((e) =>
+                Math.floor((e.weight / totalWeight) * pool)
+            );
+            let remainder = pool - slots.reduce((s, n) => s + n, 0);
+            for (let i = 0; remainder > 0 && i < slots.length; i++) {
+                slots[i]++;
+                remainder--;
+            }
+
+            let boundary = 0;
+            for (let i = 0; i < active.length; i++) {
+                boundary += slots[i];
+                if (candidateIndex < boundary) return normalizeText(active[i].composer);
             }
             // Fallback: last active entry
             return normalizeText(active[active.length - 1].composer);
@@ -536,7 +560,7 @@ export function buildLearnedNotagenProviderRequest(
     const tempo = promptPack.styleCue.tempo ?? 92;
     const abcKey = resolveAbcKey(promptPack.styleCue.key ?? "C major");
     const instrumentationLine = resolveInstrumentationControlLine(promptPack, warnings);
-    const composerIdentity = resolveComposerIdentity(promptPack.styleCue, opts?.candidateIndex);
+    const composerIdentity = resolveComposerIdentity(promptPack.styleCue, opts?.candidateIndex, opts?.candidatePoolSize);
 
     // Hard constraints + structural control lines in deterministic order
     const controlLines: string[] = [

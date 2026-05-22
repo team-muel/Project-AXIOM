@@ -172,9 +172,9 @@ test("LID-06: explicit plan lineageProfileId and influenceBlend override default
     assert.ok(brahms, "Explicit influenceBlend must override default");
 });
 
-// ─── LID-07: candidate routing with default blend ─────────────────────────────
+// ─── LID-07: candidate routing with default blend (pool=8) ───────────────────
 
-test("LID-07: default influenceBlend routes candidates 0-4 to Beethoven, 5-7 to Schubert", () => {
+test("LID-07: default influenceBlend routes candidates 0-4 to Beethoven, 5-7 to Schubert (pool=8)", () => {
     const payload = buildPayload();
     const promptPack = payload.promptPack;
 
@@ -183,7 +183,7 @@ test("LID-07: default influenceBlend routes candidates 0-4 to Beethoven, 5-7 to 
         const req = buildLearnedNotagenProviderRequest(
             promptPack,
             SELECTED_MODELS,
-            { candidateIndex: i }
+            { candidateIndex: i, candidatePoolSize: 8 }
         );
         return req.controlLines.find((l) => l.startsWith("composer=")) ?? "";
     });
@@ -194,4 +194,52 @@ test("LID-07: default influenceBlend routes candidates 0-4 to Beethoven, 5-7 to 
     assert.ok(beethovenCount >= 4, `Expected ≥4 Beethoven candidates, got ${beethovenCount}. Composers: ${composers.join(", ")}`);
     assert.ok(schubertCount  >= 2, `Expected ≥2 Schubert candidates, got ${schubertCount}. Composers: ${composers.join(", ")}`);
     assert.equal(beethovenCount + schubertCount, 8, "All 8 candidates must be routed to Beethoven or Schubert");
+});
+
+// ─── LID-08: pool=16 routing ──────────────────────────────────────────────────
+
+test("LID-08: pool=16 routes 9 candidates to Beethoven and 7 to Schubert", () => {
+    const payload = buildPayload();
+    const promptPack = payload.promptPack;
+
+    const composers = Array.from({ length: 16 }, (_, i) => {
+        const req = buildLearnedNotagenProviderRequest(
+            promptPack,
+            SELECTED_MODELS,
+            { candidateIndex: i, candidatePoolSize: 16 }
+        );
+        return req.controlLines.find((l) => l.startsWith("composer=")) ?? "";
+    });
+
+    const beethovenCount = composers.filter((c) => c.toLowerCase().includes("beethoven")).length;
+    const schubertCount  = composers.filter((c) => c.toLowerCase().includes("schubert")).length;
+
+    // floor(0.55*16)=8, remainder=16-8-7=1 → beethoven gets +1 → 9
+    assert.equal(beethovenCount, 9, `Expected 9 Beethoven for pool=16, got ${beethovenCount}. ${composers.join(", ")}`);
+    assert.equal(schubertCount,  7, `Expected 7 Schubert for pool=16, got ${schubertCount}`);
+    assert.equal(beethovenCount + schubertCount, 16, "All 16 candidates must be routed");
+});
+
+// ─── LID-09: pool=32 routing ──────────────────────────────────────────────────
+
+test("LID-09: pool=32 routes 18 candidates to Beethoven and 14 to Schubert", () => {
+    const payload = buildPayload();
+    const promptPack = payload.promptPack;
+
+    const composers = Array.from({ length: 32 }, (_, i) => {
+        const req = buildLearnedNotagenProviderRequest(
+            promptPack,
+            SELECTED_MODELS,
+            { candidateIndex: i, candidatePoolSize: 32 }
+        );
+        return req.controlLines.find((l) => l.startsWith("composer=")) ?? "";
+    });
+
+    const beethovenCount = composers.filter((c) => c.toLowerCase().includes("beethoven")).length;
+    const schubertCount  = composers.filter((c) => c.toLowerCase().includes("schubert")).length;
+
+    // floor(0.55*32)=17, floor(0.45*32)=14, remainder=32-17-14=1 → beethoven +1 → 18
+    assert.equal(beethovenCount, 18, `Expected 18 Beethoven for pool=32, got ${beethovenCount}`);
+    assert.equal(schubertCount,  14, `Expected 14 Schubert for pool=32, got ${schubertCount}`);
+    assert.equal(beethovenCount + schubertCount, 32, "All 32 candidates must be routed");
 });
