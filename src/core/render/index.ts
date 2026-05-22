@@ -23,8 +23,8 @@ import type {
 import { logger } from "../../logging/logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const WORKER_SCRIPT = path.join(__dirname, "../../workers/render/render.py");
-export const STYLE_WORKER_SCRIPT = path.join(__dirname, "../../workers/composer/compose_musicgen.py");
+export const WORKER_SCRIPT = path.join(__dirname, "../../../workers/render/render.py");
+export const STYLE_WORKER_SCRIPT = path.join(__dirname, "../../../workers/composer/compose_musicgen.py");
 
 interface WorkerResponse {
     ok: boolean;

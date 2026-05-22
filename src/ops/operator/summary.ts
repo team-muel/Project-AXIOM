@@ -19,13 +19,13 @@ import { WORKER_SCRIPT as RENDER_WORKER_SCRIPT, STYLE_WORKER_SCRIPT } from "../.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const LOCAL_FLUIDSYNTH_CANDIDATES = [
-    path.join(__dirname, "../../tools/fluidsynth/bin/fluidsynth.exe"),
-    path.join(__dirname, "../../tools/fluidsynth/bin/fluidsynth"),
+    path.join(__dirname, "../../../tools/fluidsynth/bin/fluidsynth.exe"),
+    path.join(__dirname, "../../../tools/fluidsynth/bin/fluidsynth"),
 ];
 
 const LOCAL_FFMPEG_CANDIDATES = [
-    path.join(__dirname, "../../tools/ffmpeg/bin/ffmpeg.exe"),
-    path.join(__dirname, "../../tools/ffmpeg/bin/ffmpeg"),
+    path.join(__dirname, "../../../tools/ffmpeg/bin/ffmpeg.exe"),
+    path.join(__dirname, "../../../tools/ffmpeg/bin/ffmpeg"),
 ];
 
 type JsonRecord = Record<string, unknown>;

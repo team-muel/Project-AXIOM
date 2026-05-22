@@ -16,7 +16,7 @@ import { config } from "../../config.js";
 import { logger } from "../../logging/logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const WORKER_SCRIPT = path.join(__dirname, "../../workers/humanizer/humanize.py");
+export const WORKER_SCRIPT = path.join(__dirname, "../../../workers/humanizer/humanize.py");
 
 interface WorkerResponse {
     ok: boolean;

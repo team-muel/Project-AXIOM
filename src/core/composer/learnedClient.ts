@@ -17,7 +17,7 @@ import {
 } from "./learnedSymbolicContract.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const LEARNED_SYMBOLIC_WORKER_SCRIPT = path.join(__dirname, "../../workers/composer/compose_learned_symbolic.py");
+export const LEARNED_SYMBOLIC_WORKER_SCRIPT = path.join(__dirname, "../../../workers/composer/compose_learned_symbolic.py");
 
 export interface LearnedSymbolicClientDeps {
     writeComposeProgress: (songId: string, progress: ComposeWorkerProgress) => void;

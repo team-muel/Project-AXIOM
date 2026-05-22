@@ -402,8 +402,10 @@ export function loadScoringProfile<W extends Record<string, number>>(
 //   AXIOM_GATE_PROFILE          — default quality gate profile name
 
 function resolveProfileDir(): string {
-    return process.env.AXIOM_SCORING_PROFILES_DIR
-        ?? path.join(process.cwd(), "config", "scoring-profiles");
+    const override = process.env.AXIOM_SCORING_PROFILES_DIR;
+    return override?.trim()
+        ? override.trim()
+        : path.join(process.cwd(), "config", "scoring-profiles");
 }
 
 const craftProfileCache   = new Map<string, CraftScoringProfile>();

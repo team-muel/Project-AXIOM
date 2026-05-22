@@ -25,8 +25,8 @@ import { logger } from "../../logging/logger.js";
 import { composeWithLearnedSymbolic } from "./learnedClient.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const WORKER_SCRIPT = path.join(__dirname, "../../workers/composer/compose.py");
-export const MUSICGEN_WORKER_SCRIPT = path.join(__dirname, "../../workers/composer/compose_musicgen.py");
+export const WORKER_SCRIPT = path.join(__dirname, "../../../workers/composer/compose.py");
+export const MUSICGEN_WORKER_SCRIPT = path.join(__dirname, "../../../workers/composer/compose_musicgen.py");
 
 function ensureSongDir(songId: string): string {
     const songDir = path.join(config.outputDir, songId);

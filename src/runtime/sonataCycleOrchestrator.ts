@@ -316,6 +316,7 @@ export async function runCyclePipeline(
 
             const completionFraction = completedMovements.length / sortedMovements.length;
             if (completionFraction < minCompletionFraction) break;
+            continue;
         }
 
         const elapsedMs = Date.now() - startMs;
