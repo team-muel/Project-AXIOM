@@ -253,7 +253,10 @@ function ensureDir(dirPath: string): void {
 
 function writeJsonFile(filePath: string, value: unknown): void {
     ensureDir(path.dirname(filePath));
-    fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    const payload = `${JSON.stringify(value, null, 2)}\n`;
+    const tmp = `${filePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, payload, "utf8");
+    fs.renameSync(tmp, filePath);
 }
 
 function readJsonFile<T>(filePath: string): T | null {
@@ -261,7 +264,11 @@ function readJsonFile<T>(filePath: string): T | null {
         return null;
     }
 
-    return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
+    try {
+        return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
+    } catch {
+        return null;
+    }
 }
 
 function sanitizeToken(value: string | undefined): string {

@@ -28,6 +28,10 @@ function compact(value: unknown): string {
     return String(value ?? "").trim();
 }
 
+function isSafeId(id: string): boolean {
+    return id.length > 0 && id.length <= 256 && /^[a-zA-Z0-9_-]+$/.test(id);
+}
+
 function ratingField(value: unknown): 1 | 2 | 3 | 4 | 5 | undefined {
     if (typeof value !== "number" && typeof value !== "string") return undefined;
     const n = typeof value === "number" ? value : Number(value);
@@ -68,6 +72,11 @@ function validateSource(value: unknown): CuratorCalibrationReview["source"] | nu
 router.post("/calibration/:songId/:candidateId", (req, res) => {
     const { songId, candidateId } = req.params;
     const body = req.body as Record<string, unknown> | undefined;
+
+    if (!isSafeId(songId) || !isSafeId(candidateId)) {
+        res.status(400).json({ ok: false, error: "invalid songId or candidateId" });
+        return;
+    }
 
     const source = validateSource(body?.source);
     if (!source) {

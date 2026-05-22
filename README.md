@@ -93,7 +93,11 @@ python -m pip install -r workers/requirements-musicgen.txt
 ### 2. 환경 변수 준비
 
 ```bash
+# Windows
 copy .env.example .env
+
+# macOS / Linux
+cp .env.example .env
 ```
 
 주요 변수:

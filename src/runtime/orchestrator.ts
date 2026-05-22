@@ -1070,6 +1070,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                         });
 
                     const attemptWinner = selectAttemptWinner(attemptCandidates, manifest.songId);
+                    bestSymbolicCandidate = attemptWinner;
 
                     composeResult = attemptWinner.composeResult;
                     effectiveExecutionPlan = attemptWinner.executionPlan;
@@ -1109,7 +1110,7 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
                     persistManifest(manifest, options?.onManifestUpdate);
 
                     if (!retryNeeded || revisionDirectives.length === 0) {
-                        selectedSymbolicCandidate = bestSymbolicCandidate ?? attemptWinner;
+                        selectedSymbolicCandidate = attemptWinner;
                         const baseStopReason = retryNeeded && revisionDirectives.length === 0
                             ? "structure evaluation requested another pass but yielded no revision directives"
                             : (attemptWinner.structureEvaluation.passed
@@ -1530,7 +1531,9 @@ export async function runPipeline(request: ComposeRequest, options?: RunPipeline
         }
 
         // STORE
-        transition(manifest, PipelineState.STORE);
+        if (manifest.state !== PipelineState.STORE) {
+            transition(manifest, PipelineState.STORE);
+        }
         persistManifest(manifest, options?.onManifestUpdate);
 
         // DONE

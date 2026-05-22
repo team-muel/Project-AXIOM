@@ -49,7 +49,10 @@
         "analyze:reference-corpus:verbose": "node scripts/analyze-reference-corpus.mjs --root=config/reference-corpus --out=outputs/_system/reference-corpus/profile.json --verbose",
         "validate:aesthetic-evaluators": "node scripts/validate-aesthetic-evaluators.mjs",
         "validate:aesthetic-evaluators:out": "node scripts/validate-aesthetic-evaluators.mjs --out=outputs/_system/reference-corpus/aesthetic-validation.json",
-        "validate:aesthetic-evaluators:verbose": "node scripts/validate-aesthetic-evaluators.mjs --verbose --out=outputs/_system/reference-corpus/aesthetic-validation.json"
+        "validate:aesthetic-evaluators:verbose": "node scripts/validate-aesthetic-evaluators.mjs --verbose --out=outputs/_system/reference-corpus/aesthetic-validation.json",
+        "pretest": "npm run build",
+        "ml:review-pack:learned-backbone": "node scripts/create-learned-backbone-review-pack.mjs",
+        "ml:review-pack:record:learned-backbone": "node scripts/record-learned-backbone-review-pack.mjs"
     },
     "dependencies": {
         "dotenv": "^16.4.7",

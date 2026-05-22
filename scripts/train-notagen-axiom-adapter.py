@@ -152,7 +152,13 @@ def _safe_float(v: Any) -> float | None:
 
 
 def _avg_craft_score(row: dict[str, Any]) -> float | None:
-    cs = (row.get("meta") or {}).get("craftScoreSummary") or {}
+    meta = row.get("meta") or {}
+    # Current exporter schema: flat finalCraftScore field
+    final = _safe_float(meta.get("finalCraftScore"))
+    if final is not None:
+        return final
+    # Legacy/fallback: nested craftScoreSummary dimensions
+    cs = meta.get("craftScoreSummary") or {}
     scores = [_safe_float(cs.get(d)) for d in CRAFT_DIMS]
     scores = [s for s in scores if s is not None]
     return sum(scores) / len(scores) if scores else None
@@ -346,7 +352,8 @@ def main() -> None:
         sys.exit(
             f"ERROR: no usable training pairs in {jsonl_path}.\n"
             "Ensure abcText and controlLines are present in proposalEvidence.\n"
-            "Tip: use --include-mock to include mock-backend rows for testing."
+            "Tip: run 'npm run export:notagen-sft' first to produce the JSONL dataset, "
+            "then pass --min-score=0 to include all rows regardless of craft score."
         )
 
     print(f"Training on {len(prompts)} pairs (mode={args.mode}, model={args.model})")

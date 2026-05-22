@@ -3981,6 +3981,19 @@ export function recoverAutonomyRuntimeState(jobs: RecoverableAutonomyJob[]): Aut
         .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 
     const restoredJob = activeJobs[0];
+
+    for (const extraJob of activeJobs.slice(1)) {
+        const extraRunId = extraJob.request.autonomyRunId;
+        if (extraRunId) {
+            updateLedgerStatus(dayKeyFromIso(extraJob.createdAt), extraRunId, {
+                status: "failed",
+                jobId: extraJob.jobId,
+                error: "Multiple active autonomy runs detected on startup; superseded by earliest active run",
+            });
+            notes.push(`extra active run ${extraRunId} reconciled on startup (only one active run supported)`);
+        }
+    }
+
     let resolvedStaleRunId: string | undefined;
 
     if (control.activeRun && control.activeRun.runId !== restoredJob?.request.autonomyRunId) {

@@ -12,6 +12,10 @@ function compact(value: unknown): string {
     return String(value ?? "").trim();
 }
 
+function isSafeId(id: string): boolean {
+    return id.length > 0 && id.length <= 256 && /^[a-zA-Z0-9_-]+$/.test(id);
+}
+
 function finiteNumber(value: unknown): number | undefined {
     if (typeof value === "number") {
         return Number.isFinite(value) ? value : undefined;
@@ -58,6 +62,11 @@ function ratingField(value: unknown): 1 | 2 | 3 | 4 | 5 | undefined {
  */
 router.post("/feedback/:songId/:candidateId", (req, res) => {
     const { songId, candidateId } = req.params;
+
+    if (!isSafeId(songId) || !isSafeId(candidateId)) {
+        res.status(400).json({ ok: false, error: "invalid songId or candidateId" });
+        return;
+    }
 
     const body = req.body as Record<string, unknown> | undefined;
 

@@ -50,7 +50,7 @@ function isActiveStatus(status: QueuedJob["status"]): boolean {
 }
 
 function deadletterDir(): string {
-    return path.join(config.logDir, "deadletter");
+    return path.join(config.outputDir, "_system", "deadletter");
 }
 
 function systemDir(): string {

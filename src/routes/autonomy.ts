@@ -29,6 +29,10 @@ function compact(value: unknown): string {
     return String(value ?? "").trim();
 }
 
+function isSafeId(id: string): boolean {
+    return id.length > 0 && id.length <= 256 && /^[a-zA-Z0-9_-]+$/.test(id);
+}
+
 function finiteNumber(value: unknown): number | undefined {
     if (typeof value === "number") {
         return Number.isFinite(value) ? value : undefined;
@@ -249,9 +253,14 @@ router.post("/autonomy/trigger", async (_req, res) => {
 
 router.post("/autonomy/approve/:songId", (req, res) => {
     try {
+        const { songId } = req.params;
+        if (!isSafeId(songId)) {
+            res.status(400).json({ error: "invalid songId" });
+            return;
+        }
         const body = req.body as AutonomyReviewRequestBody | undefined;
         const manifest = approveAutonomySong(
-            req.params.songId,
+            songId,
             parseReviewFeedback(body, body?.note),
             getOperatorAuditContext(req, body),
         );
@@ -280,9 +289,14 @@ router.post("/autonomy/approve/:songId", (req, res) => {
 
 router.post("/autonomy/reject/:songId", (req, res) => {
     try {
+        const { songId } = req.params;
+        if (!isSafeId(songId)) {
+            res.status(400).json({ error: "invalid songId" });
+            return;
+        }
         const body = req.body as AutonomyReviewRequestBody | undefined;
         const manifest = rejectAutonomySong(
-            req.params.songId,
+            songId,
             parseReviewFeedback(body, body?.reason ?? body?.note),
             getOperatorAuditContext(req, body),
         );

@@ -226,8 +226,17 @@ test("phase-e: buildLearnedLocalizedRewriteSpec returns undefined when no plan s
 // Python tests via subprocess
 // ─────────────────────────────────────────────────────────────────────────────
 
+const PYTHON_CMD = (() => {
+    for (const cmd of ["python", "python3"]) {
+        const probe = spawnSync(cmd, ["--version"], { encoding: "utf-8", timeout: 5000 });
+        if (!probe.error && probe.status === 0) return cmd;
+    }
+    return null;
+})();
+
 function runPythonScript(code) {
-    const result = spawnSync("python", ["-c", code], {
+    if (!PYTHON_CMD) return { stdout: "", stderr: "", status: -1, error: new Error("python not available") };
+    const result = spawnSync(PYTHON_CMD, ["-c", code], {
         cwd: repoRoot,
         encoding: "utf-8",
         timeout: 10000,
@@ -240,7 +249,8 @@ function runPythonScript(code) {
     };
 }
 
-test("phase-e: build_rewrite_prompt_block produces expected structure", () => {
+test("phase-e: build_rewrite_prompt_block produces expected structure", (t) => {
+    if (!PYTHON_CMD) { t.skip("Python interpreter not available"); return; }
     const code = `
 import json, sys
 sys.path.insert(0, '.')
@@ -265,7 +275,8 @@ print(json.dumps(block))
     assert.ok(block.includes("</AXIOM_REWRITE>"), "block should contain </AXIOM_REWRITE>");
 });
 
-test("phase-e: assemble_rewritten_abc preserves keep artifacts and uses rewritten for rewrite sections", () => {
+test("phase-e: assemble_rewritten_abc preserves keep artifacts and uses rewritten for rewrite sections", (t) => {
+    if (!PYTHON_CMD) { t.skip("Python interpreter not available"); return; }
     const code = `
 import json, sys
 sys.path.insert(0, '.')
@@ -298,7 +309,8 @@ print(json.dumps(merged))
     assert.ok(merged[1].leadEvents[0].rewritten, "s2 should carry rewritten flag");
 });
 
-test("phase-e: abc_prompt includes AXIOM_REWRITE block when rewriteSpec present", () => {
+test("phase-e: abc_prompt includes AXIOM_REWRITE block when rewriteSpec present", (t) => {
+    if (!PYTHON_CMD) { t.skip("Python interpreter not available"); return; }
     const providerRequest = {
         conditioningText: "Generate interleaved ABC notation for a classical string trio miniature in G minor, 4/4, 84 BPM. Preserve the section plan and synchronized voices.",
         controlLines: [
@@ -333,7 +345,7 @@ print(json.dumps(result))
 `;
     const encoded = JSON.stringify(JSON.stringify(providerRequest));
     const runResult = spawnSync(
-        "python",
+        PYTHON_CMD,
         ["-c", `import json, sys\nsys.path.insert(0, '.')\nfrom workers.composer.learned_symbolic.abc_prompt import build_notagen_input_string\nreq = ${JSON.stringify(JSON.stringify(providerRequest))}\nresult = build_notagen_input_string(json.loads(req))\nprint(json.dumps(result))`],
         { cwd: repoRoot, encoding: "utf-8", timeout: 10000 },
     );
@@ -348,7 +360,8 @@ print(json.dumps(result))
     assert.ok(output.includes("%%axiom_control_end"), "output should have control end marker");
 });
 
-test("phase-e: abc_prompt omits AXIOM_REWRITE block when rewriteSpec absent", () => {
+test("phase-e: abc_prompt omits AXIOM_REWRITE block when rewriteSpec absent", (t) => {
+    if (!PYTHON_CMD) { t.skip("Python interpreter not available"); return; }
     const providerRequest = {
         conditioningText: "Generate interleaved ABC notation for a classical string trio miniature in G minor, 4/4, 84 BPM. Preserve the section plan and synchronized voices.",
         controlLines: [
@@ -366,7 +379,7 @@ test("phase-e: abc_prompt omits AXIOM_REWRITE block when rewriteSpec absent", ()
     };
 
     const runResult = spawnSync(
-        "python",
+        PYTHON_CMD,
         ["-c", `import json, sys\nsys.path.insert(0, '.')\nfrom workers.composer.learned_symbolic.abc_prompt import build_notagen_input_string\nreq = ${JSON.stringify(JSON.stringify(providerRequest))}\nresult = build_notagen_input_string(json.loads(req))\nprint(json.dumps(result))`],
         { cwd: repoRoot, encoding: "utf-8", timeout: 10000 },
     );

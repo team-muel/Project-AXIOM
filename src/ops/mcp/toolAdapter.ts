@@ -28,7 +28,7 @@ import {
     loadOverseerHistory,
     summarizeOverseerHistory,
 } from "../overseer/storage.ts";
-import { loadManifest, listStoredManifests } from "../../runtime/manifest/manifest.js";
+import { loadManifest, listStoredManifests, isSafeSongId } from "../../runtime/manifest/manifest.js";
 import { buildManifestOperationalSummary, summarizeManifestTracking } from "../../runtime/manifest/manifestAnalytics.js";
 import { buildOperatorSummary } from "../operator/summary.js";
 import type { McpToolCallRequest, McpToolCallResult, McpToolInputSchema, McpToolSpec } from "./types.js";
@@ -477,6 +477,10 @@ export async function callMcpTool(request: McpToolCallRequest): Promise<McpToolC
         const songId = compact(args.songId);
         if (!songId) {
             return toTextResult("songId is required", true);
+        }
+
+        if (!isSafeSongId(songId)) {
+            return toTextResult("songId contains invalid characters", true);
         }
 
         const manifest = loadManifest(songId);

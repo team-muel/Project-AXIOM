@@ -2,6 +2,8 @@ import readline from "node:readline";
 import { setLogStream } from "../../logging/logger.js";
 import { fail, handleMcpRequest, isJsonRpcNotification } from "./protocol.js";
 import type { JsonRpcRequest, JsonRpcResponse } from "./types.js";
+import { initAutonomyHooks } from "../autonomy/initHooks.js";
+import { recoverAutonomyRuntimeOnStartup } from "../autonomy/controller.js";
 
 function writeResponse(response: JsonRpcResponse): void {
     process.stdout.write(`${JSON.stringify(response)}\n`);
@@ -13,6 +15,8 @@ function sanitizeLine(line: string): string {
 
 export function startMcpStdioServer(): void {
     setLogStream("stderr");
+    initAutonomyHooks();
+    recoverAutonomyRuntimeOnStartup();
 
     const rl = readline.createInterface({
         input: process.stdin,

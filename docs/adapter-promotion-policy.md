@@ -51,16 +51,9 @@ promoted: false →  훈련 재조정 후 재평가
 
 ```bash
 # 1. baseline 점수 수집 (baseline adapter로 frozen benchmark 실행 후 점수 추출)
-node scripts/collect-benchmark-scores.mjs \
-  --adapter=baseline \
-  --out=outputs/_system/ml/benchmarks/baseline/scores.jsonl
-
-# 2. candidate 점수 수집
-node scripts/collect-benchmark-scores.mjs \
-  --adapter=candidate-v2 \
-  --out=outputs/_system/ml/benchmarks/candidate-v2/scores.jsonl
-
-# 3. Promotion gate 평가
+# NOTE: scripts/collect-benchmark-scores.mjs is not yet implemented.
+# Run individual symbolic pipeline jobs and extract meta.finalCraftScore from manifests
+# using scripts/export-notagen-sft-dataset.mjs, then pass the JSONL to the evaluator.
 node scripts/evaluate-notagen-adapter-promotion.mjs \
   --baseline=outputs/_system/ml/benchmarks/baseline/scores.jsonl \
   --candidate=outputs/_system/ml/benchmarks/candidate-v2/scores.jsonl \

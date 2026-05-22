@@ -65,8 +65,14 @@ async function handleJsonRpcHttp(req: Request, res: Response): Promise<void> {
         return;
     }
 
+    const body = req.body;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+        res.status(400).json(fail(null, -32600, "invalid request"));
+        return;
+    }
+
     try {
-        const request = req.body as JsonRpcRequest;
+        const request = body as JsonRpcRequest;
         const response = await handleMcpRequest(request);
 
         if (isJsonRpcNotification(request)) {

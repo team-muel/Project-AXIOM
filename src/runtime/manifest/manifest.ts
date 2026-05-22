@@ -45,7 +45,14 @@ function loadJsonFile<T>(filePath: string, fallback: T): T {
 
 function saveJsonFile(filePath: string, value: unknown): void {
     ensureDir(path.dirname(filePath));
-    fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf-8");
+    const payload = JSON.stringify(value, null, 2);
+    const tmp = `${filePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, payload, "utf-8");
+    fs.renameSync(tmp, filePath);
+}
+
+export function isSafeSongId(id: string): boolean {
+    return typeof id === "string" && id.length > 0 && id.length <= 256 && /^[a-zA-Z0-9_-]+$/.test(id);
 }
 
 function deleteFileIfExists(filePath: string): void {
@@ -126,14 +133,19 @@ export function saveManifest(manifest: JobManifest): void {
 
     delete manifestForDisk.sectionArtifacts;
     delete manifestForDisk.expressionPlan;
-    fs.writeFileSync(manifestPath(manifest.songId), JSON.stringify(manifestForDisk, null, 2), "utf-8");
+    saveJsonFile(manifestPath(manifest.songId), manifestForDisk);
 }
 
 export function loadManifest(songId: string, options?: LoadManifestOptions): JobManifest | null {
     const p = manifestPath(songId);
     if (!fs.existsSync(p)) return null;
 
-    const manifest = JSON.parse(fs.readFileSync(p, "utf-8")) as JobManifest;
+    let manifest: JobManifest;
+    try {
+        manifest = JSON.parse(fs.readFileSync(p, "utf-8")) as JobManifest;
+    } catch {
+        return null;
+    }
     const hydrateSectionArtifacts = options?.hydrateSectionArtifacts ?? true;
     const hydrateExpressionPlan = options?.hydrateExpressionPlan ?? true;
 

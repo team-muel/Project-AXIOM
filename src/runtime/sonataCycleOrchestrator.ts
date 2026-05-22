@@ -315,8 +315,7 @@ export async function runCyclePipeline(
             onMovementComplete?.(stubRecord, movementRequest.songId ?? cycleId);
 
             const completionFraction = completedMovements.length / sortedMovements.length;
-            if (completionFraction >= (1 - minCompletionFraction)) continue;
-            break;
+            if (completionFraction < minCompletionFraction) break;
         }
 
         const elapsedMs = Date.now() - startMs;

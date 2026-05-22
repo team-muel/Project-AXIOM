@@ -32,7 +32,11 @@ python -m pip install -r workers/requirements-musicgen.txt
 ## 환경 변수
 
 ```bash
+# Windows
 copy .env.example .env
+
+# macOS / Linux
+cp .env.example .env
 ```
 
 | 변수 | 기본값 | 필수 | 설명 |
@@ -155,7 +159,7 @@ curl http://localhost:3100/ready
 ```bash
 npm run build       # TypeScript 컴파일 → dist/
 npm run typecheck   # 타입 검사 (빌드 없음)
-npm test            # build 후 node --test 실행
+npm test            # build (pretest) + node --test 실행
 npm run clean       # dist/ 삭제
 ```
 

@@ -163,13 +163,9 @@ production/default로 승격된다.
 
 ```bash
 # frozen benchmark set에 대해 baseline과 candidate 점수 수집
-node scripts/collect-benchmark-scores.mjs \
-  --adapter=baseline \
-  --out=outputs/_system/ml/benchmarks/baseline/scores.jsonl
-
-node scripts/collect-benchmark-scores.mjs \
-  --adapter=candidate-v2 \
-  --out=outputs/_system/ml/benchmarks/candidate-v2/scores.jsonl
+# NOTE: scripts/collect-benchmark-scores.mjs is not yet implemented.
+# Extract meta.finalCraftScore values from manifests via export:notagen-sft,
+# then supply the resulting JSONL files to the promotion evaluator.
 
 # Promotion gate 평가 (exit code 0 = promoted, 1 = not promoted)
 node scripts/evaluate-notagen-adapter-promotion.mjs \
