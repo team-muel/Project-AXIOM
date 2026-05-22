@@ -325,6 +325,23 @@ export function resolveLearnedBenchmarkPackVersion(
 
 function buildStyleCue(request: ComposeRequest, instrumentation: InstrumentAssignment[]): LearnedSymbolicPromptPackStyleCue {
     const plan = request.compositionPlan;
+
+    // AXIOM identity defaults — injected unconditionally when the plan doesn't
+    // carry explicit values. This ensures every composition carries AXIOM's
+    // Beethoven·Schubert lineage signature without requiring the caller to set it.
+    const DEFAULT_LINEAGE_PROFILE_ID = "axiom_beethoven_schubert_v1";
+    const DEFAULT_INFLUENCE_BLEND: LearnedSymbolicPromptPackStyleCue["influenceBlend"] = [
+        { composer: "Beethoven, Ludwig van", weight: 0.55, role: "primary" },
+        { composer: "Schubert, Franz",        weight: 0.45, role: "secondary" },
+        // theory_only entries carry weight 0 — they are excluded from NotaGen
+        // %Composer routing (learnedNotagenAdapter filters role !== "theory_only")
+        // but are preserved as explicit taxonomy annotations.
+        { composer: "Bach, Johann Sebastian", weight: 0.0, role: "theory_only" },
+        { composer: "Haydn/Mozart",            weight: 0.0, role: "theory_only" },
+        { composer: "Chopin, Frédéric",        weight: 0.0, role: "theory_only" },
+    ];
+    const DEFAULT_PERIOD = "Romantic";
+
     return {
         brief: String(plan?.brief ?? request.prompt).trim() || request.prompt,
         mood: normalizeStringList(plan?.mood),
@@ -345,9 +362,9 @@ function buildStyleCue(request: ComposeRequest, instrumentation: InstrumentAssig
         ...(plan?.structureVisibility ? { structureVisibility: plan.structureVisibility } : {}),
         ...(plan?.humanizationStyle ? { humanizationStyle: plan.humanizationStyle } : {}),
         ...(plan?.composer ? { composer: plan.composer } : {}),
-        ...(plan?.period ? { period: plan.period } : {}),
-        ...(plan?.lineageProfileId ? { lineageProfileId: plan.lineageProfileId } : {}),
-        ...(plan?.influenceBlend?.length ? { influenceBlend: plan.influenceBlend } : {}),
+        period:           plan?.period           ?? DEFAULT_PERIOD,
+        lineageProfileId: plan?.lineageProfileId ?? DEFAULT_LINEAGE_PROFILE_ID,
+        influenceBlend:   plan?.influenceBlend?.length ? plan.influenceBlend : DEFAULT_INFLUENCE_BLEND,
     };
 }
 

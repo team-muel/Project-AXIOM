@@ -78,3 +78,4 @@ import "./reference-style-profile.test.mjs";
 import "./beethoven-schubert-evaluators.test.mjs";
 import "./axiom-style-identity-profile.test.mjs";
 import "./reference-corpus-composer-roles.test.mjs";
+import "./lineage-identity-defaults.test.mjs";
