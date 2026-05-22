@@ -1236,6 +1236,8 @@ export function computeCraftScoreSummary(
         dimensionNotes["schubertianLyricExpansionScore"]   = axiomAesthetic.schubertianLyricExpansion.notes;
     if (axiomAesthetic.mediantColor.notes)
         dimensionNotes["mediantColorScore"]                = axiomAesthetic.mediantColor.notes;
+    if (axiomAesthetic.lineageIdentity.notes)
+        dimensionNotes["lineageIdentityScore"]             = axiomAesthetic.lineageIdentity.notes;
 
     return {
         syntaxValidity: Number(syntaxValidity.toFixed(4)),
@@ -1278,5 +1280,6 @@ export function computeCraftScoreSummary(
         beethovenianMotivicPressureScore: Number(axiomAesthetic.beethovenianMotivicPressure.score.toFixed(4)),
         schubertianLyricExpansionScore:   Number(axiomAesthetic.schubertianLyricExpansion.score.toFixed(4)),
         mediantColorScore:                Number(axiomAesthetic.mediantColor.score.toFixed(4)),
+        lineageIdentityScore:             Number(axiomAesthetic.lineageIdentity.score.toFixed(4)),
     };
 }

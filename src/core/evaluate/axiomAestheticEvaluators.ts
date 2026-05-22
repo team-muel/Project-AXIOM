@@ -678,18 +678,137 @@ export interface AxiomAestheticScores {
     beethovenianMotivicPressure: BeethovenianMotivicPressureDetail;
     schubertianLyricExpansion: SchubertianLyricExpansionDetail;
     mediantColor: MediantColorDetail;
+    lineageIdentity: LineageIdentityDetail;
+}
+
+// ---------------------------------------------------------------------------
+// D. LineageIdentityScore — Beethoven structural force + Schubert lyric/harmonic
+// ---------------------------------------------------------------------------
+
+export interface LineageIdentityDetail {
+    /**
+     * Weighted input: BeethovenianMotivicPressure score (weight 0.55 — mirrors
+     * Beethoven's primary identity weight in the AXIOM influence blend).
+     */
+    beethovenianMotivicPressure: number;
+    /**
+     * Weighted input: SchubertianLyricExpansion score (weight 0.25 — Schubert
+     * lyrical side, half of Schubert's 0.45 influence).
+     */
+    schubertianLyricExpansion: number;
+    /**
+     * Weighted input: MediantColorScore (weight 0.20 — Schubert harmonic-color
+     * side, remainder of Schubert's 0.45 influence).
+     */
+    mediantColor: number;
+    /**
+     * Composite lineage identity score in [0, 1].
+     * Formula: 0.55 × beethoven + 0.25 × lyric + 0.20 × harmonic
+     *
+     * Mirrors AXIOM's influence blend (Beethoven 55%, Schubert 45%) with
+     * the Schubert share split between lyric expansion and harmonic color.
+     */
+    score: number;
+    /**
+     * Whether Beethoven structural force and Schubert lyric+harmonic color are
+     * BOTH present at a meaningful level (each sub-score ≥ 0.35).
+     * A composition that excels in only one axis is NOT a true lineage composition.
+     */
+    bothAxesPresent: boolean;
+    notes: string;
 }
 
 /**
- * Computes all three AXIOM aesthetic identity scores in a single call.
+ * Computes the Beethoven-Schubert Lineage Identity Score.
+ *
+ * This is the single "are we being AXIOM?" gate for the promotion pipeline.
+ * It combines the three sub-evaluators with weights that mirror AXIOM's
+ * influence blend (Beethoven:0.55, Schubert Lyric:0.25, Schubert Harmonic:0.20).
+ *
+ * Use for adapter promotion gate R-01.
+ */
+export function computeLineageIdentityScore(
+    sectionArtifacts: SectionArtifactSummary[],
+    plan: CompositionPlan | undefined,
+): LineageIdentityDetail {
+    const beethoven = computeBeethovenianMotivicPressureScore(sectionArtifacts, plan);
+    const lyric     = computeSchubertianLyricExpansionScore(sectionArtifacts, plan);
+    const harmonic  = computeMediantColorScore(sectionArtifacts, plan);
+
+    const score = clamp01(
+        0.55 * beethoven.score
+        + 0.25 * lyric.score
+        + 0.20 * harmonic.score,
+    );
+
+    // Both axes are required: Beethoven structural AND Schubert lyric/harmonic
+    // must individually exceed a minimum floor. A composition that is purely
+    // Beethovenian (Schubert sub-scores collapse) or purely Schubertian
+    // (Beethoven score collapses) is NOT a true lineage composition.
+    const schubertCombined = clamp01(0.55 * lyric.score + 0.45 * harmonic.score);
+    const bothAxesPresent  = beethoven.score >= 0.35 && schubertCombined >= 0.35;
+
+    const notes: string[] = [
+        `beethoven=${beethoven.score.toFixed(3)}`,
+        `schubertLyric=${lyric.score.toFixed(3)}`,
+        `schubertHarmonic=${harmonic.score.toFixed(3)}`,
+        `score=${score.toFixed(3)}`,
+        bothAxesPresent ? "both-axes:OK" : "both-axes:FAIL",
+    ];
+
+    return {
+        beethovenianMotivicPressure: Number(beethoven.score.toFixed(4)),
+        schubertianLyricExpansion:   Number(lyric.score.toFixed(4)),
+        mediantColor:                Number(harmonic.score.toFixed(4)),
+        score:                       Number(score.toFixed(4)),
+        bothAxesPresent,
+        notes:                       notes.join("; "),
+    };
+}
+
+/**
+ * Computes all four AXIOM aesthetic identity scores in a single call.
  */
 export function computeAxiomAestheticScores(
     sectionArtifacts: SectionArtifactSummary[],
     plan: CompositionPlan | undefined,
 ): AxiomAestheticScores {
+    const beethovenianMotivicPressure = computeBeethovenianMotivicPressureScore(sectionArtifacts, plan);
+    const schubertianLyricExpansion   = computeSchubertianLyricExpansionScore(sectionArtifacts, plan);
+    const mediantColor                = computeMediantColorScore(sectionArtifacts, plan);
+
+    // lineageIdentity is computed from the pre-computed sub-scores to avoid
+    // redundant calculation (each sub-evaluator would re-parse the same artifacts)
+    const lineageScore = clamp01(
+        0.55 * beethovenianMotivicPressure.score
+        + 0.25 * schubertianLyricExpansion.score
+        + 0.20 * mediantColor.score,
+    );
+    const schubertCombined = clamp01(
+        0.55 * schubertianLyricExpansion.score
+        + 0.45 * mediantColor.score,
+    );
+    const bothAxesPresent = beethovenianMotivicPressure.score >= 0.35 && schubertCombined >= 0.35;
+    const lineageIdentity: LineageIdentityDetail = {
+        beethovenianMotivicPressure: Number(beethovenianMotivicPressure.score.toFixed(4)),
+        schubertianLyricExpansion:   Number(schubertianLyricExpansion.score.toFixed(4)),
+        mediantColor:                Number(mediantColor.score.toFixed(4)),
+        score:                       Number(lineageScore.toFixed(4)),
+        bothAxesPresent,
+        notes: [
+            `beethoven=${beethovenianMotivicPressure.score.toFixed(3)}`,
+            `schubertLyric=${schubertianLyricExpansion.score.toFixed(3)}`,
+            `schubertHarmonic=${mediantColor.score.toFixed(3)}`,
+            `score=${lineageScore.toFixed(3)}`,
+            bothAxesPresent ? "both-axes:OK" : "both-axes:FAIL",
+        ].join("; "),
+    };
+
     return {
-        beethovenianMotivicPressure: computeBeethovenianMotivicPressureScore(sectionArtifacts, plan),
-        schubertianLyricExpansion: computeSchubertianLyricExpansionScore(sectionArtifacts, plan),
-        mediantColor: computeMediantColorScore(sectionArtifacts, plan),
+        beethovenianMotivicPressure,
+        schubertianLyricExpansion,
+        mediantColor,
+        lineageIdentity,
     };
 }
+

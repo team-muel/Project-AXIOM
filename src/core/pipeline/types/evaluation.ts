@@ -187,6 +187,16 @@ export interface CraftScoreSummary {
      * ambiguity, remote key areas, and sudden color shifts with phrase continuity (0–1).
      */
     mediantColorScore?: number;
+
+    /**
+     * Composite Beethoven-Schubert Lineage Identity Score (0–1).
+     * Combines BeethovenianMotivicPressure (0.55) + SchubertianLyricExpansion (0.25)
+     * + MediantColorScore (0.20) to measure whether the composition expresses
+     * AXIOM's core aesthetic identity.
+     *
+     * Used as the R-01 gate in the adapter promotion pipeline.
+     */
+    lineageIdentityScore?: number;
 }
 
 // ─── Piano-specific craft scoring ────────────────────────────────────────────

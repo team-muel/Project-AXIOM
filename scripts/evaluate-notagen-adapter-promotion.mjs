@@ -14,8 +14,17 @@
  *   G-06  motifRecapIdentity   — no regression
  *   G-07  pianoListenabilityScore — no regression (piano rows only; skipped when baseline has none)
  *
+ * Lineage identity gate (R-01):
+ *   R-01  lineageIdentityScore — no regression (≤ 1% drop).
+ *         lineageIdentityScore = 0.55×BeethovenianMotivicPressure
+ *                              + 0.25×SchubertianLyricExpansion
+ *                              + 0.20×MediantColorScore
+ *         Skipped gracefully when baseline has no rows with this field
+ *         (backward compatible with older benchmark files).
+ *
  * Diversity collapse gates (D-*):
- *   For finalCraftScore, harmonyContractScore, motifRecapIdentity:
+ *   For finalCraftScore, harmonyContractScore, motifRecapIdentity,
+ *   and lineageIdentityScore:
  *   candidate stddev must stay ≥ 50% of baseline stddev.
  *   A rising mean with a collapsing stddev is a mode-collapse signal.
  *
@@ -33,12 +42,16 @@
  *     "harmonyContractScore": 0.82,
  *     "evidenceCoverageScore": 0.62,
  *     "motifRecapIdentity": 0.71,
+ *     "lineageIdentityScore": 0.63,
  *     "pianoListenabilityScore": null,
  *     "isPianoCandidate": false }
  *
  *   `pianoListenabilityScore` should be a number for piano candidates and null/absent
  *   for non-piano candidates.  The gate (G-07) is automatically skipped when no piano
  *   rows are found in the baseline.
+ *
+ *   `lineageIdentityScore` is optional for backward compatibility: when the baseline
+ *   has no rows with this field, gate R-01 is automatically skipped.
  *
  * ── Usage ───────────────────────────────────────────────────────────────────
  *
@@ -98,13 +111,24 @@ const CROSS_METRIC_DROP_THRESHOLD = 0.05;  // 5%
 // ── Gate definitions ──────────────────────────────────────────────────────────
 
 const GATE_DEFS = [
-    { id: "G-01", metric: "syntaxValidity",          mode: "no_regression",  pianoOnly: false },
-    { id: "G-02", metric: "evidenceCoverageScore",   mode: "no_regression",  pianoOnly: false },
-    { id: "G-03", metric: "finalCraftScore",         mode: "must_improve",   pianoOnly: false },
-    { id: "G-04", metric: "advancedCraftScore",      mode: "must_improve",   pianoOnly: false },
-    { id: "G-05", metric: "harmonyContractScore",    mode: "no_regression",  pianoOnly: false },
-    { id: "G-06", metric: "motifRecapIdentity",      mode: "no_regression",  pianoOnly: false },
-    { id: "G-07", metric: "pianoListenabilityScore", mode: "no_regression",  pianoOnly: true  },
+    { id: "G-01", metric: "syntaxValidity",          mode: "no_regression",  pianoOnly: false, skipWhenBaslineMissing: false },
+    { id: "G-02", metric: "evidenceCoverageScore",   mode: "no_regression",  pianoOnly: false, skipWhenBaslineMissing: false },
+    { id: "G-03", metric: "finalCraftScore",         mode: "must_improve",   pianoOnly: false, skipWhenBaslineMissing: false },
+    { id: "G-04", metric: "advancedCraftScore",      mode: "must_improve",   pianoOnly: false, skipWhenBaslineMissing: false },
+    { id: "G-05", metric: "harmonyContractScore",    mode: "no_regression",  pianoOnly: false, skipWhenBaslineMissing: false },
+    { id: "G-06", metric: "motifRecapIdentity",      mode: "no_regression",  pianoOnly: false, skipWhenBaslineMissing: false },
+    { id: "G-07", metric: "pianoListenabilityScore", mode: "no_regression",  pianoOnly: true,  skipWhenBaslineMissing: false },
+    /**
+     * R-01 — Beethoven·Schubert Lineage Identity no-regression gate.
+     *
+     * Skipped when the baseline has no rows with lineageIdentityScore (backward
+     * compatible with benchmark files produced before this field was added).
+     * Once the baseline includes lineageIdentityScore, a drop > 1% blocks promotion.
+     *
+     * Formula: 0.55×BeethovenianMotivicPressure + 0.25×SchubertianLyricExpansion
+     *         + 0.20×MediantColorScore
+     */
+    { id: "R-01", metric: "lineageIdentityScore",   mode: "no_regression",  pianoOnly: false, skipWhenBaslineMissing: true },
 ];
 
 /** Metrics checked for output diversity (stddev collapse). */
@@ -112,6 +136,7 @@ const DIVERSITY_GATE_METRICS = [
     "finalCraftScore",
     "harmonyContractScore",
     "motifRecapIdentity",
+    "lineageIdentityScore",
 ];
 
 /**
@@ -126,9 +151,11 @@ const DIVERSITY_GATE_METRICS = [
 const CROSS_METRIC_PAIRS = [
     ["finalCraftScore",         "motifRecapIdentity"],
     ["finalCraftScore",         "harmonyContractScore"],
+    ["finalCraftScore",         "lineageIdentityScore"],
     ["pianoListenabilityScore", "motifRecapIdentity"],
     ["advancedCraftScore",      "evidenceCoverageScore"],
     ["harmonyContractScore",    "motifRecapIdentity"],
+    ["harmonyContractScore",    "lineageIdentityScore"],
 ];
 
 const ALL_TRACKED_METRICS = [
@@ -138,6 +165,7 @@ const ALL_TRACKED_METRICS = [
     "harmonyContractScore",
     "evidenceCoverageScore",
     "motifRecapIdentity",
+    "lineageIdentityScore",
     "pianoListenabilityScore",
 ];
 
@@ -217,6 +245,16 @@ function evaluatePerMetricGate(gateDef, candidateStats, baselineStats) {
             id: gateDef.id, metric: gateDef.metric, type: "per_metric",
             passed: true, skipped: true,
             reason: "no piano rows in baseline — gate skipped",
+        };
+    }
+
+    // skipWhenBaslineMissing: R-01 and similar gates that are backward-compatible
+    // with benchmark files that predate the metric being added.
+    if (gateDef.skipWhenBaslineMissing && (!bs || bs.n === 0)) {
+        return {
+            id: gateDef.id, metric: gateDef.metric, type: "per_metric",
+            passed: true, skipped: true,
+            reason: `baseline has no "${gateDef.metric}" rows — gate skipped (backward compat)`,
         };
     }
 

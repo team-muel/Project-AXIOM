@@ -11,6 +11,7 @@ const {
     computeSchubertianLyricExpansionScore,
     computeMediantColorScore,
     computeAxiomAestheticScores,
+    computeLineageIdentityScore,
 } = await import("../dist/core/evaluate/axiomAestheticEvaluators.js");
 
 // ---------------------------------------------------------------------------
@@ -318,4 +319,127 @@ test("BSE-14: computeCraftScoreSummary populates aesthetic score fields", async 
     assert.ok(range01(result.beethovenianMotivicPressureScore));
     assert.ok(range01(result.schubertianLyricExpansionScore));
     assert.ok(range01(result.mediantColorScore));
+    assert.ok("lineageIdentityScore" in result, "lineageIdentityScore missing from craftScoreSummary");
+    assert.ok(range01(result.lineageIdentityScore), `lineageIdentityScore out of range: ${result.lineageIdentityScore}`);
 });
+
+// ---------------------------------------------------------------------------
+// BSE-15 — LineageIdentityScore: composite formula + bothAxesPresent
+// ---------------------------------------------------------------------------
+
+test("BSE-15: computeLineageIdentityScore returns composite weighted sum and bothAxesPresent", () => {
+    // Build sections with known signals for all three sub-evaluators
+    const themeA = makeSection({
+        sectionId: "theme_a",
+        role: "theme_a",
+        capturedMotif: [2, -1, 2],
+        measureCount: 8,
+        melodyEvents: [60, 62, 61, 63, 62, 64, 61, 63].map((p) => makeNoteEvent(p)),
+        noteHistory: [60, 62, 61, 63],
+    });
+    const dev = makeSection({
+        sectionId: "dev",
+        role: "development",
+        harmonyDensity: "rich",
+        measureCount: 12,
+        tonicizationWindows: [
+            { keyTarget: "E major", start: 0, end: 4 }, // mediant from C
+            { keyTarget: "Eb major", start: 4, end: 8 },
+        ],
+        tonicKey: "E major",
+        phraseFunction: "continuation",
+        harmonicColorCues: [{ tag: "mixture", startMeasure: 2, endMeasure: 4 }],
+        melodyEvents: Array.from({ length: 10 }, (_, i) => makeNoteEvent(60 + i)),
+    });
+    const recap = makeSection({
+        sectionId: "recap",
+        role: "recap",
+        capturedMotif: [2, -1, 2],
+        measureCount: 8,
+        melodyEvents: [60, 62, 61, 63].map((p) => makeNoteEvent(p)),
+        noteHistory: [60, 62, 61, 63],
+    });
+
+    const plan = { key: "C major", sections: [] };
+    const result = computeLineageIdentityScore([themeA, dev, recap], plan);
+
+    // Score must be in [0, 1]
+    assert.ok(range01(result.score), `lineageIdentityScore out of range: ${result.score}`);
+
+    // Sub-scores must match their sources
+    assert.ok(range01(result.beethovenianMotivicPressure));
+    assert.ok(range01(result.schubertianLyricExpansion));
+    assert.ok(range01(result.mediantColor));
+
+    // Formula check: score ≈ 0.55×beethoven + 0.25×lyric + 0.20×harmonic
+    const expected = 0.55 * result.beethovenianMotivicPressure
+        + 0.25 * result.schubertianLyricExpansion
+        + 0.20 * result.mediantColor;
+    assert.ok(
+        Math.abs(result.score - expected) < 0.001,
+        `score ${result.score} does not match formula ${expected.toFixed(4)}`
+    );
+
+    // bothAxesPresent field must be boolean
+    assert.ok(typeof result.bothAxesPresent === "boolean", "bothAxesPresent must be boolean");
+
+    // notes must be non-empty
+    assert.ok(typeof result.notes === "string" && result.notes.length > 0, "notes must be non-empty");
+});
+
+// ---------------------------------------------------------------------------
+// BSE-16 — LineageIdentityScore: low Beethoven → bothAxesPresent = false
+// ---------------------------------------------------------------------------
+
+test("BSE-16: low-motif sections yield bothAxesPresent=false even if Schubert signals are good", () => {
+    // Only Schubert signals, no Beethoven structure
+    const lyricSection = makeSection({
+        sectionId: "lyric",
+        role: "theme_a",
+        measureCount: 12,
+        melodyEvents: [60, 62, 61, 63, 62, 64, 63, 65, 64, 66].map((p) => makeNoteEvent(p)),
+        noteHistory: [60, 62, 61, 63, 62, 64],
+        tonicKey: "A major",
+        phraseFunction: "continuation",
+        harmonicColorCues: [{ tag: "mixture", startMeasure: 4, endMeasure: 8 }],
+    });
+    const colorSection = makeSection({
+        sectionId: "color",
+        role: "development",
+        measureCount: 8,
+        tonicKey: "A minor", // major/minor ambiguity
+        tonicizationWindows: [
+            { keyTarget: "C# major", start: 0, end: 4 },
+            { keyTarget: "F major", start: 4, end: 8 },
+        ],
+    });
+    // No recap, no capturedMotif, no transform modes → Beethoven score collapses
+    const result = computeLineageIdentityScore([lyricSection, colorSection], undefined);
+
+    assert.ok(range01(result.score));
+    // Beethoven score should be weak without motif/development signals
+    assert.ok(result.beethovenianMotivicPressure < 0.45, `Expected low Beethoven score, got ${result.beethovenianMotivicPressure}`);
+    // Both-axes should be false (Beethoven below floor)
+    assert.equal(result.bothAxesPresent, false, "bothAxesPresent must be false when Beethoven signals are weak");
+});
+
+// ---------------------------------------------------------------------------
+// BSE-17 — computeAxiomAestheticScores: includes lineageIdentity
+// ---------------------------------------------------------------------------
+
+test("BSE-17: computeAxiomAestheticScores returns lineageIdentity with valid score", () => {
+    const result = computeAxiomAestheticScores([], undefined);
+    assert.ok("lineageIdentity" in result, "lineageIdentity missing from AxiomAestheticScores");
+    assert.ok(range01(result.lineageIdentity.score), `lineageIdentity.score out of range: ${result.lineageIdentity.score}`);
+    assert.ok(typeof result.lineageIdentity.bothAxesPresent === "boolean");
+
+    // Verify formula: score ≈ 0.55×beethoven + 0.25×lyric + 0.20×harmonic
+    const expected = 0.55 * result.beethovenianMotivicPressure.score
+        + 0.25 * result.schubertianLyricExpansion.score
+        + 0.20 * result.mediantColor.score;
+    assert.ok(
+        Math.abs(result.lineageIdentity.score - expected) < 0.001,
+        `lineageIdentity.score ${result.lineageIdentity.score} does not match formula ${expected.toFixed(4)}`
+    );
+});
+
