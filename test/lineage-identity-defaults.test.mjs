@@ -349,3 +349,50 @@ test("CRM-05: composerRoutingMode defaults to lineage_only when not in plan", ()
         "lineage_only (default) must not be marked in output");
 });
 
+// ─── CRM-06: learnedCandidateCount propagates to candidatePoolSize ────────────
+//
+// Regression guard for the production routing bug:
+//   buildLearnedSymbolicWorkerPayload() must pass request.learnedCandidateCount
+//   as candidatePoolSize to buildLearnedNotagenProviderRequest().
+//   Without this, any pool != 8 produces incorrect Beethoven/Schubert splits.
+
+test("CRM-06: learnedCandidateCount=16 propagates candidatePoolSize, routing 9 Beethoven + 7 Schubert", () => {
+    // Simulate a 16-candidate production request
+    const req16 = { ...makeMinimalRequest(), learnedCandidateCount: 16 };
+
+    // Build 16 payloads — candidateVariantKey "learned-1" … "learned-16" → candidateIndex 0…15
+    const composers = Array.from({ length: 16 }, (_, i) => {
+        const reqWithVariant = { ...req16, candidateVariantKey: `learned-${i + 1}` };
+        const payload = buildLearnedSymbolicWorkerPayload(reqWithVariant, "test-crm06", "/tmp/test.mid", EXECUTION_PLAN);
+        return payload.providerRequest.controlLines.find((l) => l.startsWith("composer=")) ?? "";
+    });
+
+    const beethovenCount = composers.filter((c) => c.toLowerCase().includes("beethoven")).length;
+    const schubertCount  = composers.filter((c) => c.toLowerCase().includes("schubert")).length;
+
+    // floor(0.55*16)=8, remainder=1 → beethoven gets +1 → 9; schubert → 7
+    assert.equal(beethovenCount, 9,
+        `Expected 9 Beethoven for learnedCandidateCount=16, got ${beethovenCount}. Composers: ${composers.join(", ")}`);
+    assert.equal(schubertCount,  7,
+        `Expected 7 Schubert for learnedCandidateCount=16, got ${schubertCount}`);
+    assert.equal(beethovenCount + schubertCount, 16,
+        "All 16 candidates must be routed to Beethoven or Schubert");
+});
+
+test("CRM-07: learnedCandidateCount absent defaults to pool=8, all candidates routed to lineage composers", () => {
+    // No learnedCandidateCount → pool defaults to 8
+    const composers = Array.from({ length: 8 }, (_, i) => {
+        const reqWithVariant = { ...makeMinimalRequest(), candidateVariantKey: `learned-${i + 1}` };
+        const payload = buildLearnedSymbolicWorkerPayload(reqWithVariant, "test-crm07", "/tmp/test.mid", EXECUTION_PLAN);
+        return payload.providerRequest.controlLines.find((l) => l.startsWith("composer=")) ?? "";
+    });
+
+    const beethovenCount = composers.filter((c) => c.toLowerCase().includes("beethoven")).length;
+    const schubertCount  = composers.filter((c) => c.toLowerCase().includes("schubert")).length;
+
+    assert.equal(beethovenCount + schubertCount, 8,
+        "All 8 default-pool candidates must be routed to lineage composers");
+    assert.ok(beethovenCount >= 4, `Expected ≥4 Beethoven for default pool=8, got ${beethovenCount}`);
+    assert.ok(schubertCount >= 2, `Expected ≥2 Schubert for default pool=8, got ${schubertCount}`);
+});
+

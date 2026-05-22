@@ -622,6 +622,7 @@ export function buildLearnedSymbolicWorkerPayload(
         promptPack,
         providerRequest: buildLearnedNotagenProviderRequest(promptPack, executionPlan.selectedModels, {
             candidateIndex,
+            candidatePoolSize: request.learnedCandidateCount,
             samplingParams: learnedSampling,
             localizedRewriteSpec,
             localizedPianoRewriteSpec,
