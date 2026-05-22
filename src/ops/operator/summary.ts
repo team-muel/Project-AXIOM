@@ -887,14 +887,17 @@ export function getRuntimeReadinessSummary(): RuntimeReadinessSummary {
     if (checks.python === true) {
         try {
             const script = [
-                "import json, sys",
+                "import json",
                 `mods = ${JSON.stringify([...pythonModuleNames])}`,
                 "results = {}",
                 "for m in mods:",
-                "    try: __import__(m); results[m] = True",
-                "    except Exception: results[m] = False",
+                "    try:",
+                "        __import__(m)",
+                "        results[m] = True",
+                "    except Exception:",
+                "        results[m] = False",
                 "print(json.dumps(results))",
-            ].join("; ");
+            ].join("\n");
             const raw = execFileSync(config.pythonBin, ["-c", script], { timeout: 30_000, stdio: "pipe" });
             const parsed = JSON.parse(raw.toString().trim()) as Record<string, boolean>;
             for (const mod of pythonModuleNames) {
