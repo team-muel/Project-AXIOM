@@ -806,7 +806,7 @@ function checkPythonImport(moduleName: string): boolean {
         execFileSync(
             config.pythonBin,
             ["-c", `import ${moduleName}`],
-            { timeout: 5_000, stdio: "pipe" },
+            { timeout: 15_000, stdio: "pipe" },
         );
         return true;
     } catch {
@@ -876,15 +876,35 @@ export function getRuntimeReadinessSummary(): RuntimeReadinessSummary {
         checks.python = false;
     }
 
-    const pythonModules = {
-        music21: checks.python === true && checkPythonImport("music21"),
-        midi2audio: checks.python === true && checkPythonImport("midi2audio"),
-        numpy: checks.python === true && checkPythonImport("numpy"),
-        scipy: checks.python === true && checkPythonImport("scipy"),
-        torch: checks.python === true && checkPythonImport("torch"),
-        transformers: checks.python === true && checkPythonImport("transformers"),
-        accelerate: checks.python === true && checkPythonImport("accelerate"),
+    const pythonModuleNames = [
+        "music21", "midi2audio", "numpy", "scipy", "torch", "transformers", "accelerate",
+    ] as const;
+    type PythonModuleName = (typeof pythonModuleNames)[number];
+    const pythonModules: Record<PythonModuleName, boolean> = {
+        music21: false, midi2audio: false, numpy: false, scipy: false,
+        torch: false, transformers: false, accelerate: false,
     };
+    if (checks.python === true) {
+        try {
+            const script = [
+                "import json, sys",
+                `mods = ${JSON.stringify([...pythonModuleNames])}`,
+                "results = {}",
+                "for m in mods:",
+                "    try: __import__(m); results[m] = True",
+                "    except Exception: results[m] = False",
+                "print(json.dumps(results))",
+            ].join("; ");
+            const raw = execFileSync(config.pythonBin, ["-c", script], { timeout: 30_000, stdio: "pipe" });
+            const parsed = JSON.parse(raw.toString().trim()) as Record<string, boolean>;
+            for (const mod of pythonModuleNames) {
+                pythonModules[mod] = parsed[mod] === true;
+            }
+        } catch {
+            // leave all false on error
+        }
+    }
+
 
     const workerScripts = {
         symbolicCompose: checkWorkerScript(COMPOSER_WORKER_SCRIPT),
