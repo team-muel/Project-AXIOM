@@ -90,7 +90,57 @@ AXIOM Beethoven·Schubert lineage anchor의 신뢰도는 코퍼스 크기에 직
 
 ---
 
-## 코퍼스 구성 방법
+## 파일 완결성 분류 (corpus-file-index.json)
+
+### 세 가지 완결성 수준
+
+코퍼스 파일은 세 가지 완결성 수준으로 분류됩니다. **referenceDistanceScore는 `complete_piece`와 `complete_movement`에서만 유효합니다.**
+
+| 분류 | 정의 | 사용 가능 메트릭 |
+|------|------|-----------------|
+| `complete_piece` | 자기완결적인 짧은 소품 (바가텔, 왈츠, 무곡, 에코세즈 등) | climaxPosition, phraseDistribution, pitchRange, referenceDistanceScore |
+| `complete_movement` | 대형 작품의 완전한 1개 악장 (소나타 악장, 즉흥곡 전체 등). 50마디 이상 | climaxPosition, phraseDistribution, pitchRange, referenceDistanceScore |
+| `excerpt` | 더 긴 작품의 일부 발췌 (8–20마디 opening, 주제 선율, 도입부 등) | pitchRange, noteDensity, harmonicColor, leapSmoothness, motifIncipit, openingGesture |
+
+### excerpt를 referenceDistanceScore에 쓰면 안 되는 이유
+
+| 메트릭 | excerpt에서의 문제 |
+|--------|-------------------|
+| `climaxPosition` | 짧은 excerpt는 전체 곡의 클라이맥스를 포함하지 않음 |
+| `phraseDistribution` | 8–12마디 fragment는 전체 프레이즈 구조를 대표하지 않음 |
+| `formalReturn` | 재현부가 없음 |
+| `referenceDistanceScore` | 위 메트릭들을 종합하므로, excerpt에서 계산하면 노이즈 값 |
+
+### corpus-file-index.json 위치
+
+```
+config/reference-corpus/
+  corpus-file-index.json      ← 파일별 completeness 메타데이터
+  corpus-manifest.json        ← 코퍼스 taxonomy (composer roles)
+  abc/
+    beethoven/...
+    schubert/...
+```
+
+### 스크립트 동작 방식
+
+- `analyze-reference-corpus.mjs`: index 로드 시 `excerpt` 파일을 primary/lineage group에서 **자동 제외**
+- `validate-aesthetic-evaluators.mjs`: index 로드 시 `excerpt` 파일을 변별력 검증에서 **자동 제외** (--all-files 플래그로 해제 가능)
+- `perFile` 배열에는 모든 파일이 포함됨 (local technique 분석용)
+
+### 현재 corpus 완결성 상태 (119개 기준)
+
+| 작곡가 | complete_piece | complete_movement | excerpt |
+|--------|---------------|-------------------|---------|
+| Beethoven (60개) | ~25 (무곡류, 변주 주제, 소나티나) | 1 (소나티나) | ~34 (소나타 Opening, 사중주 등) |
+| Schubert (59개) | ~24 (왈츠, 에코세즈, 앙글레즈, 모멘트 뮤지칼) | 0 | ~35 (소나타 Opening, 즉흥곡 단편, 가곡 선율) |
+
+> 현재 **complete_piece + complete_movement** 기준으로 약 50개가 유효한 referenceDistanceScore 소스입니다.
+> 진정한 100개 complete_piece/movement anchor 달성을 위해서는 소나타 악장 전체 파일 추가가 필요합니다.
+
+---
+
+
 
 ### 1. ABC 파일 수집
 

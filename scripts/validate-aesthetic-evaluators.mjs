@@ -36,9 +36,45 @@ function readOption(name) {
 }
 function hasFlag(name) { return process.argv.includes(`--${name}`); }
 
-const corpusRoot = readOption("corpus") ?? "config/reference-corpus/abc";
-const outPath    = readOption("out");
-const verbose    = hasFlag("verbose");
+const corpusRoot  = readOption("corpus") ?? "config/reference-corpus/abc";
+const outPath     = readOption("out");
+const verbose     = hasFlag("verbose");
+const indexPath   = readOption("index") ?? "config/reference-corpus/corpus-file-index.json";
+// --all-files disables completeness filter (uses every .abc file)
+const useAllFiles = hasFlag("all-files");
+
+// ── Corpus file index ─────────────────────────────────────────────────────────
+
+/**
+ * Loads corpus-file-index.json if it exists.
+ * Returns the parsed object, or null if not found / unreadable.
+ */
+function loadCorpusFileIndex(p) {
+    try {
+        if (!fs.existsSync(p)) return null;
+        return JSON.parse(fs.readFileSync(p, "utf8"));
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Builds a Set of filenames that may be used for full-piece referenceDistanceScore.
+ * Only "complete_piece" and "complete_movement" entries are included.
+ * Returns null if the index is absent or the composer key is not found (= use all).
+ */
+function buildFullPieceAllowedSet(fileIndex, composerKey) {
+    if (!fileIndex) return null;
+    const composerEntries = fileIndex.files?.[composerKey];
+    if (!composerEntries) return null;
+    const allowed = new Set();
+    for (const [filename, meta] of Object.entries(composerEntries)) {
+        if (meta.completeness === "complete_piece" || meta.completeness === "complete_movement") {
+            allowed.add(filename);
+        }
+    }
+    return allowed.size > 0 ? allowed : null;
+}
 
 // ── ABC parser ────────────────────────────────────────────────────────────────
 
@@ -399,10 +435,16 @@ function discriminationScore(statsA, statsB) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-function loadGroup(groupDir) {
+/**
+ * Load all .abc files in groupDir.
+ * @param {string} groupDir
+ * @param {Set<string>|null} allowedFiles  When non-null, only filenames in this set are loaded.
+ */
+function loadGroup(groupDir, allowedFiles = null) {
     if (!fs.existsSync(groupDir)) return [];
     return fs.readdirSync(groupDir)
         .filter((f) => f.endsWith(".abc"))
+        .filter((f) => allowedFiles === null || allowedFiles.has(f))
         .map((f) => {
             const filePath = path.join(groupDir, f);
             const text = fs.readFileSync(filePath, "utf8");
@@ -437,10 +479,30 @@ function main() {
     const beethovenDir = path.join(corpusRoot, "beethoven");
     const schubertDir  = path.join(corpusRoot, "schubert");
 
+    const fileIndex = useAllFiles ? null : loadCorpusFileIndex(indexPath);
+    const beethovenAllowed = buildFullPieceAllowedSet(fileIndex, "beethoven");
+    const schubertAllowed  = buildFullPieceAllowedSet(fileIndex, "schubert");
+
+    if (fileIndex && !useAllFiles) {
+        console.log(`  Corpus file index loaded: ${indexPath}`);
+        if (beethovenAllowed) {
+            const totalB = fs.existsSync(beethovenDir) ? fs.readdirSync(beethovenDir).filter((f) => f.endsWith(".abc")).length : 0;
+            console.log(`  Beethoven: using ${beethovenAllowed.size} complete_piece/complete_movement of ${totalB} total (pass --all-files to disable filter)`);
+        }
+        if (schubertAllowed) {
+            const totalS = fs.existsSync(schubertDir) ? fs.readdirSync(schubertDir).filter((f) => f.endsWith(".abc")).length : 0;
+            console.log(`  Schubert:  using ${schubertAllowed.size} complete_piece/complete_movement of ${totalS} total`);
+        }
+    } else if (!fileIndex && !useAllFiles && fs.existsSync(indexPath.replace(/^config\//, process.cwd().includes("\\") ? "config\\" : "config/"))) {
+        // index path may be relative — silent fallthrough, already handled by loadCorpusFileIndex
+    } else if (!fileIndex) {
+        console.log(`  No corpus-file-index.json found at ${indexPath} — using all .abc files (excerpt files will be included)`);
+    }
+
     if (verbose) console.log("── Beethoven corpus ──");
-    const beethovenEntries = loadGroup(beethovenDir);
+    const beethovenEntries = loadGroup(beethovenDir, beethovenAllowed);
     if (verbose) console.log("── Schubert corpus ──");
-    const schubertEntries  = loadGroup(schubertDir);
+    const schubertEntries  = loadGroup(schubertDir, schubertAllowed);
 
     const beethovenProfiles = beethovenEntries.map((e) => e.profile);
     const schubertProfiles  = schubertEntries.map((e) => e.profile);
@@ -449,6 +511,9 @@ function main() {
         console.error(`[validate-aesthetic-evaluators] ERROR: need at least 1 file per group.`);
         console.error(`  Beethoven files found: ${beethovenProfiles.length} (in ${beethovenDir})`);
         console.error(`  Schubert files found:  ${schubertProfiles.length} (in ${schubertDir})`);
+        if (beethovenAllowed || schubertAllowed) {
+            console.error(`  NOTE: completeness filter is active — try --all-files to include excerpts`);
+        }
         process.exit(1);
     }
 
@@ -487,6 +552,10 @@ function main() {
     console.log("══════════════════════════════════════════════════════════");
     console.log(" AXIOM Aesthetic Evaluator Validation Report");
     console.log("══════════════════════════════════════════════════════════");
+    const filterDesc = (beethovenAllowed || schubertAllowed)
+        ? "complete_piece + complete_movement only (excerpts excluded)"
+        : "all files (no completeness filter)";
+    console.log(`  Corpus filter:    ${filterDesc}`);
     console.log(`  Beethoven corpus: ${beethovenProfiles.length} files (${beethovenDir})`);
     console.log(`  Schubert corpus:  ${schubertProfiles.length} files (${schubertDir})`);
     console.log("");
@@ -535,6 +604,13 @@ function main() {
 
     const report = {
         generatedAt: new Date().toISOString(),
+        corpusFilter: {
+            mode: (beethovenAllowed || schubertAllowed) ? "complete_piece_and_movement_only" : "all_files",
+            indexUsed: fileIndex ? indexPath : null,
+            note: (beethovenAllowed || schubertAllowed)
+                ? "Excerpt files excluded from referenceDistanceScore analysis. Use --all-files to include them."
+                : "No completeness filter applied. Add corpus-file-index.json to enable excerpt filtering.",
+        },
         corpus: { beethoven: beethovenProfiles.length, schubert: schubertProfiles.length },
         verdict: verdictOk && lineageOk ? "ok" : "weak",
         discriminativeDimensions: discriminativeDims.length,

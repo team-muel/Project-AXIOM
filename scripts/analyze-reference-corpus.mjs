@@ -40,6 +40,60 @@ import { existsSync } from "node:fs";
 // ─── Corpus manifest helpers ───────────────────────────────────────────────────
 
 /**
+ * Loads and returns the corpus-file-index.json from rootArg, or null if absent.
+ * Logs a warning on parse error.
+ *
+ * @param {string|null} root
+ * @returns {Promise<object|null>}
+ */
+async function loadCorpusFileIndex(root) {
+    if (!root) return null;
+    const indexPath = join(root, "corpus-file-index.json");
+    if (!existsSync(indexPath)) return null;
+    try {
+        return JSON.parse(await readFile(indexPath, "utf-8"));
+    } catch (e) {
+        console.warn(`WARN: could not read corpus-file-index.json: ${e.message}`);
+        return null;
+    }
+}
+
+/**
+ * Given a corpus-file-index.json object and a composer key, returns a Set of
+ * filenames that are allowed for full-piece referenceDistanceScore (complete_piece
+ * or complete_movement only). Returns null when index is absent (= use all files).
+ *
+ * @param {object|null} fileIndex
+ * @param {string} composerKey
+ * @returns {Set<string>|null}
+ */
+function getFullPieceAllowedSet(fileIndex, composerKey) {
+    if (!fileIndex) return null;
+    const composerEntries = fileIndex.files?.[composerKey];
+    if (!composerEntries) return null;
+    const allowed = new Set();
+    for (const [filename, meta] of Object.entries(composerEntries)) {
+        if (meta.completeness === "complete_piece" || meta.completeness === "complete_movement") {
+            allowed.add(filename);
+        }
+    }
+    return allowed.size > 0 ? allowed : null;
+}
+
+/**
+ * Filters a perFile array to only entries whose filename is in allowedSet.
+ * When allowedSet is null, returns all entries unchanged.
+ *
+ * @param {{ file: string }[]} entries
+ * @param {Set<string>|null} allowedSet
+ * @returns {{ file: string }[]}
+ */
+function filterByAllowedSet(entries, allowedSet) {
+    if (!allowedSet) return entries;
+    return entries.filter((e) => allowedSet.has(e.file));
+}
+
+/**
  * Loads and returns the corpus-manifest.json from rootArg, or null if absent.
  * Logs a warning on parse error.
  *
@@ -216,6 +270,16 @@ if (manifest) {
     console.log("No corpus-manifest.json found — tiered output will be omitted. Consider adding one to separate primary/technical composers.");
 }
 
+// ─── Load corpus file index (completeness filter) ──────────────────────────────
+
+const corpusFileIndex = await loadCorpusFileIndex(rootArg);
+const beethovenAllowed = getFullPieceAllowedSet(corpusFileIndex, "beethoven");
+const schubertAllowed  = getFullPieceAllowedSet(corpusFileIndex, "schubert");
+
+if (!corpusFileIndex && rootArg) {
+    console.log("No corpus-file-index.json found — all files will be used for referenceDistanceScore (excerpt files may skew statistics).");
+}
+
 // ─── Extract style profile from each file ─────────────────────────────────────
 
 const perFile = [];
@@ -251,6 +315,17 @@ for (const entry of scannedEntries) {
 if (allProfiles.length === 0) {
     console.error("ERROR: all files failed to parse");
     process.exit(1);
+}
+
+// Log completeness filter summary after perFile is built
+if (corpusFileIndex) {
+    const bTotal = perFile.filter((e) => resolveLineageKey(e) === "beethoven").length;
+    const sTotal = perFile.filter((e) => resolveLineageKey(e) === "schubert").length;
+    const bAllowed = beethovenAllowed ? beethovenAllowed.size : bTotal;
+    const sAllowed = schubertAllowed  ? schubertAllowed.size  : sTotal;
+    console.log(`Corpus file index loaded — completeness filter active:`);
+    console.log(`  Beethoven: ${bAllowed} complete_piece/movement of ${bTotal} total (${bTotal - bAllowed} excerpts excluded from referenceDistanceScore)`);
+    console.log(`  Schubert:  ${sAllowed} complete_piece/movement of ${sTotal} total (${sTotal - sAllowed} excerpts excluded from referenceDistanceScore)`);
 }
 
 // ─── Aggregate corpus profile ──────────────────────────────────────────────────
@@ -301,23 +376,42 @@ const THEORY_SUBDIR_SLUGS = {
 };
 
 // Build subdirectory-based lineage groups
-const beethovenEntries = perFile.filter((e) => resolveLineageKey(e) === "beethoven");
-const schubertEntries  = perFile.filter((e) => resolveLineageKey(e) === "schubert");
+// All entries (for perFile output), then completeness-filtered entries for referenceDistanceScore
+const beethovenEntries     = perFile.filter((e) => resolveLineageKey(e) === "beethoven");
+const schubertEntries      = perFile.filter((e) => resolveLineageKey(e) === "schubert");
+const beethovenRefEntries  = filterByAllowedSet(beethovenEntries, beethovenAllowed);
+const schubertRefEntries   = filterByAllowedSet(schubertEntries, schubertAllowed);
 
 // All theory entries (any theory_* subdirectory, or legacy theory_general)
 const theoryEntries = perFile.filter((e) => resolveLineageKey(e).startsWith("theory_"));
 
-if (beethovenEntries.length > 0) {
+if (beethovenRefEntries.length > 0) {
+    const g = buildProfileGroup(["beethoven"], "Beethoven — AXIOM structural DNA", beethovenRefEntries);
+    lineageBeethovenGroup = g;
+    const excerptNote = beethovenEntries.length > beethovenRefEntries.length
+        ? ` (${beethovenEntries.length - beethovenRefEntries.length} excerpts excluded from referenceDistanceScore)` : "";
+    console.log(`Beethoven profile: ${g.n} works${excerptNote}`);
+} else if (beethovenEntries.length > 0) {
+    // Fallback: use all if filter yielded zero (shouldn't happen with correct index)
     const g = buildProfileGroup(["beethoven"], "Beethoven — AXIOM structural DNA", beethovenEntries);
     lineageBeethovenGroup = g;
-    console.log(`Beethoven profile: ${g.n} works`);
+    console.log(`Beethoven profile: ${g.n} works (completeness filter returned 0; using all files as fallback)`);
 }
-if (schubertEntries.length > 0) {
+if (schubertRefEntries.length > 0) {
+    const g = buildProfileGroup(["schubert"], "Schubert — AXIOM lyrical DNA", schubertRefEntries);
+    lineageSchubertGroup = g;
+    const excerptNote = schubertEntries.length > schubertRefEntries.length
+        ? ` (${schubertEntries.length - schubertRefEntries.length} excerpts excluded from referenceDistanceScore)` : "";
+    console.log(`Schubert profile: ${g.n} works${excerptNote}`);
+} else if (schubertEntries.length > 0) {
     const g = buildProfileGroup(["schubert"], "Schubert — AXIOM lyrical DNA", schubertEntries);
     lineageSchubertGroup = g;
-    console.log(`Schubert profile: ${g.n} works`);
+    console.log(`Schubert profile: ${g.n} works (completeness filter returned 0; using all files as fallback)`);
 }
-const primaryLineageEntries = [...beethovenEntries, ...schubertEntries];
+const primaryLineageEntries = [
+    ...(lineageBeethovenGroup ? beethovenRefEntries.length > 0 ? beethovenRefEntries : beethovenEntries : []),
+    ...(lineageSchubertGroup  ? schubertRefEntries.length  > 0 ? schubertRefEntries  : schubertEntries  : []),
+];
 if (primaryLineageEntries.length > 0) {
     const g = buildProfileGroup(["beethoven", "schubert"], "Beethoven+Schubert lineage — R-01 primary anchor", primaryLineageEntries);
     lineageCombinedGroup = g;
@@ -341,21 +435,31 @@ for (const [subdir, { slug, label }] of Object.entries(THEORY_SUBDIR_SLUGS)) {
 
 if (manifest) {
     // Primary group: Beethoven + Schubert (AXIOM aesthetic DNA)
+    // Uses completeness-filtered entries for referenceDistanceScore accuracy.
     if (manifest.primary?.composers?.length) {
         const primarySet = new Set(manifest.primary.composers);
-        const primaryEntries = perFile.filter((e) =>
+        // Build full entries first, then filter to complete_piece/movement
+        const primaryEntriesAll = perFile.filter((e) =>
             primarySet.has(composerKeyFromFile(e.file)) || primarySet.has(resolveLineageKey(e))
         );
-        if (primaryEntries.length > 0) {
+        // Apply per-composer completeness filter
+        const primaryEntries = primaryEntriesAll.filter((e) => {
+            const composerKey = resolveLineageKey(e);
+            if (composerKey === "beethoven" && beethovenAllowed) return beethovenAllowed.has(e.file);
+            if (composerKey === "schubert"  && schubertAllowed)  return schubertAllowed.has(e.file);
+            return true; // other primary composers: no filter
+        });
+        const useEntries = primaryEntries.length > 0 ? primaryEntries : primaryEntriesAll;
+        if (useEntries.length > 0) {
             primaryGroup = buildProfileGroup(
                 manifest.primary.composers,
                 manifest.primary.description ?? "AXIOM primary aesthetic identity",
-                primaryEntries,
+                useEntries,
             );
             if (manifest.primary.note) primaryGroup.note = manifest.primary.note;
             if (!beethovenEntries.length && !schubertEntries.length) {
                 // Only log if we didn't already log from subdirectory grouping
-                console.log(`Primary profile: ${primaryEntries.length} works (${manifest.primary.composers.join(", ")})`);
+                console.log(`Primary profile: ${useEntries.length} works (${manifest.primary.composers.join(", ")})`);
             }
         } else {
             console.warn(`WARN: primary composers declared in manifest but no matching ABC files found (${manifest.primary.composers.join(", ")})`);
@@ -429,6 +533,15 @@ const mainOutput = {
     //               Used for per-dimension benchmarks, NOT for identity scoring.
     // `global`    — All composers merged. Kept for backward compatibility only.
     //               Do NOT use for referenceDistanceScore — it blurs identity.
+    referenceCorpusFilter: {
+        indexUsed: corpusFileIndex ? "corpus-file-index.json" : null,
+        mode: corpusFileIndex ? "complete_piece_and_movement_only" : "all_files",
+        beethovenComplete: beethovenAllowed ? beethovenAllowed.size : null,
+        schubertComplete:  schubertAllowed  ? schubertAllowed.size  : null,
+        note: corpusFileIndex
+            ? "Excerpt files excluded from primary/lineage referenceDistanceScore. perFile includes all files for local technique analysis."
+            : "No corpus-file-index.json found — all files used. Add index to exclude excerpt files.",
+    },
     ...(primaryGroup ? { primary: primaryGroup } : {}),
     ...(Object.keys(technicalGroups).length > 0 ? { technical: technicalGroups } : {}),
     // ── Backward-compatible root fields ───────────────────────────────────────
