@@ -243,3 +243,109 @@ test("LID-09: pool=32 routes 18 candidates to Beethoven and 14 to Schubert", () 
     assert.equal(schubertCount,  14, `Expected 14 Schubert for pool=32, got ${schubertCount}`);
     assert.equal(beethovenCount + schubertCount, 32, "All 32 candidates must be routed");
 });
+
+// ─── CRM-01: lineage_only + Mozart override → warning + lineage fallback ────────
+
+test("CRM-01: lineage_only mode rejects Mozart override, emits warning, falls back to lineage", () => {
+    const payload = buildPayload({ composerRoutingMode: "lineage_only", composer: "Mozart, Wolfgang Amadeus" });
+    const promptPack = payload.promptPack;
+    // styleCue should carry the composer field (plan value)
+    assert.equal(promptPack.styleCue.composerRoutingMode, "lineage_only");
+
+    const req = buildLearnedNotagenProviderRequest(promptPack, SELECTED_MODELS, { candidateIndex: 0 });
+
+    // Warning must be emitted
+    assert.ok(
+        Array.isArray(req.warnings) && req.warnings.some((w) => w.includes("Mozart") && w.includes("lineage")),
+        `Expected lineage warning for Mozart in lineage_only mode. Got warnings: ${JSON.stringify(req.warnings)}`
+    );
+
+    // Composer must be Beethoven or Schubert (lineage fallback)
+    const composerLine = req.controlLines.find((l) => l.startsWith("composer=")) ?? "";
+    const isLineage = composerLine.toLowerCase().includes("beethoven") || composerLine.toLowerCase().includes("schubert");
+    assert.ok(isLineage, `Expected Beethoven or Schubert lineage fallback, got: "${composerLine}"`);
+
+    // composerRoutingMode should NOT be marked in output for non-default identity_default
+    // (lineage_only is the default, so it's suppressed)
+    assert.equal(req.composerRoutingMode, undefined, "lineage_only mode must not add composerRoutingMode to output");
+});
+
+// ─── CRM-02: explicit_experimental + Mozart override → allowed + flagged ────────
+
+test("CRM-02: explicit_experimental mode allows Mozart override and flags the request", () => {
+    const payload = buildPayload({ composerRoutingMode: "explicit_experimental", composer: "Mozart, Wolfgang Amadeus" });
+    const promptPack = payload.promptPack;
+
+    const req = buildLearnedNotagenProviderRequest(promptPack, SELECTED_MODELS, { candidateIndex: 0 });
+
+    // Composer must be Mozart (explicit override honored)
+    const composerLine = req.controlLines.find((l) => l.startsWith("composer=")) ?? "";
+    assert.ok(composerLine.toLowerCase().includes("mozart"), `Expected Mozart in composer line, got: "${composerLine}"`);
+
+    // No lineage warning expected
+    const lineageWarning = req.warnings?.some((w) => w.includes("lineage")) ?? false;
+    assert.equal(lineageWarning, false, "No lineage warning expected for explicit_experimental mode");
+
+    // composerRoutingMode must be marked in output so SFT/DPO gate can filter it
+    assert.equal(req.composerRoutingMode, "explicit_experimental",
+        "explicit_experimental must be surfaced in output for SFT/DPO gate");
+});
+
+// ─── CRM-03: identity_default + Mozart override → warning + lineage fallback ────
+
+test("CRM-03: identity_default mode rejects Mozart override with warning and falls back to lineage", () => {
+    const payload = buildPayload({ composerRoutingMode: "identity_default", composer: "Mozart, Wolfgang Amadeus" });
+    const promptPack = payload.promptPack;
+
+    const req = buildLearnedNotagenProviderRequest(promptPack, SELECTED_MODELS, { candidateIndex: 0 });
+
+    // Warning must be emitted
+    assert.ok(
+        Array.isArray(req.warnings) && req.warnings.some((w) => w.includes("Mozart")),
+        `Expected lineage warning for Mozart in identity_default mode. Got: ${JSON.stringify(req.warnings)}`
+    );
+
+    // Composer must be within lineage
+    const composerLine = req.controlLines.find((l) => l.startsWith("composer=")) ?? "";
+    const isLineage = composerLine.toLowerCase().includes("beethoven") || composerLine.toLowerCase().includes("schubert");
+    assert.ok(isLineage, `Expected lineage fallback, got: "${composerLine}"`);
+
+    // composerRoutingMode should be present (identity_default is non-default)
+    assert.equal(req.composerRoutingMode, "identity_default",
+        "identity_default must be surfaced in output (non-lineage_only mode)");
+});
+
+// ─── CRM-04: lineage_only + Beethoven override → accepted (within lineage) ──────
+
+test("CRM-04: lineage_only mode accepts Beethoven override without warning", () => {
+    const payload = buildPayload({ composerRoutingMode: "lineage_only", composer: "Beethoven, Ludwig van" });
+    const promptPack = payload.promptPack;
+
+    const req = buildLearnedNotagenProviderRequest(promptPack, SELECTED_MODELS, { candidateIndex: 0 });
+
+    // No lineage warning
+    const lineageWarning = req.warnings?.some((w) => w.includes("lineage")) ?? false;
+    assert.equal(lineageWarning, false, "No lineage warning expected for Beethoven override in lineage_only");
+
+    // Composer must be Beethoven
+    const composerLine = req.controlLines.find((l) => l.startsWith("composer=")) ?? "";
+    assert.ok(composerLine.toLowerCase().includes("beethoven"), `Expected Beethoven, got: "${composerLine}"`);
+});
+
+// ─── CRM-05: default routing mode is "lineage_only" ──────────────────────────────
+
+test("CRM-05: composerRoutingMode defaults to lineage_only when not in plan", () => {
+    const payload = buildPayload(); // no composerRoutingMode in plan
+    const promptPack = payload.promptPack;
+    assert.equal(
+        promptPack.styleCue.composerRoutingMode,
+        "lineage_only",
+        "composerRoutingMode must default to lineage_only"
+    );
+
+    const req = buildLearnedNotagenProviderRequest(promptPack, SELECTED_MODELS);
+    // lineage_only is default so composerRoutingMode must NOT appear in output
+    assert.equal(req.composerRoutingMode, undefined,
+        "lineage_only (default) must not be marked in output");
+});
+

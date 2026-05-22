@@ -34,6 +34,29 @@ export {
     STRING_TRIO_SYMBOLIC_BENCHMARK_PACK_VERSION,
 };
 
+/**
+ * Controls how the NotaGen composer identity is resolved for a composition.
+ *
+ * - `"identity_default"` — Standard auto-routing: form-based Beethoven/Schubert
+ *   selection with influenceBlend cycling. An explicit `composer` field in the
+ *   plan is accepted only if it is within the AXIOM lineage (Beethoven or Schubert);
+ *   otherwise a warning is emitted and the lineage fallback is used.
+ *
+ * - `"lineage_only"` — Strict identity enforcement (the default for all production
+ *   runs). Explicit `composer` values outside Beethoven/Schubert are silently
+ *   overridden to the lineage fallback with a warning. Safe for SFT/DPO positive
+ *   training.
+ *
+ * - `"explicit_experimental"` — Any composer is allowed. Use ONLY for one-off
+ *   research / ablation runs. Compositions generated with this mode are flagged in
+ *   the provider request and **must NOT be included in SFT/DPO positive training
+ *   without explicit human review** (see SFT/DPO export gate).
+ */
+export type ComposerRoutingMode =
+    | "identity_default"
+    | "lineage_only"
+    | "explicit_experimental";
+
 export interface LearnedSymbolicPromptPackStyleCue {
     brief: string;
     mood: string[];
@@ -54,12 +77,16 @@ export interface LearnedSymbolicPromptPackStyleCue {
      * When absent, `buildLearnedNotagenProviderRequest` derives the identity
      * from the form: lyrical/song forms map to "Schubert, Franz"; all other
      * forms default to "Beethoven, Ludwig van".
+     *
+     * NOTE: under `composerRoutingMode = "lineage_only"` (the default), a value
+     * outside the Beethoven/Schubert lineage is rejected with a warning and the
+     * lineage fallback is used. Only `"explicit_experimental"` mode allows
+     * arbitrary composer overrides.
      */
     composer?: string;
     /**
      * Explicit NotaGen period identity (e.g. "Romantic").
-     * When absent, the Python engine defaults to "Romantic" (appropriate for
-     * both Beethoven and Schubert).
+     * When absent, defaults to "Romantic" (appropriate for Beethoven and Schubert).
      */
     period?: string;
     /**
@@ -80,6 +107,13 @@ export interface LearnedSymbolicPromptPackStyleCue {
         weight: number;
         role: "primary" | "secondary" | "theory_only";
     }>;
+    /**
+     * Controls how the explicit `composer` field is enforced.
+     * Defaults to `"lineage_only"` in all production paths (injected by buildStyleCue).
+     * Set to `"explicit_experimental"` to allow arbitrary composer overrides in research runs.
+     * See `ComposerRoutingMode` for full semantics.
+     */
+    composerRoutingMode?: ComposerRoutingMode;
 }
 
 export interface LearnedSymbolicPromptPackSection {
@@ -341,6 +375,10 @@ function buildStyleCue(request: ComposeRequest, instrumentation: InstrumentAssig
         { composer: "Chopin, Frédéric",        weight: 0.0, role: "theory_only" },
     ];
     const DEFAULT_PERIOD = "Romantic";
+    // Default routing mode: "lineage_only" — explicit composers outside
+    // Beethoven/Schubert are rejected with a warning. The caller must
+    // explicitly set "explicit_experimental" to allow arbitrary overrides.
+    const DEFAULT_ROUTING_MODE: ComposerRoutingMode = "lineage_only";
 
     return {
         brief: String(plan?.brief ?? request.prompt).trim() || request.prompt,
@@ -362,9 +400,10 @@ function buildStyleCue(request: ComposeRequest, instrumentation: InstrumentAssig
         ...(plan?.structureVisibility ? { structureVisibility: plan.structureVisibility } : {}),
         ...(plan?.humanizationStyle ? { humanizationStyle: plan.humanizationStyle } : {}),
         ...(plan?.composer ? { composer: plan.composer } : {}),
-        period:           plan?.period           ?? DEFAULT_PERIOD,
-        lineageProfileId: plan?.lineageProfileId ?? DEFAULT_LINEAGE_PROFILE_ID,
-        influenceBlend:   plan?.influenceBlend?.length ? plan.influenceBlend : DEFAULT_INFLUENCE_BLEND,
+        period:              plan?.period              ?? DEFAULT_PERIOD,
+        lineageProfileId:    plan?.lineageProfileId    ?? DEFAULT_LINEAGE_PROFILE_ID,
+        influenceBlend:      plan?.influenceBlend?.length ? plan.influenceBlend : DEFAULT_INFLUENCE_BLEND,
+        composerRoutingMode: plan?.composerRoutingMode ?? DEFAULT_ROUTING_MODE,
     };
 }
 

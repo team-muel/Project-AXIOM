@@ -4,6 +4,7 @@ import type {
     LearnedSymbolicPromptPack,
     LearnedSymbolicPromptPackSection,
     LearnedSymbolicPromptPackStyleCue,
+    ComposerRoutingMode,
 } from "./learnedAdapter.js";
 import {
     AXIOM_IDENTITY_COMPOSER_PRIMARY,
@@ -61,6 +62,14 @@ export interface LearnedNotagenProviderRequest {
      * Appended to the prompt after `[AXIOM_REPAIR]` when a GlobalMotifGraph is present.
      */
     motifGraphBlock?: string;
+    /**
+     * Composer routing mode that was active for this request.
+     * Present only when the mode is NOT the default (`"lineage_only"`).
+     * An `"explicit_experimental"` marker here means the composition was
+     * generated with an arbitrary composer override and MUST NOT be included
+     * in SFT/DPO positive training without explicit human review.
+     */
+    composerRoutingMode?: ComposerRoutingMode;
 }
 
 function normalizeText(value: string | undefined): string {
@@ -483,14 +492,56 @@ export function buildPianoRewriteBlock(spec: LocalizedPianoRewriteSpec): string 
  * SCHUBERT_FORM_KEYWORDS = form-keyword routing set for Schubert.
  */
 
+/**
+ * Keywords that identify a composer string as within the AXIOM Beethoven/Schubert lineage.
+ * Case-insensitive substring matching.
+ */
+const AXIOM_LINEAGE_COMPOSER_KEYWORDS = ["beethoven", "schubert"] as const;
+
+function isWithinLineage(composerName: string): boolean {
+    const lower = composerName.toLowerCase();
+    return AXIOM_LINEAGE_COMPOSER_KEYWORDS.some((k) => lower.includes(k));
+}
+
+/**
+ * Resolve the lineage-safe form-based fallback (Beethoven or Schubert).
+ * Does NOT respect explicit `styleCue.composer`.
+ */
+function resolveLineageFallback(styleCue: LearnedSymbolicPromptPackStyleCue): string {
+    const formLower = (styleCue.form ?? "").toLowerCase();
+    for (const kw of SCHUBERT_FORM_KEYWORDS) {
+        if (formLower.includes(kw)) return AXIOM_IDENTITY_COMPOSER_LYRICAL;
+    }
+    return AXIOM_IDENTITY_COMPOSER_PRIMARY;
+}
+
 /** Resolve the NotaGen composer identity string for this prompt pack. */
 function resolveComposerIdentity(
     styleCue: LearnedSymbolicPromptPackStyleCue,
     candidateIndex?: number,
     candidatePoolSize?: number,
+    warnings?: string[],
 ): string {
-    // Explicit override always wins
-    if (styleCue.composer) return normalizeText(styleCue.composer);
+    const mode: ComposerRoutingMode = styleCue.composerRoutingMode ?? "lineage_only";
+
+    // Handle explicit composer override based on routing mode
+    if (styleCue.composer) {
+        const composerName = normalizeText(styleCue.composer);
+        if (mode === "explicit_experimental") {
+            // Any composer allowed — pass through without modification
+            return composerName;
+        }
+        if (mode === "identity_default" || mode === "lineage_only") {
+            if (isWithinLineage(composerName)) {
+                // Lineage-compatible override: accept it
+                return composerName;
+            }
+            // Outside lineage: emit warning and fall back
+            const msg = `[composerRoutingMode:${mode}] Composer override "${composerName}" is outside the AXIOM Beethoven/Schubert lineage. Falling back to lineage composer.`;
+            if (warnings) warnings.push(msg);
+        }
+        // For lineage_only/identity_default: fall through to lineage routing below
+    }
 
     // If an influenceBlend is present and we have a candidateIndex,
     // pre-assign slots to each active composer proportional to their weight,
@@ -530,12 +581,9 @@ function resolveComposerIdentity(
     }
 
     // Form-based fallback
-    const formLower = (styleCue.form ?? "").toLowerCase();
-    for (const kw of SCHUBERT_FORM_KEYWORDS) {
-        if (formLower.includes(kw)) return AXIOM_IDENTITY_COMPOSER_LYRICAL;
-    }
-    return AXIOM_IDENTITY_COMPOSER_PRIMARY;
+    return resolveLineageFallback(styleCue);
 }
+
 
 /** Render an influence_blend control line from an influenceBlend array. */
 function buildInfluenceBlendLine(
@@ -560,7 +608,7 @@ export function buildLearnedNotagenProviderRequest(
     const tempo = promptPack.styleCue.tempo ?? 92;
     const abcKey = resolveAbcKey(promptPack.styleCue.key ?? "C major");
     const instrumentationLine = resolveInstrumentationControlLine(promptPack, warnings);
-    const composerIdentity = resolveComposerIdentity(promptPack.styleCue, opts?.candidateIndex, opts?.candidatePoolSize);
+    const composerIdentity = resolveComposerIdentity(promptPack.styleCue, opts?.candidateIndex, opts?.candidatePoolSize, warnings);
 
     // Hard constraints + structural control lines in deterministic order
     const controlLines: string[] = [
@@ -681,6 +729,13 @@ export function buildLearnedNotagenProviderRequest(
                 ? buildMotifGraphBlock(promptPack.globalMotifGraph)
                 : undefined;
             return motifGraphBlock ? { motifGraphBlock } : {};
+        })()),
+        // Marker for SFT/DPO export gate: only emit when mode is NOT the default.
+        // "explicit_experimental" compositions MUST be excluded from positive training
+        // without human review. "identity_default" is also surfaced for transparency.
+        ...((() => {
+            const mode: ComposerRoutingMode = promptPack.styleCue.composerRoutingMode ?? "lineage_only";
+            return mode !== "lineage_only" ? { composerRoutingMode: mode } : {};
         })()),
     };
 }

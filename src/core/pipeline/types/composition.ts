@@ -287,10 +287,15 @@ export interface CompositionPlan {
     structureVisibility?: StructureVisibility;
     humanizationStyle?: HumanizationStyle;
     /**
-     * Explicit NotaGen composer identity (e.g. "Beethoven, Ludwig van", "Schubert, Franz").
-     * When absent, the adapter derives identity from form: lyrical forms → Schubert,
-     * structural/dramatic forms → Beethoven.
+     * Controls how the explicit `composer` field is enforced.
+     * - `"lineage_only"` (default): any composer outside Beethoven/Schubert is rejected
+     *   with a warning and the lineage fallback is used. Safe for SFT/DPO training.
+     * - `"identity_default"`: form-based Beethoven/Schubert auto-routing; explicit
+     *   lineage-compatible overrides are accepted.
+     * - `"explicit_experimental"`: any composer is allowed. Compositions are flagged
+     *   and MUST NOT be included in SFT/DPO positive training without human review.
      */
+    composerRoutingMode?: import("../../composer/learnedAdapter.js").ComposerRoutingMode;
     composer?: string;
     /**
      * Explicit NotaGen period identity (e.g. "Romantic", "Classical", "Baroque").
