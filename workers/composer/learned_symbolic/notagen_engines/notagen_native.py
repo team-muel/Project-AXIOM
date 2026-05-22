@@ -245,6 +245,27 @@ def _axiom_header_to_notagen_prompt(abc_header: str) -> str:
     The conversion extracts control-line hints from the AXIOM header and maps
     them to the NotaGen training vocabulary.  Unrecognised values fall back to
     operator-configured defaults (``NOTAGEN_DEFAULT_PERIOD`` / ``NOTAGEN_DEFAULT_COMPOSER``).
+
+    ── Control-line tier boundary ───────────────────────────────────────────────
+    Native NotaGen READS (Tier 0 — governs generation immediately):
+      period=          → %Period
+      composer=        → %Composer
+      instrumentation= → %Instrumentation
+      (conditioningText free-text also carries form/key/meter/tempo hints)
+
+    Native NotaGen IGNORES — preserved for adapter training / dataset export
+    (Tier 1 — require fine-tuned AXIOM adapter to act on):
+      lineage_profile=    influence_blend=
+      section …           piano_global=       piano_section=
+      motif_policy …      sketch …            revision …
+      sampling …          section_soft …
+      [AXIOM_MOTIF_GRAPH] [AXIOM_REPAIR]
+      <AXIOM_REWRITE>     <AXIOM_PIANO_REWRITE>
+
+    Until the adapter is trained, Tier 1 items improve dataset export quality
+    and serve as future adapter training targets; they do NOT influence the ABC
+    output produced by native NotaGen.
+    ─────────────────────────────────────────────────────────────────────────────
     """
     ctrl = _parse_axiom_control_lines(abc_header)
 

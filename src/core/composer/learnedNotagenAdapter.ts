@@ -14,6 +14,62 @@ import {
 
 export const LEARNED_NOTAGEN_ADAPTER_VERSION = "learned_notagen_adapter_v1" as const;
 
+// ── Native NotaGen control tier boundary ──────────────────────────────────────
+//
+// Native NotaGen (notagen_native.py) ONLY reads these three control-line keys
+// from the AXIOM header and maps them to its training prompt:
+//
+//   %Period\n%Composer\n%Instrumentation\n
+//
+// Everything else in controlLines (lineage_profile, influence_blend, section,
+// piano_global, piano_section, motif_policy, sketch, revision, sampling, etc.)
+// plus all AXIOM structured blocks ([AXIOM_MOTIF_GRAPH], [AXIOM_REPAIR],
+// <AXIOM_REWRITE>, <AXIOM_PIANO_REWRITE>) requires a fine-tuned adapter to act
+// on.  Until the adapter is trained:
+//   - These lines/blocks are preserved in controlLines / block fields for:
+//     (a) SFT/DPO dataset export  (b) projection / evaluator pipelines
+//     (c) PianoRepairSolver routing  (d) future adapter training targets
+//   - Native NotaGen silently ignores them and generates based on Period/
+//     Composer/Instrumentation only.
+//
+// operator guidance: when NOTAGEN_ENGINE=notagen_native, the "native" keys
+// govern generation quality; the "adapter_required" keys govern dataset export
+// quality and future adapter training targets.
+
+/** Control-line keys that native NotaGen (notagen_native.py) actually reads. */
+export const NATIVE_NOTAGEN_CONTROL_KEYS = new Set([
+    "period",        // → %Period
+    "composer",      // → %Composer
+    "instrumentation", // → %Instrumentation
+    // conditioningText (free-text) also carries: form, key, meter, tempo
+] as const);
+
+/**
+ * Control-line key prefixes / block tags that require adapter fine-tuning.
+ * Native NotaGen silently ignores these; they are preserved for dataset export
+ * and future adapter training.
+ */
+export const ADAPTER_REQUIRED_CONTROL_PREFIXES = [
+    "lineage_profile",
+    "influence_blend",
+    "section ",
+    "piano_global",
+    "piano_section",
+    "motif_policy",
+    "sketch ",
+    "revision ",
+    "sampling ",
+    "section_soft",
+] as const;
+
+/** AXIOM structured block tags that require adapter fine-tuning. */
+export const ADAPTER_REQUIRED_BLOCK_TAGS = [
+    "[AXIOM_MOTIF_GRAPH]",
+    "[AXIOM_REPAIR]",
+    "<AXIOM_REWRITE>",
+    "<AXIOM_PIANO_REWRITE>",
+] as const;
+
 export interface LearnedNotagenProviderRequest {
     adapter: "notagen_class";
     version: typeof LEARNED_NOTAGEN_ADAPTER_VERSION;
@@ -52,6 +108,7 @@ export interface LearnedNotagenProviderRequest {
      * `enforce_tonicization_window`, `enforce_prolongation_mode`).
      * Appended to the prompt after `<AXIOM_REWRITE>` so the model receives per-section
      * structured repair instructions.
+     * Requires adapter fine-tuning; native NotaGen ignores this block.
      */
     repairBlock?: string;
     /**
@@ -60,6 +117,7 @@ export interface LearnedNotagenProviderRequest {
      * and per-section transform + dramatic function — so the generator can intentionally
      * place motif occurrences rather than discovering them only at evaluation time.
      * Appended to the prompt after `[AXIOM_REPAIR]` when a GlobalMotifGraph is present.
+     * Requires adapter fine-tuning; native NotaGen ignores this block.
      */
     motifGraphBlock?: string;
     /**
@@ -70,6 +128,24 @@ export interface LearnedNotagenProviderRequest {
      * in SFT/DPO positive training without explicit human review.
      */
     composerRoutingMode?: ComposerRoutingMode;
+    /**
+     * Summary of control line tiers for this request.
+     * Separates "native" keys (acted on by native NotaGen immediately) from
+     * "adapter_required" keys/blocks (silently ignored until adapter is trained).
+     *
+     * Intended for:
+     *  - operator debugging (understanding what currently governs generation)
+     *  - SFT/DPO export (labelling adapter-required control fields in training rows)
+     *  - future adapter training target inventory
+     */
+    controlTierSummary?: {
+        /** Control-line keys that native NotaGen (notagen_native.py) will read. */
+        nativeKeys: string[];
+        /** Control-line key prefixes that require adapter fine-tuning to act on. */
+        adapterRequiredKeys: string[];
+        /** Structured block tags present in this request that require adapter fine-tuning. */
+        adapterRequiredBlocks: string[];
+    };
 }
 
 function normalizeText(value: string | undefined): string {
@@ -696,6 +772,37 @@ export function buildLearnedNotagenProviderRequest(
             : []),
     ];
 
+    // Compute control tier summary.
+    // Native keys: control lines whose prefix matches NATIVE_NOTAGEN_CONTROL_KEYS.
+    // Adapter-required keys: control lines with prefixes in ADAPTER_REQUIRED_CONTROL_PREFIXES.
+    // Adapter-required blocks: structured AXIOM blocks that require fine-tuned adapter.
+    const nativeKeys = controlLines
+        .map((l) => l.split("=")[0].trim().split(" ")[0])
+        .filter((k) => NATIVE_NOTAGEN_CONTROL_KEYS.has(k as never));
+    const adapterRequiredKeys = controlLines
+        .filter((l) =>
+            ADAPTER_REQUIRED_CONTROL_PREFIXES.some((prefix) => l.startsWith(prefix))
+        )
+        .map((l) => l.split("=")[0].trim().split(" ")[0]);
+
+    const repairBlock = opts?.localizedRewriteSpec
+        ? buildHarmonyRepairBlock(opts.localizedRewriteSpec.directives)
+        : undefined;
+    const motifGraphBlock = promptPack.globalMotifGraph
+        ? buildMotifGraphBlock(promptPack.globalMotifGraph)
+        : undefined;
+    const pianoRewriteBlock = opts?.localizedPianoRewriteSpec
+        ? buildPianoRewriteBlock(opts.localizedPianoRewriteSpec)
+        : undefined;
+
+    const adapterRequiredBlocks: string[] = [
+        ...(pianoRewriteBlock ? ["<AXIOM_PIANO_REWRITE>"] : []),
+        ...(repairBlock ? ["[AXIOM_REPAIR]"] : []),
+        ...(motifGraphBlock ? ["[AXIOM_MOTIF_GRAPH]"] : []),
+    ];
+
+    const mode: ComposerRoutingMode = promptPack.styleCue.composerRoutingMode ?? "lineage_only";
+
     return {
         adapter: "notagen_class",
         version: LEARNED_NOTAGEN_ADAPTER_VERSION,
@@ -715,27 +822,19 @@ export function buildLearnedNotagenProviderRequest(
         ...(opts?.localizedPianoRewriteSpec
             ? {
                 pianoRewriteSpec: opts.localizedPianoRewriteSpec,
-                pianoRewriteBlock: buildPianoRewriteBlock(opts.localizedPianoRewriteSpec),
+                pianoRewriteBlock,
             }
             : {}),
-        ...((() => {
-            const repairBlock = opts?.localizedRewriteSpec
-                ? buildHarmonyRepairBlock(opts.localizedRewriteSpec.directives)
-                : undefined;
-            return repairBlock ? { repairBlock } : {};
-        })()),
-        ...((() => {
-            const motifGraphBlock = promptPack.globalMotifGraph
-                ? buildMotifGraphBlock(promptPack.globalMotifGraph)
-                : undefined;
-            return motifGraphBlock ? { motifGraphBlock } : {};
-        })()),
+        ...(repairBlock ? { repairBlock } : {}),
+        ...(motifGraphBlock ? { motifGraphBlock } : {}),
         // Marker for SFT/DPO export gate: only emit when mode is NOT the default.
         // "explicit_experimental" compositions MUST be excluded from positive training
         // without human review. "identity_default" is also surfaced for transparency.
-        ...((() => {
-            const mode: ComposerRoutingMode = promptPack.styleCue.composerRoutingMode ?? "lineage_only";
-            return mode !== "lineage_only" ? { composerRoutingMode: mode } : {};
-        })()),
+        ...(mode !== "lineage_only" ? { composerRoutingMode: mode } : {}),
+        controlTierSummary: {
+            nativeKeys,
+            adapterRequiredKeys,
+            adapterRequiredBlocks,
+        },
     };
 }

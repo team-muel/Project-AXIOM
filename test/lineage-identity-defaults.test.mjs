@@ -396,3 +396,52 @@ test("CRM-07: learnedCandidateCount absent defaults to pool=8, all candidates ro
     assert.ok(schubertCount >= 2, `Expected ≥2 Schubert for default pool=8, got ${schubertCount}`);
 });
 
+// ─── LID-NT-01: controlTierSummary always present ───────────────────────────
+//
+// Verify that buildLearnedNotagenProviderRequest always produces a
+// controlTierSummary with the three expected sub-fields.
+
+test("LID-NT-01: buildLearnedNotagenProviderRequest always emits controlTierSummary", () => {
+    const payload = buildPayload();
+    const req = buildLearnedNotagenProviderRequest(payload.promptPack, SELECTED_MODELS);
+
+    assert.ok(req.controlTierSummary, "controlTierSummary must be present");
+    assert.ok(Array.isArray(req.controlTierSummary.nativeKeys), "nativeKeys must be an array");
+    assert.ok(Array.isArray(req.controlTierSummary.adapterRequiredKeys), "adapterRequiredKeys must be an array");
+    assert.ok(Array.isArray(req.controlTierSummary.adapterRequiredBlocks), "adapterRequiredBlocks must be an array");
+});
+
+// ─── LID-NT-02: nativeKeys contains composer and instrumentation ──────────────
+//
+// These are among the ONLY keys that native NotaGen (notagen_native.py) reads.
+// The test ensures the tier summary correctly classifies them.
+
+test("LID-NT-02: controlTierSummary.nativeKeys includes composer and instrumentation", () => {
+    const payload = buildPayload();
+    const req = buildLearnedNotagenProviderRequest(payload.promptPack, SELECTED_MODELS, { candidateIndex: 0 });
+
+    const native = req.controlTierSummary?.nativeKeys ?? [];
+
+    assert.ok(native.includes("composer"),
+        `Expected "composer" in nativeKeys. Got: ${native.join(", ")}`);
+    assert.ok(native.includes("instrumentation"),
+        `Expected "instrumentation" in nativeKeys. Got: ${native.join(", ")}`);
+});
+
+// ─── LID-NT-03: adapterRequiredKeys captures lineage_profile / influence_blend ─
+
+test("LID-NT-03: controlTierSummary.adapterRequiredKeys captures lineage_profile and influence_blend", () => {
+    const payload = buildPayload();
+    const req = buildLearnedNotagenProviderRequest(payload.promptPack, SELECTED_MODELS, { candidateIndex: 0 });
+
+    const adapterKeys = req.controlTierSummary?.adapterRequiredKeys ?? [];
+    assert.ok(
+        adapterKeys.includes("lineage_profile"),
+        `Expected "lineage_profile" in adapterRequiredKeys. Got: ${adapterKeys.join(", ")}`
+    );
+    assert.ok(
+        adapterKeys.includes("influence_blend"),
+        `Expected "influence_blend" in adapterRequiredKeys. Got: ${adapterKeys.join(", ")}`
+    );
+});
+
