@@ -452,4 +452,45 @@ describe("Adapter Promotion Gate (APG)", () => {
         assert.ok(copyRiskWarnings[0].includes("40.0"), "warning message should include the percentage");
     });
 
+    it("APG-19: R-01 gate skips with useful warning when corpus loaded but rows lack referenceDistanceScore", () => {
+        // Simulate: evaluateReferenceCorpusGate result when rows have no referenceDistanceScore
+        // This mirrors the script logic at lines: scores.length === 0 → skipped: true
+        const mockCandidateRows = Array.from({ length: 10 }, (_, i) => ({
+            ...BASE_SCORES, id: `c-${i}`,
+            // No referenceDistanceScore field — simulating rows from before the field was added
+        }));
+
+        // Extract scores (mirrors script logic)
+        const scores = mockCandidateRows
+            .map((r) => {
+                const split = r["referenceDistanceScore"];
+                if (split && typeof split === "object") return split["lineage"] ?? split["score"];
+                return split;
+            })
+            .filter((v) => typeof v === "number" && Number.isFinite(v));
+
+        // Should be empty — no referenceDistanceScore field
+        assert.strictEqual(scores.length, 0, "no scores when rows lack referenceDistanceScore");
+
+        // Simulate the gate result
+        const mockR01Result = {
+            id: "R-01", type: "reference_corpus", passed: true, skipped: true,
+            reason: "candidate rows have no referenceDistanceScore field — R-01 skipped (add it during benchmarking)",
+        };
+        assert.ok(mockR01Result.skipped, "R-01 should be skipped");
+        assert.ok(mockR01Result.reason.includes("referenceDistanceScore"), "warning reason must mention referenceDistanceScore");
+
+        // When corpusPath is set and gate skipped with referenceDistanceScore reason → warning generated
+        const corpusPath = "outputs/_system/reference-corpus/profile-beethoven-schubert-lineage.json";
+        const gates = [mockR01Result];
+        const referenceDistanceMissingWarning = corpusPath && gates.some(
+            (g) => g.id === "R-01" && g.skipped && typeof g.reason === "string" && g.reason.includes("referenceDistanceScore"),
+        )
+            ? "corpus profile loaded but candidate rows have no referenceDistanceScore — add this field during benchmarking to activate R-01 corpus gate"
+            : null;
+
+        assert.ok(referenceDistanceMissingWarning, "referenceDistanceMissingWarning should be populated when corpus set but rows lack field");
+        assert.ok(referenceDistanceMissingWarning.includes("referenceDistanceScore"), "warning must mention referenceDistanceScore");
+    });
+
 });

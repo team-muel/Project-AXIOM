@@ -46,7 +46,10 @@
         "evaluate:notagen-adapter-promotion:with-corpus": "node scripts/evaluate-notagen-adapter-promotion.mjs --baseline=outputs/_system/ml/benchmarks/baseline/scores.jsonl --candidate=outputs/_system/ml/benchmarks/candidate/scores.jsonl --out=outputs/_system/ml/benchmarks/candidate/promotion-decision.json --corpus-profile=outputs/_system/reference-corpus/profile.json",
         "analyze:reference-corpus": "node scripts/analyze-reference-corpus.mjs --root=config/reference-corpus --out=outputs/_system/reference-corpus/profile.json",
         "analyze:reference-corpus:dry-run": "node scripts/analyze-reference-corpus.mjs --root=config/reference-corpus --out=outputs/_system/reference-corpus/profile.json --dry-run --verbose",
-        "analyze:reference-corpus:verbose": "node scripts/analyze-reference-corpus.mjs --root=config/reference-corpus --out=outputs/_system/reference-corpus/profile.json --verbose"
+        "analyze:reference-corpus:verbose": "node scripts/analyze-reference-corpus.mjs --root=config/reference-corpus --out=outputs/_system/reference-corpus/profile.json --verbose",
+        "validate:aesthetic-evaluators": "node scripts/validate-aesthetic-evaluators.mjs",
+        "validate:aesthetic-evaluators:out": "node scripts/validate-aesthetic-evaluators.mjs --out=outputs/_system/reference-corpus/aesthetic-validation.json",
+        "validate:aesthetic-evaluators:verbose": "node scripts/validate-aesthetic-evaluators.mjs --verbose --out=outputs/_system/reference-corpus/aesthetic-validation.json"
     },
     "dependencies": {
         "dotenv": "^16.4.7",

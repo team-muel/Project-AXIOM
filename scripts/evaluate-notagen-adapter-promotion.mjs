@@ -53,13 +53,32 @@
  *   `lineageIdentityScore` is optional for backward compatibility: when the baseline
  *   has no rows with this field, gate R-01 is automatically skipped.
  *
+ * ── Input format (JSONL, one row per benchmark evaluation) ─ referenceDistanceScore ──
+ *
+ *   `referenceDistanceScore` is optional but strongly recommended for R-01 corpus gate:
+ *     "referenceDistanceScore": 0.42              — flat scalar form
+ *     "referenceDistanceScore": { "lineage": 0.40, "beethoven": 0.42, "schubert": 0.38 }
+ *                                                 — split form (preferred; use .lineage for R-01)
+ *
+ *   When absent from ALL candidate rows, R-01 skips with a `referenceDistanceMissingWarning`
+ *   in the decision output. Add this field during benchmarking to activate the corpus gate.
+ *
  * ── Usage ───────────────────────────────────────────────────────────────────
  *
  *   node scripts/evaluate-notagen-adapter-promotion.mjs \
  *     --baseline=outputs/_system/ml/benchmarks/baseline/scores.jsonl \
  *     --candidate=outputs/_system/ml/benchmarks/candidate-v2/scores.jsonl \
  *     [--out=outputs/_system/ml/benchmarks/candidate-v2/promotion-decision.json] \
+ *     [--corpus-profile=outputs/_system/reference-corpus/profile-beethoven-schubert-lineage.json]
+ *     [--no-auto-corpus]  disable auto-detection of corpus profile from default paths
  *     [--dry-run]
+ *
+ * ── Corpus profile auto-detection ────────────────────────────────────────────
+ *
+ *   When --corpus-profile is not provided, the script probes these paths in order:
+ *     1. outputs/_system/reference-corpus/profile-beethoven-schubert-lineage.json
+ *     2. outputs/_system/reference-corpus/profile.json
+ *   If found, R-01 activates automatically. Pass --no-auto-corpus to disable.
  *
  * Exit code 0 → promoted.  Exit code 1 → not promoted or error.
  */
@@ -419,11 +438,27 @@ function main() {
     const baselinePath   = readOption("baseline");
     const candidatePath  = readOption("candidate");
     const outPath        = readOption("out");
-    const corpusPath     = readOption("corpus-profile");
     const dryRun         = hasFlag("dry-run");
+    const noAutoCorpus   = hasFlag("no-auto-corpus");
+
+    // Corpus profile: explicit flag wins; otherwise auto-probe default paths
+    let corpusPath = readOption("corpus-profile");
+    if (!corpusPath && !noAutoCorpus) {
+        const DEFAULT_CORPUS_PROFILE_PROBES = [
+            "outputs/_system/reference-corpus/profile-beethoven-schubert-lineage.json",
+            "outputs/_system/reference-corpus/profile.json",
+        ];
+        for (const probe of DEFAULT_CORPUS_PROFILE_PROBES) {
+            if (fs.existsSync(probe)) {
+                corpusPath = probe;
+                console.error(`[evaluate-notagen-adapter-promotion] Auto-detected corpus profile: ${probe}`);
+                break;
+            }
+        }
+    }
 
     if (!baselinePath || !candidatePath) {
-        console.error("[evaluate-notagen-adapter-promotion] Usage: --baseline=<path> --candidate=<path> [--out=<path>] [--corpus-profile=<path>] [--dry-run]");
+        console.error("[evaluate-notagen-adapter-promotion] Usage: --baseline=<path> --candidate=<path> [--out=<path>] [--corpus-profile=<path>] [--no-auto-corpus] [--dry-run]");
         process.exit(1);
     }
 
@@ -491,6 +526,13 @@ function main() {
         .filter((g) => g.id === "R-01" && g.copyRiskWarning)
         .map((g) => `R-01 copy-risk: ${g.tooClosePercent?.toFixed(1) ?? "?"}% of candidate rows are too_close to reference corpus (may indicate over-copying or style regression)`);
 
+    // referenceDistanceMissingWarning: corpus was loaded (auto or explicit) but rows lack the field
+    const referenceDistanceMissingWarning = corpusPath && gates.some(
+        (g) => g.id === "R-01" && g.skipped && typeof g.reason === "string" && g.reason.includes("referenceDistanceScore"),
+    )
+        ? "corpus profile loaded but candidate rows have no referenceDistanceScore — add this field during benchmarking to activate R-01 corpus gate"
+        : null;
+
     const decision = {
         promoted,
         evaluatedAt: new Date().toISOString(),
@@ -506,6 +548,7 @@ function main() {
         diversityCollapseWarnings,
         crossMetricCollapseWarnings,
         copyRiskWarnings,
+        ...(referenceDistanceMissingWarning ? { referenceDistanceMissingWarning } : {}),
         stats: { baseline: baselineStats, candidate: candidateStats },
     };
 
