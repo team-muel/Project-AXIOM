@@ -52,6 +52,42 @@ RMS z-score를 3으로 나누어 0–1로 정규화합니다.
 
 ---
 
+## 코퍼스 확장 로드맵
+
+AXIOM Beethoven·Schubert lineage anchor의 신뢰도는 코퍼스 크기에 직접 비례합니다.
+
+| 단계 | 목표 규모 | 용도 |
+|------|-----------|------|
+| Seed (현재) | ~19개 | 개발/검증용 seed. 통계 불안정. 운영 anchor 불가. |
+| 초기 benchmark | 100개 이상 | R-01 gate 초기 안정화. promotion 참고 지표로 활용 가능. |
+| Gate 안정화 | 300–500개 | R-01 gate를 production promotion 필수 조건으로 격상 가능. |
+| 장기 anchor | 1,000개 이상 | Serious identity anchor. 통계적으로 강건한 lineage 기준점. |
+
+### Beethoven 우선 확장 대상
+
+현재 소나타 중심에서 아래로 폭을 넓혀야 합니다:
+- 피아노 소나타 (현재 보유 확장)
+- 변주곡 (WoO/Op — 주제와 변주)
+- 바가텔 Op.33, Op.119, Op.126
+- 현악 사중주 일부 (ABC 변환 가능한 단성부/멜로디 성부 기준)
+- 피아노 협주곡 솔로 파트
+
+### Schubert 우선 확장 대상
+
+- 즉흥곡 (Op.90, Op.142)
+- 악흥의 순간 (Moments Musicaux Op.94)
+- 가곡풍 피아노곡 (레들리헤 ABC 변환 가능한 작품)
+- 피아노 소나타 악장 (D.845, D.894, D.960)
+
+### 코퍼스 확장 실행 방법
+
+1. ABC 파일을 `config/reference-corpus/abc/` 에 추가
+2. `npm run analyze:reference-corpus` 재실행 → `outputs/_system/reference-corpus/profile.json` 갱신
+3. `npm run validate:aesthetic-evaluators` 실행 → Beethoven/Schubert 변별력 지표 확인
+4. 프로파일을 Git에 커밋
+
+---
+
 ## 코퍼스 구성 방법
 
 ### 1. ABC 파일 수집
@@ -101,15 +137,25 @@ node scripts/analyze-reference-corpus.mjs \
 
 ## Adapter Promotion Gate 연동
 
-`referenceDistanceScore`는 adapter promotion gate의 다양성 게이트(D-*)에 추가될 예정입니다.
+`referenceDistanceScore`는 adapter promotion gate R-01에서 사용됩니다.
 
-현재는 **informational** 지표로 사용하며, promotion 결정에 직접 영향을 주지는 않습니다.
-코퍼스가 충분히 구축되면 다음 게이트를 추가할 수 있습니다:
+**개발/레거시 호환 모드 (기본)**:
+- candidate rows에 `referenceDistanceScore`가 없으면 R-01을 경고와 함께 **skip** 합니다.
+- 이전 benchmark 파일과 호환됩니다.
 
+**프로덕션 모드 (`--require-reference-distance`)**:
+- candidate rows에 `referenceDistanceScore`가 없으면 R-01이 **FAIL**합니다.
+- 프로덕션 promotion CI에서 사용합니다. benchmarking 인프라가 이 필드를 안정적으로 생성한 후 활성화하세요.
+
+```bash
+# 개발/검증용 (기본)
+npm run evaluate:notagen-adapter-promotion:with-corpus
+
+# 프로덕션 promotion (referenceDistanceScore 필수)
+npm run evaluate:notagen-adapter-promotion:production
 ```
-D-REF: referenceDistanceScore 평균이 0.75 이하 (too_far 비율이 낮음)
-D-REF: referenceDistanceScore 평균이 0.05 이상 (too_close 비율이 낮음)
-```
+
+코퍼스가 100개 이상으로 확장되면 `:production` 스크립트를 기본 promotion gate로 승격할 것을 권장합니다.
 
 ---
 

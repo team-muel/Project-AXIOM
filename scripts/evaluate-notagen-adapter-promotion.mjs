@@ -70,7 +70,10 @@
  *     --candidate=outputs/_system/ml/benchmarks/candidate-v2/scores.jsonl \
  *     [--out=outputs/_system/ml/benchmarks/candidate-v2/promotion-decision.json] \
  *     [--corpus-profile=outputs/_system/reference-corpus/profile-beethoven-schubert-lineage.json]
- *     [--no-auto-corpus]  disable auto-detection of corpus profile from default paths
+ *     [--no-auto-corpus]          disable auto-detection of corpus profile from default paths
+ *     [--require-reference-distance]  PRODUCTION mode: fail instead of skip when candidate
+ *                                     rows have no referenceDistanceScore field.
+ *                                     Use for production promotion; do not use during dev/legacy runs.
  *     [--dry-run]
  *
  * ── Corpus profile auto-detection ────────────────────────────────────────────
@@ -79,6 +82,15 @@
  *     1. outputs/_system/reference-corpus/profile-beethoven-schubert-lineage.json
  *     2. outputs/_system/reference-corpus/profile.json
  *   If found, R-01 activates automatically. Pass --no-auto-corpus to disable.
+ *
+ * ── --require-reference-distance (production promotion mode) ─────────────────
+ *
+ *   Default (dev/backward-compat): when referenceDistanceScore is absent from
+ *   all candidate rows, R-01 is silently skipped and a warning is emitted.
+ *
+ *   With --require-reference-distance: the gate FAILS instead of skipping.
+ *   Use this flag in CI / production promotion pipelines once benchmarking
+ *   infrastructure reliably emits referenceDistanceScore.
  *
  * Exit code 0 → promoted.  Exit code 1 → not promoted or error.
  */
@@ -440,6 +452,7 @@ function main() {
     const outPath        = readOption("out");
     const dryRun         = hasFlag("dry-run");
     const noAutoCorpus   = hasFlag("no-auto-corpus");
+    const requireRefDist = hasFlag("require-reference-distance");
 
     // Corpus profile: explicit flag wins; otherwise auto-probe default paths
     let corpusPath = readOption("corpus-profile");
@@ -458,7 +471,7 @@ function main() {
     }
 
     if (!baselinePath || !candidatePath) {
-        console.error("[evaluate-notagen-adapter-promotion] Usage: --baseline=<path> --candidate=<path> [--out=<path>] [--corpus-profile=<path>] [--no-auto-corpus] [--dry-run]");
+        console.error("[evaluate-notagen-adapter-promotion] Usage: --baseline=<path> --candidate=<path> [--out=<path>] [--corpus-profile=<path>] [--no-auto-corpus] [--require-reference-distance] [--dry-run]");
         process.exit(1);
     }
 
@@ -506,7 +519,7 @@ function main() {
 
     // ── Optional: Reference corpus distance gate (R-01) ───────────────────────
     if (corpusPath) {
-        gates.push(evaluateReferenceCorpusGate(corpusPath, candidateRows));
+        gates.push(evaluateReferenceCorpusGate(corpusPath, candidateRows, { requireRefDist }));
     }
 
     // ── Decision ──────────────────────────────────────────────────────────────
@@ -587,9 +600,12 @@ function buildEarlyDecision(promoted, reason, baselineRows, candidateRows) {
  *
  * @param {string} corpusPath  Path to corpus-profile.json or lineage profile
  * @param {object[]} candidateRows  Candidate score rows (JSONL)
+ * @param {{ requireRefDist?: boolean }} opts
+ *   requireRefDist=true  → PRODUCTION mode: fail instead of skip when no referenceDistanceScore
  * @returns {object} gate result
  */
-function evaluateReferenceCorpusGate(corpusPath, candidateRows) {
+function evaluateReferenceCorpusGate(corpusPath, candidateRows, opts = {}) {
+    const { requireRefDist = false } = opts;
     const gateId = "R-01";
 
     // Load corpus profile
@@ -641,6 +657,14 @@ function evaluateReferenceCorpusGate(corpusPath, candidateRows) {
         .filter((v) => typeof v === "number" && Number.isFinite(v));
 
     if (scores.length === 0) {
+        if (requireRefDist) {
+            return {
+                id: gateId, type: "reference_corpus", passed: false, skipped: false,
+                reason: "PRODUCTION GATE FAIL — candidate rows have no referenceDistanceScore field (--require-reference-distance mode: missing field = promote blocked)",
+                corpusN: activeN,
+                requireRefDist: true,
+            };
+        }
         return {
             id: gateId, type: "reference_corpus", passed: true, skipped: true,
             reason: "candidate rows have no referenceDistanceScore field — R-01 skipped (add it during benchmarking)",
