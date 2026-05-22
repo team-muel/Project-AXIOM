@@ -7,7 +7,7 @@
  *
  * Implements a 4-stage "fake Beethoven" defense:
  *   Stage 1: Provenance metadata (C5, C6)   — composer, catalog, source, license
- *   Stage 2: Source whitelist (C6b)          — only trusted source domains allowed
+ *   Stage 2: Source whitelist (C6b, C6c)      — production vs. experimental domain tiers; license enum validation
  *   Stage 3: Content sanity (C9)             — ABC headers, note count, pitch range
  *   Stage 4: Incipit fingerprint (C10)       — opening interval match vs. stored fingerprint
  *
@@ -32,7 +32,8 @@
  *   C4   composer role consistency — manifest composer.role matches corpus-manifest.json
  *   C5   completeness specified — every entry has a valid completeness level
  *   C6   provenance fields — sourceUrl and sourceLicense present (warn if missing)
- *   C6b  source whitelist — sourceUrl domain must be in TRUSTED_SOURCE_DOMAINS
+ *   C6b  source whitelist — sourceUrl domain must be in PRODUCTION_TRUSTED_DOMAINS; experimental-only domains warn on primary entries
+ *   C6c  license enum — sourceLicense must be one of the valid enum values (not the old ambiguous freeform string)
  *   C7   metric scope guard — excerpt/incipit_only entries excluded from movement-level metrics
  *   C8   primary role guard — no "unknown" composer has role=primary
  *   C9   content sanity — ABC headers present, note count ≥ threshold, pitch range sane
@@ -44,22 +45,31 @@ import { existsSync, createReadStream } from "node:fs";
 import { join, resolve, dirname, extname, basename } from "node:path";
 import { createHash } from "node:crypto";
 
-// ── Trusted source whitelist (Stage 2 defense) ───────────────────────────────
-// sourceUrl domain must appear here for a file to pass the source whitelist check.
-// Files with null sourceUrl get a warning (not a failure) under C6/C6b.
-// In --strict mode, missing sourceUrl becomes an error (via C6).
+// ── Trusted source domains — two-tier whitelist (Stage 2 defense) ────────────
+//
+// PRODUCTION_TRUSTED: authoritative public-domain score archives.
+//   Files from these sources are acceptable in primary reference corpus
+//   without additional manual review.
+//
+// EXPERIMENTAL_ALLOWED: user-contributed or semi-curated sources.
+//   These may be correct but carry higher risk of errors, arrangements,
+//   or copyright ambiguity. They are accepted for theory/technical roles
+//   but generate a WARNING when used with role=primary.
 
-const TRUSTED_SOURCE_DOMAINS = new Set([
+const PRODUCTION_TRUSTED_DOMAINS = new Set([
     "imslp.org",
     "www.imslp.org",
     "mutopiaproject.org",
     "www.mutopiaproject.org",
+    "openscore.cc",
+    "www.openscore.cc",
+]);
+
+const EXPERIMENTAL_ALLOWED_DOMAINS = new Set([
     "abc.sourceforge.net",
     "thesession.org",
     "github.com",
     "raw.githubusercontent.com",
-    "openscore.cc",
-    "www.openscore.cc",
     "musescore.com",
     "www.musescore.com",
     "folkwiki.se",
@@ -67,6 +77,23 @@ const TRUSTED_SOURCE_DOMAINS = new Set([
     "notesaccess.com",
     "abcnotation.com",
     "www.abcnotation.com",
+]);
+
+// Combined set — any registered domain passes the hard whitelist check
+const ALL_TRUSTED_SOURCE_DOMAINS = new Set([
+    ...PRODUCTION_TRUSTED_DOMAINS,
+    ...EXPERIMENTAL_ALLOWED_DOMAINS,
+]);
+
+// ── Valid sourceLicense enum values ──────────────────────────────────────────
+// Must match the enum declared in file-manifest.json fields.sourceLicense.
+
+const VALID_LICENSE_VALUES = new Set([
+    "public_domain",
+    "CC0",
+    "CC_BY",
+    "verified_open_license",
+    "unknown",
 ]);
 
 // ── ABC parsing helpers (Stage 3 + 4 defense) ────────────────────────────────
@@ -466,7 +493,32 @@ console.log("\nRunning reference corpus validation...\n");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// C7 — metric scope guard: excerpt/incipit_only not used for movement-level metrics
+// C6c — license enum: sourceLicense must be a known valid value
+// Any non-null sourceLicense that is not in VALID_LICENSE_VALUES is an error.
+// Catches the old "public_domain_or_verified_open_license" and any other freeform strings.
+// ─────────────────────────────────────────────────────────────────────────────
+
+{
+    const errors = [];
+    const warnings = [];
+    for (const entry of allEntries) {
+        const lic = entry.sourceLicense;
+        if (!lic) continue; // C6 already flags missing values
+        if (!VALID_LICENSE_VALUES.has(lic)) {
+            errors.push(
+                `${entry.id}: invalid sourceLicense "${lic}". ` +
+                `Allowed values: ${[...VALID_LICENSE_VALUES].join(", ")}`
+            );
+        } else if (lic === "unknown" && entry.role === "primary") {
+            warnings.push(
+                `${entry.id}: sourceLicense="unknown" on a primary-role entry — resolve before production promotion`
+            );
+        }
+    }
+    record("C6c-license-enum", { pass: errors.length === 0, errors, warnings });
+}
+
+
 //      This is a static check against the validForMatrix in corpus-file-index.json.
 //      If corpus-file-index.json is present, we cross-check that no excerpt/incipit
 //      appears in a completeness group that enables movement-level metrics.
@@ -570,7 +622,10 @@ console.log("\nRunning reference corpus validation...\n");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// C6b — source whitelist: if sourceUrl is present, its domain must be trusted
+// C6b — source whitelist (two-tier):
+//   • PRODUCTION_TRUSTED: IMSLP, Mutopia, OpenScore — safe for role=primary
+//   • EXPERIMENTAL_ALLOWED: GitHub, MuseScore, etc. — warn if used with role=primary
+//   • Any other domain is an error (or warning in non-strict mode)
 // ─────────────────────────────────────────────────────────────────────────────
 
 {
@@ -579,17 +634,26 @@ console.log("\nRunning reference corpus validation...\n");
     for (const entry of allEntries) {
         if (!entry.sourceUrl) continue; // C6 already handles missing sourceUrl
         let domain;
+        let fullDomain;
         try {
-            domain = new URL(entry.sourceUrl).hostname.toLowerCase().replace(/^www\./, "");
+            fullDomain = new URL(entry.sourceUrl).hostname.toLowerCase();
+            domain = fullDomain.replace(/^www\./, "");
         } catch {
             errors.push(`${entry.id}: sourceUrl is not a valid URL: "${entry.sourceUrl}"`);
             continue;
         }
-        // Check raw hostname and www-stripped hostname
-        const fullDomain = new URL(entry.sourceUrl).hostname.toLowerCase();
-        if (!TRUSTED_SOURCE_DOMAINS.has(fullDomain) && !TRUSTED_SOURCE_DOMAINS.has(domain)) {
-            const msg = `${entry.id}: sourceUrl domain "${fullDomain}" is not in the trusted source whitelist`;
+
+        const inProduction   = PRODUCTION_TRUSTED_DOMAINS.has(fullDomain) || PRODUCTION_TRUSTED_DOMAINS.has(domain);
+        const inExperimental = EXPERIMENTAL_ALLOWED_DOMAINS.has(fullDomain) || EXPERIMENTAL_ALLOWED_DOMAINS.has(domain);
+
+        if (!inProduction && !inExperimental) {
+            const msg = `${entry.id}: sourceUrl domain "${fullDomain}" is not in any trusted source whitelist`;
             if (isStrict) errors.push(msg); else warnings.push(msg);
+        } else if (inExperimental && !inProduction && entry.role === "primary") {
+            warnings.push(
+                `${entry.id}: sourceUrl domain "${fullDomain}" is in experimental-only tier. ` +
+                `Role=primary requires a production-trusted source (IMSLP, Mutopia, OpenScore) for the primary reference corpus.`
+            );
         }
     }
     record("C6b-source-whitelist", { pass: errors.length === 0, errors, warnings });
