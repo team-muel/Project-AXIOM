@@ -29,14 +29,19 @@
  *   5. harmonyContractScore >= 0.70  (skipped when no harmony plan)
  *   6. evidenceCoverageScore >= 0.55
  *   7. pianoListenabilityScore >= 0.50  (piano candidates only)
+ *   8. lineageIdentityScore >= 0.50  (skipped when absent — legacy manifests)
+ *   9. composerRoutingMode != "explicit_experimental"  (hard block; no threshold override)
  *
  * ── DPO PAIR ELIGIBILITY ────────────────────────────────────────────────────────
  *
- *   CHOSEN  = passes all 7 gates AND selected=true
+ *   CHOSEN  = passes all 9 gates AND selected=true
  *   REJECTED = same planSignature; fails >= 1 gate with a meaningful gap:
- *              score gap >= 0.10 below threshold, OR harmonyContractViolations > 0,
- *              OR motifReturnScore <= 0.30, OR evidenceCoverageGateTier = "partial"|"none"
+ *              score gap >= 0.05 below threshold, OR harmonyContractViolations > 0,
+ *              OR motifReturnScore <= 0.30, OR evidenceCoverageGateTier = "partial"|"none",
+ *              OR lineageIdentityScore too low, OR explicit_experimental_composer
  *
+ *   DPO is riskier than SFT — identity gates are enforced more strictly to prevent
+ *   the model from learning to prefer non-lineage-aligned outputs.
  *   Hard negatives are preferred: same prompt + AXIOM-identified failures
  *   Pairs are grouped by planSignature (not songId) for maximum signal density
  *
@@ -56,6 +61,7 @@
  *   --min-harmony=<n>        harmonyContractScore threshold (default: 0.70)
  *   --min-evidence=<n>       evidenceCoverageScore threshold (default: 0.55)
  *   --min-piano=<n>          pianoListenabilityScore threshold (default: 0.50)
+ *   --min-lineage=<n>        lineageIdentityScore threshold (default: 0.50); gate skipped when score absent
  *   --min-score-gap=<n>      min score gap below threshold to qualify as hard negative (default: 0.05)
  *   --include-mock            include mock backend outputs (default: excluded)
  *   --dry-run                 print stats without writing files
@@ -124,6 +130,7 @@ const THRESHOLDS = {
     harmonyContractScore:    parseThreshold("min-harmony",  0.70),
     evidenceCoverageScore:   parseThreshold("min-evidence", 0.55),
     pianoListenabilityScore: parseThreshold("min-piano",    0.50),
+    lineageIdentityScore:    parseThreshold("min-lineage",  0.50),
 };
 
 const MIN_SCORE_GAP = parseThreshold("min-score-gap", 0.05);
@@ -136,6 +143,9 @@ function extractScores(cm) {
     const ica = cm?.internalCriticApproval ?? null;
     const cs  = cm?.structureEvaluation?.craftScoreSummary ?? null;
     const pc  = cm?.structureEvaluation?.pianoCraftScoreSummary ?? cm?.pianoCraftScore ?? null;
+    const li  = cm?.structureEvaluation?.lineageScoreSummary ?? null;
+    const evidence = cm?.proposalEvidence ?? {};
+    const pr  = evidence.providerRequest ?? cm?.learnedNotagenProviderRequest ?? null;
     return {
         internalCriticApproved:     ica?.approved ?? null,
         internalCriticFailedDims:   ica?.failedDimensions ?? null,
@@ -149,6 +159,12 @@ function extractScores(cm) {
         pianoListenabilityScore:    toFinite(ica?.pianoListenabilityScore ?? pc?.pianoListenabilityScore ?? cs?.pianoListenabilityScore),
         isPianoCandidate:           pc !== null,
         scoringProfileId:           ica?.scoringProfileId ?? cs?.scoringProfile ?? null,
+        // Lineage identity — absent on legacy manifests; gate skipped when undefined
+        lineageIdentityScore:              toFinite(ica?.lineageIdentityScore ?? li?.lineageIdentityScore ?? cs?.lineageIdentityScore),
+        beethovenianMotivicPressureScore:  toFinite(ica?.beethovenianMotivicPressureScore ?? li?.beethovenianMotivicPressureScore),
+        schubertianLyricExpansionScore:    toFinite(ica?.schubertianLyricExpansionScore ?? li?.schubertianLyricExpansionScore),
+        mediantColorScore:                 toFinite(ica?.mediantColorScore ?? li?.mediantColorScore),
+        composerRoutingMode:               toTrimmed(pr?.composerRoutingMode ?? ""),
     };
 }
 
@@ -204,6 +220,17 @@ function computeCriticResult(cm, { includeMock }) {
         }
     }
 
+    // Lineage identity gate — skip when score absent (legacy manifest)
+    if (s.lineageIdentityScore !== undefined
+        && s.lineageIdentityScore < THRESHOLDS.lineageIdentityScore) {
+        failedGates.push(`below_lineageIdentity(${s.lineageIdentityScore?.toFixed(3)}<${THRESHOLDS.lineageIdentityScore})`);
+    }
+
+    // Composer routing mode gate — explicit_experimental must not enter DPO positive
+    if (s.composerRoutingMode === "explicit_experimental") {
+        failedGates.push("explicit_experimental_composer");
+    }
+
     return { pass: failedGates.length === 0, failedGates };
 }
 
@@ -227,6 +254,9 @@ function isHardNegative(s) {
     if (s.evidenceCoverageScore !== undefined && s.evidenceCoverageScore < THRESHOLDS.evidenceCoverageScore - MIN_SCORE_GAP) return true;
     if (s.isPianoCandidate && s.pianoListenabilityScore !== undefined
         && s.pianoListenabilityScore < THRESHOLDS.pianoListenabilityScore - MIN_SCORE_GAP) return true;
+    if (s.lineageIdentityScore !== undefined
+        && s.lineageIdentityScore < THRESHOLDS.lineageIdentityScore - MIN_SCORE_GAP) return true;
+    if (s.composerRoutingMode === "explicit_experimental") return true;
     return false;
 }
 
@@ -333,15 +363,20 @@ function buildCandidateRecord(songId, candidateId, cm, isSelected) {
         failedGates: criticResult.failedGates,
         isHardNegative: !criticResult.pass && isHardNegative(scores),
         scores: {
-            finalCraftScore:           scores.finalCraftScore ?? null,
-            advancedCraftScore:        scores.advancedCraftScore ?? null,
-            harmonyContractScore:      scores.harmonyContractScore ?? null,
-            evidenceCoverageScore:     scores.evidenceCoverageScore ?? null,
-            evidenceCoverageGateTier:  scores.evidenceCoverageGateTier ?? null,
-            harmonyContractViolations: scores.harmonyContractViolations ?? null,
-            motifReturnScore:          scores.motifReturnScore ?? null,
-            pianoListenabilityScore:   scores.pianoListenabilityScore ?? null,
-            scoringProfileId:          scores.scoringProfileId ?? null,
+            finalCraftScore:                   scores.finalCraftScore ?? null,
+            advancedCraftScore:                scores.advancedCraftScore ?? null,
+            harmonyContractScore:              scores.harmonyContractScore ?? null,
+            evidenceCoverageScore:             scores.evidenceCoverageScore ?? null,
+            evidenceCoverageGateTier:          scores.evidenceCoverageGateTier ?? null,
+            harmonyContractViolations:         scores.harmonyContractViolations ?? null,
+            motifReturnScore:                  scores.motifReturnScore ?? null,
+            pianoListenabilityScore:           scores.pianoListenabilityScore ?? null,
+            lineageIdentityScore:              scores.lineageIdentityScore ?? null,
+            beethovenianMotivicPressureScore:  scores.beethovenianMotivicPressureScore ?? null,
+            schubertianLyricExpansionScore:    scores.schubertianLyricExpansionScore ?? null,
+            mediantColorScore:                 scores.mediantColorScore ?? null,
+            composerRoutingMode:               scores.composerRoutingMode || null,
+            scoringProfileId:                  scores.scoringProfileId ?? null,
         },
         // Human calibration metadata (preserved for downstream calibration; not used for labeling)
         humanCalibration: humanRating !== undefined ? {
@@ -438,6 +473,9 @@ function computeScoreGap(pos, neg) {
         neg.scores.pianoListenabilityScore === null
             ? 0
             : THRESHOLDS.pianoListenabilityScore - scoreOrZero(neg.scores.pianoListenabilityScore),
+        neg.scores.lineageIdentityScore === null
+            ? 0
+            : THRESHOLDS.lineageIdentityScore - scoreOrZero(neg.scores.lineageIdentityScore),
     ];
     const chosenRejectedGaps = [
         scoreOrZero(pos.scores.finalCraftScore) - scoreOrZero(neg.scores.finalCraftScore),
@@ -445,6 +483,7 @@ function computeScoreGap(pos, neg) {
         scoreOrZero(pos.scores.harmonyContractScore) - scoreOrZero(neg.scores.harmonyContractScore),
         scoreOrZero(pos.scores.evidenceCoverageScore) - scoreOrZero(neg.scores.evidenceCoverageScore),
         scoreOrZero(pos.scores.pianoListenabilityScore) - scoreOrZero(neg.scores.pianoListenabilityScore),
+        scoreOrZero(pos.scores.lineageIdentityScore) - scoreOrZero(neg.scores.lineageIdentityScore),
     ];
     const gap = Math.max(0, ...thresholdDeficits, ...chosenRejectedGaps);
     return Math.round(Math.max(gap, MIN_SCORE_GAP) * 1000) / 1000;
@@ -452,6 +491,14 @@ function computeScoreGap(pos, neg) {
 
 function classifyRejectionReason(rec) {
     const s = rec.scores;
+    if (rec.failedGates.some((g) => g === "explicit_experimental_composer")) {
+        return "explicit_experimental_composer";
+    }
+    if (rec.failedGates.some((g) => g.includes("lineageIdentity"))
+        || (s.lineageIdentityScore !== null
+            && s.lineageIdentityScore < THRESHOLDS.lineageIdentityScore - MIN_SCORE_GAP)) {
+        return "lineage_identity_failure";
+    }
     if ((s.harmonyContractViolations ?? 0) > 0
         || rec.failedGates.some((g) => g.includes("harmony"))) {
         return "harmony_failure";
@@ -477,6 +524,12 @@ function classifyRejectionReason(rec) {
 function summarizeRejection(rec) {
     const reasons = [];
     const s = rec.scores;
+    if (rec.failedGates.some((g) => g === "explicit_experimental_composer")) {
+        reasons.push("explicit_experimental_composer");
+    }
+    if (s.lineageIdentityScore !== null && s.lineageIdentityScore < THRESHOLDS.lineageIdentityScore) {
+        reasons.push(`lineage_identity_low=${s.lineageIdentityScore?.toFixed(3)}`);
+    }
     if (s.harmonyContractViolations && s.harmonyContractViolations > 0) {
         reasons.push(`harmony_violations=${s.harmonyContractViolations}`);
     }
@@ -512,6 +565,8 @@ function main() {
         criticFail: 0,
         hardNegatives: 0,
         chosen: 0,
+        lineageGateBlocked: 0,
+        experimentalGateBlocked: 0,
         skippedNoInstruction: 0,
         skippedNoAbc: 0,
     };
@@ -537,6 +592,8 @@ function main() {
             } else {
                 counts.criticFail++;
                 if (rec.isHardNegative) counts.hardNegatives++;
+                if (rec.failedGates.some((g) => g.includes("lineageIdentity"))) counts.lineageGateBlocked++;
+                if (rec.failedGates.some((g) => g === "explicit_experimental_composer")) counts.experimentalGateBlocked++;
             }
 
             if (!rec.instruction) { counts.skippedNoInstruction++; continue; }
@@ -556,6 +613,8 @@ function main() {
     console.log(`  Candidates scanned:     ${counts.totalCandidates}`);
     console.log(`  AXIOM critic pass:      ${counts.criticPass}  (chosen: ${counts.chosen})`);
     console.log(`  AXIOM critic fail:      ${counts.criticFail}  (hard negatives: ${counts.hardNegatives})`);
+    console.log(`  Lineage gate blocked:   ${counts.lineageGateBlocked}`);
+    console.log(`  Experimental blocked:   ${counts.experimentalGateBlocked}`);
     console.log(`  DPO pairs generated:    ${dpoPairs.length}  (hard-neg pairs: ${pairsWithHardNeg})`);
     console.log(`  Skipped no-instruction: ${counts.skippedNoInstruction}`);
     console.log(`  Skipped no-ABC:         ${counts.skippedNoAbc}`);
