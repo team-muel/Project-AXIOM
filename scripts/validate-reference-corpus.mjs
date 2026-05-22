@@ -2,8 +2,14 @@
 /**
  * scripts/validate-reference-corpus.mjs
  *
- * Reference Corpus Validator — 8-point provenance and integrity checks for all
+ * Reference Corpus Validator — multi-layer authenticity and integrity checks for all
  * ABC files declared in config/reference-corpus/file-manifest.json.
+ *
+ * Implements a 4-stage "fake Beethoven" defense:
+ *   Stage 1: Provenance metadata (C5, C6)   — composer, catalog, source, license
+ *   Stage 2: Source whitelist (C6b)          — only trusted source domains allowed
+ *   Stage 3: Content sanity (C9)             — ABC headers, note count, pitch range
+ *   Stage 4: Incipit fingerprint (C10)       — opening interval match vs. stored fingerprint
  *
  * Usage:
  *   node scripts/validate-reference-corpus.mjs \
@@ -20,20 +26,167 @@
  *   --verbose         Print per-file detail for every check.
  *
  * Check catalogue:
- *   C1  All ABC files on disk are registered in file-manifest.json
- *   C2  All manifest entries have an abc/ file that actually exists
- *   C3  sha256 integrity — computed hash matches manifest (skipped for null hashes)
- *   C4  composer role consistency — manifest composer.role matches corpus-manifest.json
- *   C5  completeness specified — every entry has a valid completeness level
- *   C6  provenance fields — sourceUrl and sourceLicense present (warn if missing)
- *   C7  metric scope guard — excerpt/incipit_only entries excluded from movement-level metrics
- *   C8  primary role guard — no "unknown" composer has role=primary
+ *   C1   All ABC files on disk are registered in file-manifest.json
+ *   C2   All manifest entries have an abc/ file that actually exists
+ *   C3   sha256 integrity — computed hash matches manifest (skipped for null hashes)
+ *   C4   composer role consistency — manifest composer.role matches corpus-manifest.json
+ *   C5   completeness specified — every entry has a valid completeness level
+ *   C6   provenance fields — sourceUrl and sourceLicense present (warn if missing)
+ *   C6b  source whitelist — sourceUrl domain must be in TRUSTED_SOURCE_DOMAINS
+ *   C7   metric scope guard — excerpt/incipit_only entries excluded from movement-level metrics
+ *   C8   primary role guard — no "unknown" composer has role=primary
+ *   C9   content sanity — ABC headers present, note count ≥ threshold, pitch range sane
+ *   C10  incipit fingerprint — opening interval match vs. stored fingerprint (when present)
  */
 
 import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import { existsSync, createReadStream } from "node:fs";
 import { join, resolve, dirname, extname, basename } from "node:path";
 import { createHash } from "node:crypto";
+
+// ── Trusted source whitelist (Stage 2 defense) ───────────────────────────────
+// sourceUrl domain must appear here for a file to pass the source whitelist check.
+// Files with null sourceUrl get a warning (not a failure) under C6/C6b.
+// In --strict mode, missing sourceUrl becomes an error (via C6).
+
+const TRUSTED_SOURCE_DOMAINS = new Set([
+    "imslp.org",
+    "www.imslp.org",
+    "mutopiaproject.org",
+    "www.mutopiaproject.org",
+    "abc.sourceforge.net",
+    "thesession.org",
+    "github.com",
+    "raw.githubusercontent.com",
+    "openscore.cc",
+    "www.openscore.cc",
+    "musescore.com",
+    "www.musescore.com",
+    "folkwiki.se",
+    "www.folkwiki.se",
+    "notesaccess.com",
+    "abcnotation.com",
+    "www.abcnotation.com",
+]);
+
+// ── ABC parsing helpers (Stage 3 + 4 defense) ────────────────────────────────
+
+const NOTE_SEMITONES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
+/**
+ * Minimal ABC sanity check — returns an object with counts and flag arrays.
+ * No external dependencies; uses regex over the raw text.
+ *
+ * @param {string} abcText
+ * @returns {{ hasKey: boolean, hasMeter: boolean, noteCount: number, pitchClasses: Set<number>, errors: string[], warnings: string[] }}
+ */
+function abcSanityCheck(abcText) {
+    const lines = abcText.split(/\r?\n/);
+    const errors = [];
+    const warnings = [];
+
+    const hasKey   = lines.some((l) => l.match(/^K:/i));
+    const hasMeter = lines.some((l) => l.match(/^M:/i));
+    if (!hasKey)   errors.push("Missing K: (key) header");
+    if (!hasMeter) warnings.push("Missing M: (meter) header");
+
+    // Count note tokens (A-G/a-g, excluding headers and rests)
+    const noteLines = lines.filter((l) => l.trim() && !l.match(/^[A-Za-z]:/));
+    const noteText  = noteLines.join(" ");
+    const noteTokens = noteText.match(/[\^_=]*[A-Ga-g][',]*/g) ?? [];
+    const noteCount = noteTokens.length;
+
+    if (noteCount < 20) {
+        warnings.push(`Very few notes (${noteCount}) — possible stub or incomplete file`);
+    }
+
+    // Collect unique pitch classes from the note tokens
+    const pitchClasses = new Set();
+    for (const tok of noteTokens) {
+        const letter = tok.replace(/[\^_=',]/g, "").toUpperCase();
+        const pc = NOTE_SEMITONES[letter];
+        if (pc !== undefined) pitchClasses.add(pc);
+    }
+    if (pitchClasses.size <= 1 && noteCount > 10) {
+        errors.push(`Only ${pitchClasses.size} distinct pitch class(es) — likely placeholder or corrupt file`);
+    }
+
+    return { hasKey, hasMeter, noteCount, pitchClasses, errors, warnings };
+}
+
+/**
+ * Extract opening MIDI-relative pitch values from ABC text.
+ * Returns the first maxNotes non-rest note pitches as integers.
+ * Uses the ABC convention: uppercase = C3 octave (MIDI 48), lowercase = C4 octave (MIDI 60).
+ *
+ * @param {string} abcText
+ * @param {number} maxNotes
+ * @returns {number[]}
+ */
+function extractOpeningMidiPitches(abcText, maxNotes = 10) {
+    const lines = abcText.split(/\r?\n/);
+    const noteLines = lines.filter((l) => l.trim() && !l.match(/^[A-Za-z]:/));
+    const noteText  = noteLines.join(" ");
+
+    // Match: optional accidentals + pitch letter + optional octave modifiers
+    // Note lengths (digits) are intentionally excluded from the match to avoid mis-parsing
+    const noteRe = /([\^_=]*)([A-Ga-g])([',]*)/g;
+    const pitches = [];
+    let match;
+    while ((match = noteRe.exec(noteText)) !== null && pitches.length < maxNotes) {
+        const accStr = match[1];
+        const letter = match[2];
+        const octMod = match[3];
+
+        const isLower = letter === letter.toLowerCase();
+        const base    = NOTE_SEMITONES[letter.toUpperCase()] ?? 0;
+        // Uppercase = C3 area (MIDI 48+base), lowercase = C4/middle C area (MIDI 60+base)
+        let midi = isLower ? (60 + base) : (48 + base);
+
+        for (const c of accStr) {
+            if (c === "^") midi++;
+            else if (c === "_") midi--;
+        }
+        for (const c of octMod) {
+            if (c === "'") midi += 12;
+            else if (c === ",") midi -= 12;
+        }
+        pitches.push(midi);
+    }
+    return pitches;
+}
+
+/**
+ * Compute chromatic intervals between consecutive pitches.
+ *
+ * @param {number[]} pitches
+ * @returns {number[]}
+ */
+function computeIntervals(pitches) {
+    const intervals = [];
+    for (let i = 1; i < pitches.length; i++) {
+        intervals.push(pitches[i] - pitches[i - 1]);
+    }
+    return intervals;
+}
+
+/**
+ * Compute the fraction of stored intervals that match the actual opening intervals.
+ * Comparison is done element-by-element up to the shorter length.
+ *
+ * @param {number[]} stored  Fingerprint intervals from manifest
+ * @param {number[]} actual  Intervals extracted from the ABC file
+ * @returns {number}  0.0–1.0
+ */
+function intervalSimilarity(stored, actual) {
+    const n = Math.min(stored.length, actual.length);
+    if (n === 0) return 0;
+    let matches = 0;
+    for (let i = 0; i < n; i++) {
+        if (stored[i] === actual[i]) matches++;
+    }
+    return matches / n;
+}
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 
@@ -380,8 +533,110 @@ console.log("\nRunning reference corpus validation...\n");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Summary
+// C6b — source whitelist: if sourceUrl is present, its domain must be trusted
 // ─────────────────────────────────────────────────────────────────────────────
+
+{
+    const errors = [];
+    const warnings = [];
+    for (const entry of allEntries) {
+        if (!entry.sourceUrl) continue; // C6 already handles missing sourceUrl
+        let domain;
+        try {
+            domain = new URL(entry.sourceUrl).hostname.toLowerCase().replace(/^www\./, "");
+        } catch {
+            errors.push(`${entry.id}: sourceUrl is not a valid URL: "${entry.sourceUrl}"`);
+            continue;
+        }
+        // Check raw hostname and www-stripped hostname
+        const fullDomain = new URL(entry.sourceUrl).hostname.toLowerCase();
+        if (!TRUSTED_SOURCE_DOMAINS.has(fullDomain) && !TRUSTED_SOURCE_DOMAINS.has(domain)) {
+            const msg = `${entry.id}: sourceUrl domain "${fullDomain}" is not in the trusted source whitelist`;
+            if (isStrict) errors.push(msg); else warnings.push(msg);
+        }
+    }
+    record("C6b-source-whitelist", { pass: errors.length === 0, errors, warnings });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C9 — content sanity check: ABC headers present, note count, pitch range
+// Stage 3 defense: reject obviously fake/placeholder/corrupt files
+// ─────────────────────────────────────────────────────────────────────────────
+
+{
+    const errors = [];
+    const warnings = [];
+    for (const entry of allEntries) {
+        if (!entry.abcPath) continue;
+        const fullPath = join(abcRoot, entry.abcPath.replace(/^abc\//, ""));
+        if (!existsSync(fullPath)) continue; // C2 already reported this
+
+        let abcText;
+        try {
+            abcText = await readFile(fullPath, "utf-8");
+        } catch (e) {
+            errors.push(`${entry.id}: could not read file: ${e.message}`);
+            continue;
+        }
+
+        const sanity = abcSanityCheck(abcText);
+
+        for (const e of sanity.errors)   errors.push(`${entry.id}: ${e}`);
+        for (const w of sanity.warnings) warnings.push(`${entry.id}: ${w}`);
+
+        if (isVerbose && (sanity.errors.length > 0 || sanity.warnings.length > 0)) {
+            console.log(`    [C9] ${entry.id}: notes=${sanity.noteCount}, pitchClasses=${sanity.pitchClasses.size}`);
+        }
+    }
+    record("C9-content-sanity", { pass: errors.length === 0, errors, warnings });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C10 — incipit fingerprint: opening interval match vs. stored fingerprint
+// Stage 4 defense: catch "wrong piece filed under famous name"
+// Only runs for entries that have incipitFingerprint in file-manifest.json.
+// A mismatch is always a WARNING (not error) — transcription variations exist.
+// ─────────────────────────────────────────────────────────────────────────────
+
+{
+    const warnings = [];
+    let checked = 0;
+    for (const entry of allEntries) {
+        const fp = entry.incipitFingerprint;
+        if (!fp?.openingIntervals?.length) continue;
+        if (!entry.abcPath) continue;
+
+        const fullPath = join(abcRoot, entry.abcPath.replace(/^abc\//, ""));
+        if (!existsSync(fullPath)) continue;
+
+        let abcText;
+        try {
+            abcText = await readFile(fullPath, "utf-8");
+        } catch {
+            continue;
+        }
+
+        const pitches   = extractOpeningMidiPitches(abcText, fp.openingIntervals.length + 1);
+        const actual    = computeIntervals(pitches);
+        const threshold = fp.minSimilarityThreshold ?? 0.5;
+        const similarity = intervalSimilarity(fp.openingIntervals, actual);
+        checked++;
+
+        if (isVerbose) {
+            console.log(`    [C10] ${entry.id}: stored=[${fp.openingIntervals}] actual=[${actual}] sim=${similarity.toFixed(2)}`);
+        }
+
+        if (similarity < threshold) {
+            warnings.push(
+                `${entry.id}: incipit mismatch (similarity=${similarity.toFixed(2)}, threshold=${threshold}). ` +
+                `Stored=[${fp.openingIntervals.join(",")}] Actual=[${actual.join(",")}]. ` +
+                `Verify the ABC file against a public-domain score.`
+            );
+        }
+    }
+    if (isVerbose) console.log(`    [C10] Checked ${checked} fingerprinted entries`);
+    record("C10-incipit-fingerprint", { pass: true, warnings });
+}
 
 console.log("");
 console.log("══════════════════════════════════════════════════════");

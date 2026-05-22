@@ -22,7 +22,8 @@
     "verifiedBy": "manual | script | both",
     "verificationNotes": "Notes on verification status or known issues",
     "sha256": "SHA-256 content hash of the ABC file for integrity checking",
-    "verified": "true only when sourceUrl, sourceLicense, sha256, and editorial check are complete"
+    "verified": "true only when sourceUrl, sourceLicense, sha256, and editorial check are complete",
+    "incipitFingerprint": "Optional: opening note fingerprint for authenticity guard. openingIntervals: chromatic semitone intervals between first N consecutive non-rest notes. openingPitchClasses: pitch class 0-11 for the first N non-rest notes. minSimilarityThreshold: fraction of intervals that must match (default 0.5). source: verification basis."
   },
   "files": [
     {
@@ -46,7 +47,28 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": {
+        "openingIntervals": [
+          -2,
+          -1,
+          -2,
+          5,
+          -1,
+          1
+        ],
+        "openingPitchClasses": [
+          7,
+          5,
+          4,
+          2,
+          7,
+          6,
+          7
+        ],
+        "minSimilarityThreshold": 0.5,
+        "source": "computed from ABC file"
+      }
     },
     {
       "id": "beethoven_op119_no2",
@@ -69,7 +91,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op119_no3",
@@ -92,7 +115,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op119_no9",
@@ -115,7 +139,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op119_no11",
@@ -138,7 +163,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op126_no1",
@@ -161,7 +187,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op126_no2",
@@ -184,7 +211,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op126_no4",
@@ -207,7 +235,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op033_no2",
@@ -230,7 +259,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo54",
@@ -253,7 +283,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo59",
@@ -276,7 +307,31 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": {
+        "openingIntervals": [
+          -1,
+          1,
+          -1,
+          1,
+          -5,
+          3,
+          -2,
+          -3
+        ],
+        "openingPitchClasses": [
+          4,
+          3,
+          4,
+          3,
+          4,
+          11,
+          2,
+          0
+        ],
+        "minSimilarityThreshold": 0.6,
+        "source": "computed from ABC file verified against public-domain score"
+      }
     },
     {
       "id": "beethoven_woo10_no2",
@@ -299,7 +354,30 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": {
+        "openingIntervals": [
+          5,
+          2,
+          2,
+          3,
+          -7,
+          4,
+          3
+        ],
+        "openingPitchClasses": [
+          2,
+          7,
+          9,
+          11,
+          2,
+          7,
+          11,
+          2
+        ],
+        "minSimilarityThreshold": 0.5,
+        "source": "computed from ABC file: D,G,A,B,d,G,B,d"
+      }
     },
     {
       "id": "beethoven_woo10_no3",
@@ -322,7 +400,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo8_no1",
@@ -345,7 +424,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo86",
@@ -368,7 +448,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo83_no1",
@@ -391,7 +472,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo14_no1",
@@ -414,7 +496,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo14_no7",
@@ -437,7 +520,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo82",
@@ -460,7 +544,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo84",
@@ -483,7 +568,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo85",
@@ -506,7 +592,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo81",
@@ -529,7 +616,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op125_ode_theme",
@@ -552,7 +640,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_sonatina_g_mvt1",
@@ -575,7 +664,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op051_no1",
@@ -598,7 +688,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op129_excerpt",
@@ -621,7 +712,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo57_excerpt",
@@ -644,7 +736,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op113_turkish_march",
@@ -667,7 +760,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op002_no1_mvt1_incipit",
@@ -690,7 +784,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op007_mvt2_excerpt",
@@ -713,7 +808,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op010_no1_mvt1_excerpt",
@@ -736,7 +832,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op013_grave_excerpt",
@@ -759,7 +856,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op013_allegro_excerpt",
@@ -782,7 +880,28 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": {
+        "openingIntervals": [
+          0,
+          8,
+          0,
+          -1,
+          0,
+          -2
+        ],
+        "openingPitchClasses": [
+          7,
+          7,
+          3,
+          3,
+          2,
+          2,
+          0
+        ],
+        "minSimilarityThreshold": 0.5,
+        "source": "computed from ABC file: G,,G,,Eb,Eb,D,D,C (Pathetique Allegro main theme)"
+      }
     },
     {
       "id": "beethoven_op014_no1_mvt1_excerpt",
@@ -805,7 +924,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op014_no2_mvt1_excerpt",
@@ -828,7 +948,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op022_mvt1_excerpt",
@@ -851,7 +972,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op026_mvt2_excerpt",
@@ -874,7 +996,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op027_no1_mvt2_excerpt",
@@ -897,7 +1020,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op028_mvt1_excerpt",
@@ -920,7 +1044,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op031_no2_mvt1_excerpt",
@@ -943,7 +1068,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op049_no1_mvt1_excerpt",
@@ -966,7 +1092,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op049_no2_mvt1_excerpt",
@@ -989,7 +1116,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op053_mvt1_excerpt",
@@ -1012,7 +1140,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op057_mvt1_excerpt",
@@ -1035,7 +1164,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op078_mvt1_excerpt",
@@ -1058,7 +1188,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op079_mvt1_excerpt",
@@ -1081,7 +1212,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op081a_mvt1_excerpt",
@@ -1104,7 +1236,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op090_mvt1_excerpt",
@@ -1127,7 +1260,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op101_mvt1_excerpt",
@@ -1150,7 +1284,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op109_mvt1_excerpt",
@@ -1173,7 +1308,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op110_mvt1_excerpt",
@@ -1196,7 +1332,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op111_mvt1_excerpt",
@@ -1219,7 +1356,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op027_no2_mvt1_incipit",
@@ -1242,7 +1380,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op018_no1_mvt1_excerpt",
@@ -1265,7 +1404,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op018_no4_mvt1_excerpt",
@@ -1288,7 +1428,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op059_no1_mvt2_excerpt",
@@ -1311,7 +1452,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo78_theme",
@@ -1334,7 +1476,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_woo80_theme",
@@ -1357,7 +1500,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op034_theme",
@@ -1380,7 +1524,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "beethoven_op035_bass_theme",
@@ -1403,7 +1548,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d899_no1_excerpt",
@@ -1426,7 +1572,28 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": {
+        "openingIntervals": [
+          5,
+          3,
+          -1,
+          -2,
+          -5,
+          5
+        ],
+        "openingPitchClasses": [
+          7,
+          0,
+          3,
+          2,
+          0,
+          7,
+          0
+        ],
+        "minSimilarityThreshold": 0.5,
+        "source": "computed from ABC file: G,,C,Eb,D,C,G,,C"
+      }
     },
     {
       "id": "schubert_d899_no2_excerpt",
@@ -1449,7 +1616,28 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": {
+        "openingIntervals": [
+          5,
+          -2,
+          -2,
+          -1,
+          -2,
+          -2
+        ],
+        "openingPitchClasses": [
+          11,
+          4,
+          2,
+          0,
+          11,
+          9,
+          7
+        ],
+        "minSimilarityThreshold": 0.5,
+        "source": "computed from ABC file: b,e',d',c',b,a,g"
+      }
     },
     {
       "id": "schubert_d899_no3_excerpt",
@@ -1472,7 +1660,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d899_no4_excerpt",
@@ -1495,7 +1684,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d935_no1_excerpt",
@@ -1518,7 +1708,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d935_no2_excerpt",
@@ -1541,7 +1732,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d935_no3_theme",
@@ -1564,7 +1756,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d935_no4_excerpt",
@@ -1587,7 +1780,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d780_no1",
@@ -1610,7 +1804,30 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": {
+        "openingIntervals": [
+          -3,
+          8,
+          -5,
+          -2,
+          -1,
+          3,
+          2
+        ],
+        "openingPitchClasses": [
+          7,
+          4,
+          0,
+          7,
+          5,
+          4,
+          7,
+          9
+        ],
+        "minSimilarityThreshold": 0.5,
+        "source": "computed from ABC file"
+      }
     },
     {
       "id": "schubert_d780_no2",
@@ -1633,7 +1850,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d780_no3",
@@ -1656,7 +1874,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d780_no4",
@@ -1679,7 +1898,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d780_no5",
@@ -1702,7 +1922,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d780_no6",
@@ -1725,7 +1946,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d365_no1",
@@ -1748,7 +1970,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d365_no2",
@@ -1771,7 +1994,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d365_no3",
@@ -1794,7 +2018,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d365_no6",
@@ -1817,7 +2042,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d365_no14",
@@ -1840,7 +2066,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d145_no1",
@@ -1863,7 +2090,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d969_no6",
@@ -1886,7 +2114,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d779_no13",
@@ -1909,7 +2138,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d814_no1",
@@ -1932,7 +2162,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d814_no3",
@@ -1955,7 +2186,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d814_no6",
@@ -1978,7 +2210,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d783_no1",
@@ -2001,7 +2234,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d783_no2",
@@ -2024,7 +2258,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d783_no10",
@@ -2047,7 +2282,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_ecossaise_d145_no1",
@@ -2070,7 +2306,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_ecossaise_d145_no2",
@@ -2093,7 +2330,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d976_no1",
@@ -2116,7 +2354,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d915_excerpt",
@@ -2139,7 +2378,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d593_no1_excerpt",
@@ -2162,7 +2402,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d957_no4_arr_excerpt",
@@ -2185,7 +2426,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d957_no4_excerpt",
@@ -2208,7 +2450,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d839_excerpt",
@@ -2231,7 +2474,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d550_excerpt",
@@ -2254,7 +2498,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d118_incipit",
@@ -2277,7 +2522,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d531_excerpt",
@@ -2300,7 +2546,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d328_excerpt",
@@ -2323,7 +2570,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d911_no1_excerpt",
@@ -2346,7 +2594,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d760_adagio_theme",
@@ -2369,7 +2618,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d797_ballet_excerpt",
@@ -2392,7 +2642,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d537_mvt1_excerpt",
@@ -2415,7 +2666,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d557_mvt1_excerpt",
@@ -2438,7 +2690,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d568_mvt1_excerpt",
@@ -2461,7 +2714,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d575_mvt1_excerpt",
@@ -2484,7 +2738,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d575_mvt2_excerpt",
@@ -2507,7 +2762,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d664_mvt1_excerpt",
@@ -2530,7 +2786,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d664_mvt2_excerpt",
@@ -2553,7 +2810,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d845_mvt1_excerpt",
@@ -2576,7 +2834,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d850_mvt1_excerpt",
@@ -2599,7 +2858,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d894_mvt1_excerpt",
@@ -2622,7 +2882,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d958_mvt1_excerpt",
@@ -2645,7 +2906,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d959_mvt1_excerpt",
@@ -2668,7 +2930,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d960_mvt1_excerpt",
@@ -2691,7 +2954,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d946_no1_excerpt",
@@ -2714,7 +2978,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d946_no2_excerpt",
@@ -2737,7 +3002,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "schubert_d946_no3_excerpt",
@@ -2760,7 +3026,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "bach_bourree_e_minor",
@@ -2783,7 +3050,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "bach_minuet_g",
@@ -2806,7 +3074,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "bach_invention_01",
@@ -2829,7 +3098,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "bach_prelude_c_wtc1",
@@ -2852,7 +3122,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "mozart_minuet_k1",
@@ -2875,7 +3146,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "mozart_eine_kleine_mvt1",
@@ -2898,7 +3170,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "mozart_rondo_alla_turca",
@@ -2921,7 +3194,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "mozart_sonata_k331_theme",
@@ -2944,7 +3218,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "chopin_waltz_op64_1",
@@ -2967,7 +3242,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "chopin_prelude_op28_4",
@@ -2990,7 +3266,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "chopin_nocturne_op9_2",
@@ -3013,7 +3290,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "brahms_waltz_op39_15",
@@ -3036,7 +3314,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "brahms_lullaby",
@@ -3059,7 +3338,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     },
     {
       "id": "brahms_intermezzo_op118_2",
@@ -3082,7 +3362,8 @@
       "verifiedBy": null,
       "verificationNotes": null,
       "sha256": null,
-      "verified": false
+      "verified": false,
+      "incipitFingerprint": null
     }
   ]
 }
