@@ -32,6 +32,16 @@
  *   8. lineageIdentityScore >= 0.50  (skipped when absent — legacy manifests)
  *   9. composerRoutingMode != "explicit_experimental"  (hard block; no threshold override)
  *
+ * ── DPO SUB-AXIS HARD NEGATIVE DETECTION (isHardNegative only, NOT chosen gate) ─
+ *  10. beethovenianMotivicPressureScore < 0.30  → beethoven_axis_missing / motivic_pressure_missing
+ *  11. schubertianLyricExpansionScore < 0.25    → schubert_axis_missing
+ *  12. mediantColorScore < 0.20                 → mediant_color_missing
+ *
+ *  Sub-axis checks identify lineage-axis-specific failures for richer DPO pair
+ *  mining: a candidate with high finalCraftScore but missing Beethoven axis is a
+ *  highly informative hard negative — it teaches the model to prefer AXIOM-aligned
+ *  output over generic well-crafted classical music.
+ *
  * ── DPO PAIR ELIGIBILITY ────────────────────────────────────────────────────────
  *
  *   CHOSEN  = passes all 9 gates AND selected=true
@@ -62,6 +72,9 @@
  *   --min-evidence=<n>       evidenceCoverageScore threshold (default: 0.55)
  *   --min-piano=<n>          pianoListenabilityScore threshold (default: 0.50)
  *   --min-lineage=<n>        lineageIdentityScore threshold (default: 0.50); gate skipped when score absent
+ *   --min-beethoven=<n>      beethovenianMotivicPressureScore hard-negative threshold (default: 0.30)
+ *   --min-schubert=<n>       schubertianLyricExpansionScore hard-negative threshold (default: 0.25)
+ *   --min-mediant=<n>        mediantColorScore hard-negative threshold (default: 0.20)
  *   --min-score-gap=<n>      min score gap below threshold to qualify as hard negative (default: 0.05)
  *   --include-mock            include mock backend outputs (default: excluded)
  *   --dry-run                 print stats without writing files
@@ -131,6 +144,13 @@ const THRESHOLDS = {
     evidenceCoverageScore:   parseThreshold("min-evidence", 0.55),
     pianoListenabilityScore: parseThreshold("min-piano",    0.50),
     lineageIdentityScore:    parseThreshold("min-lineage",  0.50),
+    // Sub-axis thresholds — used ONLY by isHardNegative(), NOT by computeCriticResult() chosen gate.
+    // Candidates below these sub-axis floors are informative hard negatives even when the
+    // composite lineageIdentityScore barely clears 0.50 (e.g. weak Beethoven axis masked by
+    // strong Schubert axis).
+    beethovenianMotivicPressureScore: parseThreshold("min-beethoven", 0.30),
+    schubertianLyricExpansionScore:   parseThreshold("min-schubert",  0.25),
+    mediantColorScore:                parseThreshold("min-mediant",   0.20),
 };
 
 const MIN_SCORE_GAP = parseThreshold("min-score-gap", 0.05);
@@ -242,7 +262,9 @@ function computeCriticResult(cm, { includeMock }) {
  *   - Any score gate failed by more than MIN_SCORE_GAP below threshold, OR
  *   - harmonyContractViolations > 0, OR
  *   - evidenceCoverageGateTier = "partial" or "none", OR
- *   - motifReturnScore <= 0.30
+ *   - motifReturnScore <= 0.30, OR
+ *   - Any sub-axis score is below its hard-negative floor (gates 10–12):
+ *     beethovenianMotivicPressureScore, schubertianLyricExpansionScore, mediantColorScore
  */
 function isHardNegative(s) {
     if (s.harmonyContractViolations !== undefined && s.harmonyContractViolations > 0) return true;
@@ -257,6 +279,13 @@ function isHardNegative(s) {
     if (s.lineageIdentityScore !== undefined
         && s.lineageIdentityScore < THRESHOLDS.lineageIdentityScore - MIN_SCORE_GAP) return true;
     if (s.composerRoutingMode === "explicit_experimental") return true;
+    // Sub-axis hard negative gates (10–12): axis essentially absent even if composite lineage passes
+    if (s.beethovenianMotivicPressureScore !== undefined
+        && s.beethovenianMotivicPressureScore < THRESHOLDS.beethovenianMotivicPressureScore - MIN_SCORE_GAP) return true;
+    if (s.schubertianLyricExpansionScore !== undefined
+        && s.schubertianLyricExpansionScore < THRESHOLDS.schubertianLyricExpansionScore - MIN_SCORE_GAP) return true;
+    if (s.mediantColorScore !== undefined
+        && s.mediantColorScore < THRESHOLDS.mediantColorScore - MIN_SCORE_GAP) return true;
     return false;
 }
 
@@ -476,6 +505,16 @@ function computeScoreGap(pos, neg) {
         neg.scores.lineageIdentityScore === null
             ? 0
             : THRESHOLDS.lineageIdentityScore - scoreOrZero(neg.scores.lineageIdentityScore),
+        // Sub-axis threshold deficits
+        neg.scores.beethovenianMotivicPressureScore === null
+            ? 0
+            : THRESHOLDS.beethovenianMotivicPressureScore - scoreOrZero(neg.scores.beethovenianMotivicPressureScore),
+        neg.scores.schubertianLyricExpansionScore === null
+            ? 0
+            : THRESHOLDS.schubertianLyricExpansionScore - scoreOrZero(neg.scores.schubertianLyricExpansionScore),
+        neg.scores.mediantColorScore === null
+            ? 0
+            : THRESHOLDS.mediantColorScore - scoreOrZero(neg.scores.mediantColorScore),
     ];
     const chosenRejectedGaps = [
         scoreOrZero(pos.scores.finalCraftScore) - scoreOrZero(neg.scores.finalCraftScore),
@@ -484,6 +523,9 @@ function computeScoreGap(pos, neg) {
         scoreOrZero(pos.scores.evidenceCoverageScore) - scoreOrZero(neg.scores.evidenceCoverageScore),
         scoreOrZero(pos.scores.pianoListenabilityScore) - scoreOrZero(neg.scores.pianoListenabilityScore),
         scoreOrZero(pos.scores.lineageIdentityScore) - scoreOrZero(neg.scores.lineageIdentityScore),
+        scoreOrZero(pos.scores.beethovenianMotivicPressureScore) - scoreOrZero(neg.scores.beethovenianMotivicPressureScore),
+        scoreOrZero(pos.scores.schubertianLyricExpansionScore) - scoreOrZero(neg.scores.schubertianLyricExpansionScore),
+        scoreOrZero(pos.scores.mediantColorScore) - scoreOrZero(neg.scores.mediantColorScore),
     ];
     const gap = Math.max(0, ...thresholdDeficits, ...chosenRejectedGaps);
     return Math.round(Math.max(gap, MIN_SCORE_GAP) * 1000) / 1000;
@@ -493,6 +535,20 @@ function classifyRejectionReason(rec) {
     const s = rec.scores;
     if (rec.failedGates.some((g) => g === "explicit_experimental_composer")) {
         return "explicit_experimental_composer";
+    }
+    // Sub-axis lineage failures (more granular than composite lineage_identity_failure)
+    // Check these BEFORE composite lineage so callers get the most specific reason
+    if (s.beethovenianMotivicPressureScore !== null
+        && s.beethovenianMotivicPressureScore < THRESHOLDS.beethovenianMotivicPressureScore - MIN_SCORE_GAP) {
+        return "beethoven_axis_missing";  // motivic_pressure_missing is the same axis
+    }
+    if (s.schubertianLyricExpansionScore !== null
+        && s.schubertianLyricExpansionScore < THRESHOLDS.schubertianLyricExpansionScore - MIN_SCORE_GAP) {
+        return "schubert_axis_missing";
+    }
+    if (s.mediantColorScore !== null
+        && s.mediantColorScore < THRESHOLDS.mediantColorScore - MIN_SCORE_GAP) {
+        return "mediant_color_missing";
     }
     if (rec.failedGates.some((g) => g.includes("lineageIdentity"))
         || (s.lineageIdentityScore !== null
@@ -529,6 +585,19 @@ function summarizeRejection(rec) {
     }
     if (s.lineageIdentityScore !== null && s.lineageIdentityScore < THRESHOLDS.lineageIdentityScore) {
         reasons.push(`lineage_identity_low=${s.lineageIdentityScore?.toFixed(3)}`);
+    }
+    // Sub-axis low scores — always emit when present and below floor (even if composite passes)
+    if (s.beethovenianMotivicPressureScore !== null
+        && s.beethovenianMotivicPressureScore < THRESHOLDS.beethovenianMotivicPressureScore) {
+        reasons.push(`beethoven_axis_missing; motivic_pressure_low=${s.beethovenianMotivicPressureScore?.toFixed(3)}`);
+    }
+    if (s.schubertianLyricExpansionScore !== null
+        && s.schubertianLyricExpansionScore < THRESHOLDS.schubertianLyricExpansionScore) {
+        reasons.push(`schubert_axis_missing; schubert_lyric_low=${s.schubertianLyricExpansionScore?.toFixed(3)}`);
+    }
+    if (s.mediantColorScore !== null
+        && s.mediantColorScore < THRESHOLDS.mediantColorScore) {
+        reasons.push(`mediant_color_missing; mediant_color_low=${s.mediantColorScore?.toFixed(3)}`);
     }
     if (s.harmonyContractViolations && s.harmonyContractViolations > 0) {
         reasons.push(`harmony_violations=${s.harmonyContractViolations}`);
@@ -567,6 +636,7 @@ function main() {
         chosen: 0,
         lineageGateBlocked: 0,
         experimentalGateBlocked: 0,
+        lineageSubAxisBlocked: 0,
         skippedNoInstruction: 0,
         skippedNoAbc: 0,
     };
@@ -594,6 +664,16 @@ function main() {
                 if (rec.isHardNegative) counts.hardNegatives++;
                 if (rec.failedGates.some((g) => g.includes("lineageIdentity"))) counts.lineageGateBlocked++;
                 if (rec.failedGates.some((g) => g === "explicit_experimental_composer")) counts.experimentalGateBlocked++;
+                // Sub-axis hard negative tracking (isHardNegative checks, not chosen-gate fails)
+                const sc = rec.scores;
+                if ((sc.beethovenianMotivicPressureScore !== null
+                        && sc.beethovenianMotivicPressureScore < THRESHOLDS.beethovenianMotivicPressureScore - MIN_SCORE_GAP)
+                    || (sc.schubertianLyricExpansionScore !== null
+                        && sc.schubertianLyricExpansionScore < THRESHOLDS.schubertianLyricExpansionScore - MIN_SCORE_GAP)
+                    || (sc.mediantColorScore !== null
+                        && sc.mediantColorScore < THRESHOLDS.mediantColorScore - MIN_SCORE_GAP)) {
+                    counts.lineageSubAxisBlocked++;
+                }
             }
 
             if (!rec.instruction) { counts.skippedNoInstruction++; continue; }
@@ -615,6 +695,7 @@ function main() {
     console.log(`  AXIOM critic fail:      ${counts.criticFail}  (hard negatives: ${counts.hardNegatives})`);
     console.log(`  Lineage gate blocked:   ${counts.lineageGateBlocked}`);
     console.log(`  Experimental blocked:   ${counts.experimentalGateBlocked}`);
+    console.log(`  Sub-axis blocked:       ${counts.lineageSubAxisBlocked}  (beethoven/schubert/mediant axis)`);
     console.log(`  DPO pairs generated:    ${dpoPairs.length}  (hard-neg pairs: ${pairsWithHardNeg})`);
     console.log(`  Skipped no-instruction: ${counts.skippedNoInstruction}`);
     console.log(`  Skipped no-ABC:         ${counts.skippedNoAbc}`);
