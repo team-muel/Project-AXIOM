@@ -30,7 +30,9 @@
  *   <out-dir>/by-composer/<name>.json — per-composer profiles
  *   <out-dir>/summary.json          — high-level operator summary
  *
- * Composer is inferred from the filename prefix: bach_minuet_g.abc → "bach"
+ * Composer is resolved from file-manifest.json (canonical provenance source).
+ * Falls back to subdirectory name, then filename prefix for legacy compatibility.
+ * Run validate:reference-corpus first to ensure manifest integrity.
  */
 
 import { readdir, readFile, writeFile, mkdir } from "node:fs/promises";
@@ -56,6 +58,44 @@ async function loadCorpusFileIndex(root) {
         console.warn(`WARN: could not read corpus-file-index.json: ${e.message}`);
         return null;
     }
+}
+
+/**
+ * Loads and returns the file-manifest.json from rootArg, or null if absent.
+ * file-manifest.json is the canonical per-file provenance source.
+ * Falls back gracefully so existing workflows are not broken.
+ *
+ * @param {string|null} root
+ * @returns {Promise<object|null>}
+ */
+async function loadFileManifest(root) {
+    if (!root) return null;
+    const p = join(root, "file-manifest.json");
+    if (!existsSync(p)) return null;
+    try {
+        return JSON.parse(await readFile(p, "utf-8"));
+    } catch (e) {
+        console.warn(`WARN: could not read file-manifest.json: ${e.message}`);
+        return null;
+    }
+}
+
+/**
+ * Builds a Map from filename (basename) → file-manifest entry.
+ * Enables O(1) lookup by filename during analysis.
+ *
+ * @param {object|null} fileManifest  Result of loadFileManifest()
+ * @returns {Map<string, object>}     filename → entry (empty map if manifest absent)
+ */
+function buildFileManifestMap(fileManifest) {
+    const map = new Map();
+    if (!fileManifest?.files) return map;
+    for (const entry of fileManifest.files) {
+        if (entry.abcPath) {
+            map.set(basename(entry.abcPath), entry);
+        }
+    }
+    return map;
 }
 
 /**
@@ -275,6 +315,17 @@ if (manifest) {
     console.log("No corpus-manifest.json found — tiered output will be omitted. Consider adding one to separate primary/technical composers.");
 }
 
+// ─── Load file manifest (provenance; composer resolution) ─────────────────────
+
+const fileManifest = await loadFileManifest(rootArg);
+const fileManifestMap = buildFileManifestMap(fileManifest);
+
+if (fileManifest) {
+    console.log(`File manifest loaded — ${fileManifest.files?.length ?? 0} registered entries (composer resolved from manifest, not filename prefix)`);
+} else if (rootArg) {
+    console.log("No file-manifest.json found — composer will be inferred from filename prefix (fallback mode).");
+}
+
 // ─── Load corpus file index (completeness filter) ──────────────────────────────
 
 const corpusFileIndex = await loadCorpusFileIndex(rootArg);
@@ -340,13 +391,40 @@ const corpusProfile = computeCorpusProfile(allProfiles);
 // ─── Build tiered profiles from manifest and/or subdirectory structure ──────────
 
 /**
- * Resolve lineage group for a perFile entry.
- * Priority: subdirectory name ("beethoven", "schubert", "theory_general")
- * Fallback: composer key from filename prefix.
+ * Resolve lineage group key for a perFile entry.
+ *
+ * Priority order:
+ *   1. file-manifest.json composer field (canonical provenance source)
+ *      - For theory subdirectories (theory_*), returns the subdir key so that
+ *        technical groups continue to be partitioned by subdirectory.
+ *   2. Subdirectory name ("beethoven", "schubert", "theory_counterpoint", …)
+ *      — reliable when corpus is organized with per-composer/per-role subdirs.
+ *   3. Filename prefix fallback ("beethoven_bagatelle.abc" → "beethoven")
+ *      — kept for legacy compatibility, emits a warning on first use.
+ *
+ * @param {{ file: string, subdir: string }} entry
+ * @returns {string}
  */
+let _fallbackWarnEmitted = false;
 function resolveLineageKey(entry) {
+    // For theory subdirectories, preserve the subdir key (theory_counterpoint etc.)
+    // so that manifest-based grouping and subdir-based grouping stay consistent.
+    if (entry.subdir && entry.subdir !== "." && entry.subdir.startsWith("theory_")) {
+        return entry.subdir.toLowerCase();
+    }
+    // Lookup in file-manifest.json (canonical source)
+    const manifestEntry = fileManifestMap.get(entry.file);
+    if (manifestEntry?.composer) {
+        return manifestEntry.composer.toLowerCase();
+    }
+    // Subdirectory fallback (reliable when corpus is organized in subdirs)
     if (entry.subdir && entry.subdir !== ".") {
         return entry.subdir.toLowerCase();
+    }
+    // Last resort: filename prefix inference
+    if (!_fallbackWarnEmitted) {
+        console.warn(`WARN: file-manifest.json absent or missing entry — composer inferred from filename prefix (fallback). Add file-manifest.json for reliable composer resolution.`);
+        _fallbackWarnEmitted = true;
     }
     return composerKeyFromFile(entry.file);
 }
