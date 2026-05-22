@@ -118,3 +118,76 @@ test("CCR-08: manifest composerRoles contains expected entries", () => {
         );
     }
 });
+
+// ─── CCR-09: manifest technical entries have subdirectory fields ──────────────
+
+test("CCR-09: manifest technical groups declare subdirectory field", () => {
+    const technicalRoles = manifest.technical ?? {};
+    const expected = {
+        counterpoint:           "theory_counterpoint",
+        classical_proportion:   "theory_phrase_proportion",
+        piano_idiom:            "theory_piano_idiom",
+        motivic_density_reference: "theory_motivic_density",
+    };
+    for (const [role, expectedSubdir] of Object.entries(expected)) {
+        const group = technicalRoles[role];
+        assert.ok(group, `manifest.technical must include "${role}"`);
+        assert.equal(
+            group.subdirectory, expectedSubdir,
+            `manifest.technical.${role}.subdirectory must be "${expectedSubdir}" — needed for separate profile file output`
+        );
+    }
+});
+
+// ─── CCR-10: ABC files exist in correct subdirectories ────────────────────────
+
+test("CCR-10: theory ABC files are in composer-specific subdirectories (not theory_general)", async () => {
+    const { readdir } = await import("node:fs/promises");
+    const { existsSync } = await import("node:fs");
+    const abcRoot = join(repoRoot, "config", "reference-corpus", "abc");
+
+    // theory_general must not exist (it was replaced by specific subdirs)
+    assert.ok(
+        !existsSync(join(abcRoot, "theory_general")),
+        "theory_general/ must not exist — Bach/Mozart/Chopin/Brahms files should be in specific subdirectories"
+    );
+
+    // Each theory subdir must have at least one .abc file
+    const theorySubdirs = {
+        theory_counterpoint:      ["bach"],
+        theory_phrase_proportion: ["mozart"],
+        theory_piano_idiom:       ["chopin"],
+        theory_motivic_density:   ["brahms"],
+    };
+    for (const [subdir, expectedComposers] of Object.entries(theorySubdirs)) {
+        const subdirPath = join(abcRoot, subdir);
+        assert.ok(existsSync(subdirPath), `${subdir}/ must exist`);
+        const files = await readdir(subdirPath);
+        const abcFiles = files.filter((f) => f.endsWith(".abc"));
+        assert.ok(abcFiles.length > 0, `${subdir}/ must contain at least one .abc file`);
+        for (const composerPrefix of expectedComposers) {
+            const hasComposer = abcFiles.some((f) => f.startsWith(composerPrefix + "_"));
+            assert.ok(hasComposer, `${subdir}/ must contain at least one ${composerPrefix}_*.abc file`);
+        }
+    }
+});
+
+// ─── CCR-11: lineage subdirectories contain only primary composers ─────────────
+
+test("CCR-11: beethoven/ and schubert/ contain only their own ABC files", async () => {
+    const { readdir } = await import("node:fs/promises");
+    const abcRoot = join(repoRoot, "config", "reference-corpus", "abc");
+
+    const lineageDirs = { beethoven: "beethoven", schubert: "schubert" };
+    for (const [subdir, composerPrefix] of Object.entries(lineageDirs)) {
+        const files = await readdir(join(abcRoot, subdir));
+        const abcFiles = files.filter((f) => f.endsWith(".abc"));
+        assert.ok(abcFiles.length > 0, `${subdir}/ must contain at least one .abc file`);
+        for (const f of abcFiles) {
+            assert.ok(
+                f.startsWith(composerPrefix + "_"),
+                `${subdir}/${f}: file must be named ${composerPrefix}_*.abc — no cross-composer contamination`
+            );
+        }
+    }
+});

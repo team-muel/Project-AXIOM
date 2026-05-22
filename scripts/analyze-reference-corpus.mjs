@@ -281,16 +281,31 @@ let lineageCombinedGroup = null;
 /** @type {{ n: number, corpus: object }|null} */
 let lineageGeneralTheoryGroup = null;
 
+/** @type {Record<string, { label: string, slug: string, group: object }>} */
+const technicalLineageGroups = {};
+
 // Manifest-tiered groups (for backward-compat primary/technical output in profile.json)
 /** @type {{ composers: string[], description: string, n: number, corpus: object }|null} */
 let primaryGroup = null;
 /** @type {Record<string, { composers: string[], description: string, n: number, corpus: object }>} */
 let technicalGroups = {};
 
+// Known theory subdirectory slugs and their output file names
+const THEORY_SUBDIR_SLUGS = {
+    theory_counterpoint:      { slug: "counterpoint",      label: "general-theory-counterpoint" },
+    theory_phrase_proportion: { slug: "phrase_proportion",  label: "general-theory-phrase-proportion" },
+    theory_piano_idiom:       { slug: "piano_idiom",        label: "general-theory-piano-idiom" },
+    theory_motivic_density:   { slug: "motivic_density",    label: "general-theory-motivic-density" },
+    // Legacy: theory_general groups everything into one file for backward compat
+    theory_general:           { slug: "general",            label: "general-theory" },
+};
+
 // Build subdirectory-based lineage groups
 const beethovenEntries = perFile.filter((e) => resolveLineageKey(e) === "beethoven");
 const schubertEntries  = perFile.filter((e) => resolveLineageKey(e) === "schubert");
-const theoryEntries    = perFile.filter((e) => resolveLineageKey(e) === "theory_general");
+
+// All theory entries (any theory_* subdirectory, or legacy theory_general)
+const theoryEntries = perFile.filter((e) => resolveLineageKey(e).startsWith("theory_"));
 
 if (beethovenEntries.length > 0) {
     const g = buildProfileGroup(["beethoven"], "Beethoven — AXIOM structural DNA", beethovenEntries);
@@ -308,9 +323,20 @@ if (primaryLineageEntries.length > 0) {
     lineageCombinedGroup = g;
 }
 if (theoryEntries.length > 0) {
-    const g = buildProfileGroup(["bach", "mozart", "chopin", "brahms"], "General theory corpus (Bach/Mozart/Chopin/Brahms) — auxiliary", theoryEntries);
+    const allTheoryComposers = [...new Set(theoryEntries.map((e) => composerKeyFromFile(e.file)))].sort();
+    const g = buildProfileGroup(allTheoryComposers, "General theory corpus (Bach/Mozart/Chopin/Brahms) — auxiliary", theoryEntries);
     lineageGeneralTheoryGroup = g;
-    console.log(`General theory profile: ${g.n} works`);
+    console.log(`General theory profile: ${g.n} works (${allTheoryComposers.join(", ")})`);
+}
+
+// Build per-subdirectory theory groups for separate profile files
+for (const [subdir, { slug, label }] of Object.entries(THEORY_SUBDIR_SLUGS)) {
+    const subdirEntries = perFile.filter((e) => resolveLineageKey(e) === subdir);
+    if (subdirEntries.length === 0) continue;
+    const composers = [...new Set(subdirEntries.map((e) => composerKeyFromFile(e.file)))].sort();
+    const g = buildProfileGroup(composers, `Technical reference: ${slug.replace(/_/g, " ")}`, subdirEntries);
+    technicalLineageGroups[subdir] = { label, slug, group: g };
+    if (isVerbose) console.log(`  ${label}: ${g.n} works (${composers.join(", ")})`);
 }
 
 if (manifest) {
@@ -337,13 +363,17 @@ if (manifest) {
     }
 
     // Technical groups: Bach, Mozart, Chopin, Brahms (skill references, not identity)
+    // Uses subdirectory field when present, falls back to composer-name matching.
     if (manifest.technical) {
         for (const [role, roleDef] of Object.entries(manifest.technical)) {
             if (!roleDef.composers?.length) continue;
             const roleSet = new Set(roleDef.composers);
-            const roleEntries = perFile.filter((e) =>
-                roleSet.has(composerKeyFromFile(e.file)) || roleSet.has(resolveLineageKey(e))
-            );
+            // Prefer subdirectory match when manifest declares one
+            const roleEntries = roleDef.subdirectory
+                ? perFile.filter((e) => resolveLineageKey(e) === roleDef.subdirectory)
+                : perFile.filter((e) =>
+                    roleSet.has(composerKeyFromFile(e.file)) || roleSet.has(resolveLineageKey(e))
+                );
             if (roleEntries.length > 0) {
                 const group = buildProfileGroup(roleDef.composers, roleDef.description ?? role, roleEntries);
                 if (roleDef.note) group.note = roleDef.note;
@@ -451,6 +481,13 @@ if (multiFileOutput) {
         console.log(`General theory profile written to: ${p}`);
     }
 
+    // Per-subdirectory theory profiles (counterpoint, phrase_proportion, piano_idiom, motivic_density)
+    for (const [, { label, group }] of Object.entries(technicalLineageGroups)) {
+        const p = join(outDir, `profile-${label}.json`);
+        await writeFile(p, JSON.stringify(buildSplitOutput(label, group), null, 2), "utf-8");
+        console.log(`Technical profile written to: ${p}`);
+    }
+
     // Group per-file entries by composer prefix (e.g., "bach_minuet.abc" → "bach")
     const byComposerMap = new Map();
     for (const entry of perFile) {
@@ -523,12 +560,18 @@ if (multiFileOutput) {
             schubert:     lineageSchubertGroup   ? { n: lineageSchubertGroup.n   } : null,
             lineage:      lineageCombinedGroup   ? { n: lineageCombinedGroup.n   } : null,
             generalTheory: lineageGeneralTheoryGroup ? { n: lineageGeneralTheoryGroup.n } : null,
+            ...Object.fromEntries(
+                Object.entries(technicalLineageGroups).map(([subdir, { slug, group }]) => [slug, { n: group.n }])
+            ),
         },
         splitProfiles: {
             beethoven:    lineageBeethovenGroup  ? "profile-beethoven.json"                  : null,
             schubert:     lineageSchubertGroup   ? "profile-schubert.json"                   : null,
             lineage:      lineageCombinedGroup   ? "profile-beethoven-schubert-lineage.json" : null,
             generalTheory: lineageGeneralTheoryGroup ? "profile-general-theory.json"         : null,
+            ...Object.fromEntries(
+                Object.entries(technicalLineageGroups).map(([, { label, slug }]) => [slug, `profile-${label}.json`])
+            ),
         },
         corpusMeanPitchMidi:              round2(corpusProfile.mean.meanPitchMidi),
         corpusMeanPhraseLengthMeasures:   round2(corpusProfile.mean.meanPhraseLengthMeasures),

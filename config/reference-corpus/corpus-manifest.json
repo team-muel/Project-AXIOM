@@ -13,26 +13,31 @@
   "technical": {
     "counterpoint": {
       "composers": ["bach"],
+      "subdirectory": "theory_counterpoint",
       "description": "Voice-leading discipline and contrapuntal technique. Used as a technical benchmark for voice independence scoring, NOT for stylistic identity.",
       "note": "Bach is a technical textbook, not part of AXIOM's primary aesthetic lineage."
     },
     "classical_proportion": {
       "composers": ["mozart", "haydn"],
+      "subdirectory": "theory_phrase_proportion",
       "description": "Classical phrase clarity, balanced periods, and formal proportion. Reference for phrase-length regularity metrics.",
       "note": "Mozart/Haydn teach proportion as craft knowledge. They are not AXIOM's identity."
     },
     "piano_idiom": {
       "composers": ["chopin"],
+      "subdirectory": "theory_piano_idiom",
       "description": "Piano keyboard texture, figurations, and cantabile writing. Auxiliary reference for piano lane idiom benchmarks.",
       "note": "Chopin piano textures are a knowledge source for the piano lane, not AXIOM's compositional identity."
     },
     "motivic_density_reference": {
       "composers": ["brahms"],
+      "subdirectory": "theory_motivic_density",
       "description": "Dense motivic development and chromatic voice leading. Comparison reference for motivic complexity upper bound.",
       "note": "Brahms is a future comparison reference. Do not blend into primary identity — AXIOM should lean Beethoven/Schubert, not Brahms."
     },
     "future_concerto_texture": {
       "composers": ["rachmaninoff"],
+      "subdirectory": null,
       "description": "Long-span orchestral/concerto texture reference. Future reference only — not part of the current identity or active corpus.",
       "note": "Rachmaninoff is a long-term future reference for concerto texture. Not yet active."
     }
