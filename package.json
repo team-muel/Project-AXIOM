@@ -53,7 +53,6 @@
         "calibrate:lineage-weights": "node scripts/calibrate-lineage-evaluator-weights.mjs --validation=outputs/_system/reference-corpus/aesthetic-validation.json --out=outputs/_system/reference-corpus/weight-calibration.json",
         "calibrate:lineage-weights:verbose": "node scripts/calibrate-lineage-evaluator-weights.mjs --validation=outputs/_system/reference-corpus/aesthetic-validation.json --out=outputs/_system/reference-corpus/weight-calibration.json --verbose",
         "calibrate:lineage-weights:dry-run": "node scripts/calibrate-lineage-evaluator-weights.mjs --validation=outputs/_system/reference-corpus/aesthetic-validation.json --dry-run --verbose",
-        "pretest": "npm run build",
         "ml:review-pack:learned-backbone": "node scripts/create-learned-backbone-review-pack.mjs",
         "ml:review-pack:record:learned-backbone": "node scripts/record-learned-backbone-review-pack.mjs"
     },

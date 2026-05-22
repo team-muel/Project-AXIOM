@@ -29,7 +29,9 @@
  *   5. harmonyContractScore >= 0.70  (skipped when no harmony plan)
  *   6. evidenceCoverageScore >= 0.55
  *   7. pianoListenabilityScore >= 0.50  (piano candidates only)
- *   8. lineageIdentityScore >= 0.50  (skipped when absent — legacy manifests)
+ *   8. lineageIdentityScore >= 0.50  *** DPO: absent score FAILS gate (blocks chosen) ***
+ *                                        Use --allow-lineage-absent for legacy manifest migration.
+ *                                        SFT skips when absent; DPO fails when absent — intentional.
  *   9. composerRoutingMode != "explicit_experimental"  (hard block; no threshold override)
  *
  * ── DPO SUB-AXIS HARD NEGATIVE DETECTION (isHardNegative only, NOT chosen gate) ─
@@ -71,7 +73,8 @@
  *   --min-harmony=<n>        harmonyContractScore threshold (default: 0.70)
  *   --min-evidence=<n>       evidenceCoverageScore threshold (default: 0.55)
  *   --min-piano=<n>          pianoListenabilityScore threshold (default: 0.50)
- *   --min-lineage=<n>        lineageIdentityScore threshold (default: 0.50); gate skipped when score absent
+ *   --min-lineage=<n>        lineageIdentityScore threshold (default: 0.50); absent score fails gate by default
+ *   --allow-lineage-absent   legacy: skip lineage gate when score absent (default: absent = fail)
  *   --min-beethoven=<n>      beethovenianMotivicPressureScore hard-negative threshold (default: 0.30)
  *   --min-schubert=<n>       schubertianLyricExpansionScore hard-negative threshold (default: 0.25)
  *   --min-mediant=<n>        mediantColorScore hard-negative threshold (default: 0.20)
@@ -134,8 +137,11 @@ function parseThreshold(flag, def) {
 
 const OUTPUT_ROOT  = toTrimmed(readOption("root") || process.env.OUTPUT_DIR || "outputs") || "outputs";
 const SNAPSHOT_ID  = toTrimmed(readOption("snapshot") || daySnapshotId()) || daySnapshotId();
-const INCLUDE_MOCK = hasFlag("include-mock");
-const DRY_RUN      = hasFlag("dry-run");
+const INCLUDE_MOCK           = hasFlag("include-mock");
+const DRY_RUN                = hasFlag("dry-run");
+// DPO-specific: absent lineageIdentityScore blocks chosen by default (stricter than SFT).
+// Pass --allow-lineage-absent to restore the old skip behavior when migrating legacy manifests.
+const ALLOW_LINEAGE_ABSENT   = hasFlag("allow-lineage-absent");
 
 const THRESHOLDS = {
     finalCraftScore:         parseThreshold("min-craft",    0.70),
@@ -240,10 +246,18 @@ function computeCriticResult(cm, { includeMock }) {
         }
     }
 
-    // Lineage identity gate — skip when score absent (legacy manifest)
-    if (s.lineageIdentityScore !== undefined
-        && s.lineageIdentityScore < THRESHOLDS.lineageIdentityScore) {
-        failedGates.push(`below_lineageIdentity(${s.lineageIdentityScore?.toFixed(3)}<${THRESHOLDS.lineageIdentityScore})`);
+    // Lineage identity gate — DPO is STRICTER than SFT.
+    // By default, absent lineageIdentityScore blocks chosen eligibility:
+    //   - A manifest with no lineage score cannot be verified as identity-safe for DPO.
+    //   - Use --allow-lineage-absent to restore legacy skip behavior (migration only).
+    // SFT skips this gate when score is absent; DPO fails it.
+    if (s.lineageIdentityScore === undefined) {
+        if (!ALLOW_LINEAGE_ABSENT) {
+            failedGates.push("lineage_score_absent_unverifiable");
+        }
+        // else: legacy skip — composerRoutingMode gate below still runs
+    } else if (s.lineageIdentityScore < THRESHOLDS.lineageIdentityScore) {
+        failedGates.push(`below_lineageIdentity(${s.lineageIdentityScore.toFixed(3)}<${THRESHOLDS.lineageIdentityScore})`);
     }
 
     // Composer routing mode gate — explicit_experimental must not enter DPO positive
@@ -407,6 +421,7 @@ function buildCandidateRecord(songId, candidateId, cm, isSelected) {
             composerRoutingMode:               scores.composerRoutingMode || null,
             scoringProfileId:                  scores.scoringProfileId ?? null,
         },
+        controlCompliance: buildControlComplianceBlock(pr, scores),
         // Human calibration metadata (preserved for downstream calibration; not used for labeling)
         humanCalibration: humanRating !== undefined ? {
             rating: humanRating,
@@ -550,7 +565,8 @@ function classifyRejectionReason(rec) {
         && s.mediantColorScore < THRESHOLDS.mediantColorScore - MIN_SCORE_GAP) {
         return "mediant_color_missing";
     }
-    if (rec.failedGates.some((g) => g.includes("lineageIdentity"))
+    // Composite lineage failure (score low) or absent-unverifiable (DPO strict mode)
+    if (rec.failedGates.some((g) => g.includes("lineageIdentity") || g === "lineage_score_absent_unverifiable")
         || (s.lineageIdentityScore !== null
             && s.lineageIdentityScore < THRESHOLDS.lineageIdentityScore - MIN_SCORE_GAP)) {
         return "lineage_identity_failure";
@@ -585,6 +601,9 @@ function summarizeRejection(rec) {
     }
     if (s.lineageIdentityScore !== null && s.lineageIdentityScore < THRESHOLDS.lineageIdentityScore) {
         reasons.push(`lineage_identity_low=${s.lineageIdentityScore?.toFixed(3)}`);
+    } else if (s.lineageIdentityScore === null
+        && rec.failedGates.some((g) => g === "lineage_score_absent_unverifiable")) {
+        reasons.push("lineage_score_absent");
     }
     // Sub-axis low scores — always emit when present and below floor (even if composite passes)
     if (s.beethovenianMotivicPressureScore !== null
@@ -615,6 +634,64 @@ function summarizeRejection(rec) {
 }
 
 // ---------------------------------------------------------------------------
+// Control compliance proxy (P1: adapter learning target labeling)
+// ---------------------------------------------------------------------------
+
+/**
+ * Computes a proxy score for "how well the output followed the AXIOM control directives."
+ * Uses existing critic scores as proxies; true compliance requires Stage-2 adapter-aware eval.
+ *
+ *   evidenceCoverageScore     ≈ sectionPlanComplianceProxy  (did output cover planned sections?)
+ *   motifReturnScore          ≈ motifGraphComplianceProxy   (did output recall planned motifs?)
+ *   harmonyContractScore      ≈ harmonyRepairComplianceProxy (did output honor harmony directives?)
+ *   pianoListenabilityScore   ≈ pianoRewriteComplianceProxy (did piano rewrite directive take effect?)
+ *
+ * @param {object} s - extracted scores from buildCandidateRecord().scores
+ * @returns {number|null}
+ */
+function computeControlFollowingProxy(s) {
+    const parts = [];
+    if (s.evidenceCoverageScore !== null && s.evidenceCoverageScore !== undefined)
+        parts.push({ v: s.evidenceCoverageScore, w: 0.40 });
+    if (s.motifReturnScore !== null && s.motifReturnScore !== undefined)
+        parts.push({ v: s.motifReturnScore, w: 0.35 });
+    if (s.harmonyContractScore !== null && s.harmonyContractScore !== undefined)
+        parts.push({ v: s.harmonyContractScore, w: 0.25 });
+    if (parts.length === 0) return null;
+    const totalW = parts.reduce((a, p) => a + p.w, 0);
+    return Math.round(parts.reduce((a, p) => a + p.v * p.w, 0) / totalW * 1000) / 1000;
+}
+
+/**
+ * Builds the controlCompliance metadata block for a candidate record.
+ * Records which AXIOM directive blocks were present in the instruction and maps
+ * existing critic scores to compliance proxy labels for adapter training.
+ *
+ * @param {object} pr - providerRequest object (may be null)
+ * @param {object} s  - extracted scores
+ */
+function buildControlComplianceBlock(pr, s) {
+    const hadMotifGraph    = !!(typeof pr?.motifGraphBlock    === "string" && pr.motifGraphBlock.trim());
+    const hadRepair        = !!(typeof pr?.repairBlock        === "string" && pr.repairBlock.trim());
+    const hadPianoRewrite  = !!(typeof pr?.pianoRewriteBlock  === "string" && pr.pianoRewriteBlock.trim());
+    return {
+        // Which AXIOM directive blocks were present in the instruction
+        hadMotifGraphDirective:   hadMotifGraph,
+        hadRepairDirective:       hadRepair,
+        hadPianoRewriteDirective: hadPianoRewrite,
+        // Proxy compliance scores derived from critic evaluation:
+        // true adapter-level compliance requires Stage-2 adapter-aware evaluation
+        motifGraphComplianceProxy:   s.motifReturnScore ?? null,
+        harmonyRepairComplianceProxy: s.harmonyContractScore ?? null,
+        pianoRewriteComplianceProxy:  hadPianoRewrite ? (s.pianoListenabilityScore ?? null) : null,
+        sectionPlanComplianceProxy:  s.evidenceCoverageScore ?? null,
+        sectionPlanComplianceTier:   s.evidenceCoverageGateTier ?? null,
+        controlFollowingScoreProxy:  computeControlFollowingProxy(s),
+        proxyNote: "proxy scores from critic evaluation; true compliance requires Stage-2 adapter-aware eval",
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -635,6 +712,7 @@ function main() {
         hardNegatives: 0,
         chosen: 0,
         lineageGateBlocked: 0,
+        lineageAbsentBlocked: 0,
         experimentalGateBlocked: 0,
         lineageSubAxisBlocked: 0,
         skippedNoInstruction: 0,
@@ -663,6 +741,7 @@ function main() {
                 counts.criticFail++;
                 if (rec.isHardNegative) counts.hardNegatives++;
                 if (rec.failedGates.some((g) => g.includes("lineageIdentity"))) counts.lineageGateBlocked++;
+                if (rec.failedGates.some((g) => g === "lineage_score_absent_unverifiable")) counts.lineageAbsentBlocked++;
                 if (rec.failedGates.some((g) => g === "explicit_experimental_composer")) counts.experimentalGateBlocked++;
                 // Sub-axis hard negative tracking (isHardNegative checks, not chosen-gate fails)
                 const sc = rec.scores;
@@ -694,6 +773,7 @@ function main() {
     console.log(`  AXIOM critic pass:      ${counts.criticPass}  (chosen: ${counts.chosen})`);
     console.log(`  AXIOM critic fail:      ${counts.criticFail}  (hard negatives: ${counts.hardNegatives})`);
     console.log(`  Lineage gate blocked:   ${counts.lineageGateBlocked}`);
+    console.log(`  Lineage absent blocked: ${counts.lineageAbsentBlocked}  (--allow-lineage-absent to skip)`);
     console.log(`  Experimental blocked:   ${counts.experimentalGateBlocked}`);
     console.log(`  Sub-axis blocked:       ${counts.lineageSubAxisBlocked}  (beethoven/schubert/mediant axis)`);
     console.log(`  DPO pairs generated:    ${dpoPairs.length}  (hard-neg pairs: ${pairsWithHardNeg})`);

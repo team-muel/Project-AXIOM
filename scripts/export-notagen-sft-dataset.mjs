@@ -258,6 +258,7 @@ function extractCraftScores(cm) {
         evidenceCoverageScore:  toFinite(ica?.evidenceCoverageScore ?? cs?.evidenceCoverageScore),
         evidenceCoverageGateTier: cs?.evidenceCoverageGateTier ?? null,
         harmonyContractViolations: toFinite(cs?.harmonyContractViolations),
+        motifReturnScore: toFinite(cs?.motifReturnScore ?? cs?.motifRecapIdentity),
         pianoListenabilityScore: toFinite(
             ica?.pianoListenabilityScore ?? pc?.pianoListenabilityScore ?? cs?.pianoListenabilityScore,
         ),
@@ -426,6 +427,50 @@ function computeEligibility(cm, { includeMock }) {
 }
 
 // ---------------------------------------------------------------------------
+// Control compliance proxy (P1: adapter learning target labeling)
+// ---------------------------------------------------------------------------
+
+/**
+ * Proxy for overall control-following score.
+ * evidenceCoverage ≈ section plan, motifReturn ≈ motif graph, harmonyContract ≈ repair.
+ */
+function computeControlFollowingProxy(scores) {
+    const parts = [];
+    if (scores.evidenceCoverageScore !== undefined && scores.evidenceCoverageScore !== null)
+        parts.push({ v: scores.evidenceCoverageScore, w: 0.40 });
+    if (scores.motifReturnScore !== undefined && scores.motifReturnScore !== null)
+        parts.push({ v: scores.motifReturnScore, w: 0.35 });
+    if (scores.harmonyContractScore !== undefined && scores.harmonyContractScore !== null)
+        parts.push({ v: scores.harmonyContractScore, w: 0.25 });
+    if (parts.length === 0) return null;
+    const totalW = parts.reduce((a, p) => a + p.w, 0);
+    return Math.round(parts.reduce((a, p) => a + p.v * p.w, 0) / totalW * 1000) / 1000;
+}
+
+/**
+ * Builds the controlCompliance metadata block for an SFT row.
+ * Records which AXIOM directive blocks were present and maps critic scores to
+ * compliance proxy labels for adapter-level training and analysis.
+ */
+function buildControlComplianceBlock(pr, scores) {
+    const hadMotifGraph   = !!(typeof pr?.motifGraphBlock   === "string" && pr.motifGraphBlock.trim());
+    const hadRepair       = !!(typeof pr?.repairBlock       === "string" && pr.repairBlock.trim());
+    const hadPianoRewrite = !!(typeof pr?.pianoRewriteBlock === "string" && pr.pianoRewriteBlock.trim());
+    return {
+        hadMotifGraphDirective:   hadMotifGraph,
+        hadRepairDirective:       hadRepair,
+        hadPianoRewriteDirective: hadPianoRewrite,
+        motifGraphComplianceProxy:    scores.motifReturnScore ?? null,
+        harmonyRepairComplianceProxy: scores.harmonyContractScore ?? null,
+        pianoRewriteComplianceProxy:  hadPianoRewrite ? (scores.pianoListenabilityScore ?? null) : null,
+        sectionPlanComplianceProxy:  scores.evidenceCoverageScore ?? null,
+        sectionPlanComplianceTier:   scores.evidenceCoverageGateTier ?? null,
+        controlFollowingScoreProxy:  computeControlFollowingProxy(scores),
+        proxyNote: "proxy scores from critic evaluation; true compliance requires Stage-2 adapter-aware eval",
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Instruction builder
 // ---------------------------------------------------------------------------
 
@@ -556,6 +601,7 @@ function buildSftRow(songId, candidateId, cm) {
                     composerRoutingMode:  toTrimmed(pr?.composerRoutingMode ?? "") || null,
                     normalizationWarnings: Array.isArray(evidence.normalizationWarnings)
                         ? evidence.normalizationWarnings : [],
+                    controlCompliance: buildControlComplianceBlock(pr, scores),
                 },
             };
         }
