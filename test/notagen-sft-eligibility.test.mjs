@@ -46,6 +46,7 @@ const THRESHOLDS = {
     harmonyContractScore:    0.70,
     evidenceCoverageScore:   0.55,
     pianoListenabilityScore: 0.50,
+    lineageIdentityScore:    0.50,
 };
 
 const SFT_TIER_THRESHOLDS = {
@@ -55,6 +56,7 @@ const SFT_TIER_THRESHOLDS = {
         harmonyContractScore:    0.80,
         evidenceCoverageScore:   0.70,
         pianoListenabilityScore: 0.70,
+        lineageIdentityScore:    0.70,
     },
     silver: {
         finalCraftScore:         0.75,
@@ -62,6 +64,7 @@ const SFT_TIER_THRESHOLDS = {
         harmonyContractScore:    0.70,
         evidenceCoverageScore:   0.70,
         pianoListenabilityScore: 0.50,
+        lineageIdentityScore:    0.60,
     },
 };
 const SFT_TIER_WEIGHTS = { gold: 1.0, silver: 0.6, bronze: 0.3 };
@@ -72,6 +75,7 @@ function computeSftTier(scores) {
     const hcs = scores.harmonyContractScore;
     const ecs = scores.evidenceCoverageScore ?? 0;
     const pls = scores.pianoListenabilityScore;
+    const lis = scores.lineageIdentityScore;   // undefined → tier gate skipped
     const isPiano = scores.isPianoCandidate;
 
     const g = SFT_TIER_THRESHOLDS.gold;
@@ -80,14 +84,16 @@ function computeSftTier(scores) {
         || acs < g.advancedCraftScore
         || ecs < g.evidenceCoverageScore
         || (hcs !== undefined && hcs < g.harmonyContractScore)
-        || (isPiano && pls !== undefined && pls < g.pianoListenabilityScore);
+        || (isPiano && pls !== undefined && pls < g.pianoListenabilityScore)
+        || (lis !== undefined && lis < g.lineageIdentityScore);
     if (!goldFails) return "gold";
 
     const s = SFT_TIER_THRESHOLDS.silver;
     const silverFails =
         fcs < s.finalCraftScore
         || acs < s.advancedCraftScore
-        || ecs < s.evidenceCoverageScore;
+        || ecs < s.evidenceCoverageScore
+        || (lis !== undefined && lis < s.lineageIdentityScore);
     return silverFails ? "bronze" : "silver";
 }
 
@@ -122,6 +128,7 @@ function extractCraftScores(cm) {
     const ica = cm?.internalCriticApproval ?? null;
     const cs  = cm?.structureEvaluation?.craftScoreSummary ?? null;
     const pc  = cm?.structureEvaluation?.pianoCraftScoreSummary ?? cm?.pianoCraftScore ?? null;
+    const li  = cm?.structureEvaluation?.lineageScoreSummary ?? null;
     return {
         internalCriticApproved: ica?.approved ?? null,
         internalCriticFailedDimensions: ica?.failedDimensions ?? null,
@@ -136,6 +143,18 @@ function extractCraftScores(cm) {
         ),
         isPianoCandidate: pc !== null,
         scoringProfileId: ica?.scoringProfileId ?? cs?.scoringProfile ?? null,
+        lineageIdentityScore: toFinite(
+            ica?.lineageIdentityScore ?? li?.lineageIdentityScore ?? cs?.lineageIdentityScore,
+        ),
+        beethovenianMotivicPressureScore: toFinite(
+            ica?.beethovenianMotivicPressureScore ?? li?.beethovenianMotivicPressureScore,
+        ),
+        schubertianLyricExpansionScore: toFinite(
+            ica?.schubertianLyricExpansionScore ?? li?.schubertianLyricExpansionScore,
+        ),
+        mediantColorScore: toFinite(
+            ica?.mediantColorScore ?? li?.mediantColorScore,
+        ),
     };
 }
 
@@ -170,6 +189,9 @@ function computeEligibility(cm, { includeMock } = { includeMock: false }) {
         if (scores.isPianoCandidate && scores.pianoListenabilityScore !== undefined
             && scores.pianoListenabilityScore < THRESHOLDS.pianoListenabilityScore)
             reasons.push(`below_pianoListenabilityScore(${scores.pianoListenabilityScore?.toFixed(3)}<${THRESHOLDS.pianoListenabilityScore})`);
+        if (scores.lineageIdentityScore !== undefined
+            && scores.lineageIdentityScore < THRESHOLDS.lineageIdentityScore)
+            reasons.push(`below_lineageIdentityScore(${scores.lineageIdentityScore?.toFixed(3)}<${THRESHOLDS.lineageIdentityScore})`);
     }
 
     // P0: human rejection hard gate — must come BEFORE eligibleForSft determination
@@ -180,6 +202,13 @@ function computeEligibility(cm, { includeMock } = { includeMock: false }) {
     const humanApproved = humanRating !== undefined && humanRating >= 4;
 
     if (humanRejected) reasons.push("human_rejected");
+
+    // ── Composer routing mode gate ────────────────────────────────────────────
+    const evidence_pr = evidence.providerRequest ?? cm?.learnedNotagenProviderRequest ?? null;
+    const composerRoutingMode = String(evidence_pr?.composerRoutingMode ?? "").trim();
+    if (composerRoutingMode === "explicit_experimental") {
+        reasons.push("explicit_experimental_composer");
+    }
 
     const eligibleForSft = reasons.length === 0;
 
@@ -558,6 +587,98 @@ describe("CandidateTrainingEligibility (NSE)", () => {
         assert.equal(result.eligibleForSft, false);
         assert.equal(result.sftTier, null);
         assert.equal(result.sampleWeight, 0);
+    });
+
+    // ── Lineage identity gate ─────────────────────────────────────────────────
+
+    it("NSE-25: lineageIdentityScore present and below base threshold → not eligible", () => {
+        const cm = makeCandidate();
+        cm.structureEvaluation.lineageScoreSummary = { lineageIdentityScore: 0.40 };
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, false, "lineageIdentityScore below 0.50 must block SFT");
+        assert.ok(result.reasons.some((r) => r.includes("lineageIdentityScore")),
+            `expected lineageIdentityScore reason, got: ${result.reasons.join(", ")}`);
+    });
+
+    it("NSE-26: lineageIdentityScore absent (legacy manifest) → eligible (backward compat)", () => {
+        // No lineageScoreSummary on legacy manifests → gate must be skipped
+        const cm = makeCandidate();
+        // structureEvaluation has no lineageScoreSummary → lineageIdentityScore is undefined
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, true, "absent lineageIdentityScore must not block SFT");
+        assert.ok(!result.reasons.some((r) => r.includes("lineageIdentityScore")));
+    });
+
+    // ── ComposerRoutingMode gate ──────────────────────────────────────────────
+
+    it("NSE-27: composerRoutingMode=explicit_experimental → blocked from SFT positive", () => {
+        const cm = makeCandidate();
+        cm.proposalEvidence.providerRequest.composerRoutingMode = "explicit_experimental";
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, false,
+            "explicit_experimental candidates must not enter SFT positive");
+        assert.ok(result.reasons.includes("explicit_experimental_composer"),
+            `expected explicit_experimental_composer reason, got: ${result.reasons.join(", ")}`);
+    });
+
+    it("NSE-27b: composerRoutingMode=lineage_only → not blocked", () => {
+        const cm = makeCandidate();
+        cm.proposalEvidence.providerRequest.composerRoutingMode = "lineage_only";
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, true, "lineage_only should pass the routing gate");
+        assert.ok(!result.reasons.some((r) => r.includes("explicit_experimental_composer")));
+    });
+
+    it("NSE-27c: composerRoutingMode absent (undefined) → not blocked (default = lineage_only)", () => {
+        const cm = makeCandidate();
+        // no composerRoutingMode field in providerRequest
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, true);
+        assert.ok(!result.reasons.some((r) => r.includes("explicit_experimental_composer")));
+    });
+
+    // ── Tier classification with lineageIdentityScore ─────────────────────────
+
+    it("NSE-28: gold tier requires lineageIdentityScore >= 0.70 when present", () => {
+        const cm = makeCandidate({
+            structureEvaluation: {
+                craftScoreSummary: {
+                    finalCraftScore:       0.85,
+                    advancedCraftScore:    0.80,
+                    harmonyContractScore:  0.85,
+                    evidenceCoverageScore: 0.78,
+                },
+                lineageScoreSummary: {
+                    lineageIdentityScore: 0.65, // passes base (0.50), passes silver (0.60), fails gold (0.70)
+                },
+            },
+        });
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, true, "0.65 ≥ 0.50 base gate → eligible");
+        assert.notEqual(result.sftTier, "gold",
+            "lineageIdentityScore=0.65 must not achieve gold (threshold 0.70)");
+        assert.equal(result.sftTier, "silver",
+            "all silver thresholds met with lineageIdentityScore=0.65");
+    });
+
+    it("NSE-29: silver tier: lineageIdentityScore >= 0.60 but below gold 0.70 → silver not bronze", () => {
+        const cm = makeCandidate({
+            structureEvaluation: {
+                craftScoreSummary: {
+                    finalCraftScore:       0.77,
+                    advancedCraftScore:    0.70,
+                    harmonyContractScore:  0.80,
+                    evidenceCoverageScore: 0.72,
+                },
+                lineageScoreSummary: {
+                    lineageIdentityScore: 0.63, // above silver threshold 0.60
+                },
+            },
+        });
+        const result = computeEligibility(cm);
+        assert.equal(result.eligibleForSft, true);
+        assert.equal(result.sftTier, "silver");
+        assert.equal(result.sampleWeight, 0.6);
     });
 
 });

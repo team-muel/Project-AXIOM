@@ -21,15 +21,17 @@
  *   6. harmonyContractScore >= threshold  (default 0.70; skipped when no harmony plan)
  *   7. evidenceCoverageScore >= threshold  (default 0.55)
  *   8. pianoListenabilityScore >= threshold  (default 0.50; piano candidates only)
+ *   9. lineageIdentityScore >= threshold  (default 0.50; skipped when absent — legacy manifests)
+ *  10. composerRoutingMode != "explicit_experimental"  (arbitrary-composer runs blocked)
  *
  * SFT QUALITY TIERS (anti-collapse safety mechanism):
  *   gold   — high-quality SFT; sampleWeight=1.0; recommended for all training runs
  *            finalCraftScore >= 0.82, advancedCraftScore >= 0.75,
  *            harmonyContractScore >= 0.80, evidenceCoverageScore >= 0.70,
- *            pianoListenabilityScore >= 0.70 (piano only)
+ *            pianoListenabilityScore >= 0.70 (piano only), lineageIdentityScore >= 0.70
  *   silver — SFT-capable; sampleWeight=0.6; use for standard adapter training
  *            finalCraftScore >= 0.75, advancedCraftScore >= 0.68,
- *            evidenceCoverageScore >= 0.70
+ *            evidenceCoverageScore >= 0.70, lineageIdentityScore >= 0.60
  *   bronze — experimental; sampleWeight=0.3; limited/filtered use only
  *            anything that passes the base gate but not silver
  *
@@ -61,6 +63,7 @@
  *   --min-harmony=<n>        harmonyContractScore threshold (default: 0.70)
  *   --min-evidence=<n>       evidenceCoverageScore threshold (default: 0.55)
  *   --min-piano=<n>          pianoListenabilityScore threshold (default: 0.50)
+ *   --min-lineage=<n>        lineageIdentityScore threshold (default: 0.50)
  *   --include-mock            include mock backend outputs (default: excluded)
  *   --include-not-selected    include non-selected candidates (default: included)
  *   --selected-only           only include selected candidates
@@ -138,11 +141,12 @@ const DRY_RUN      = hasFlag("dry-run");
 
 /** Eligibility thresholds — mirrors INTERNAL_CRITIC_APPROVAL_THRESHOLDS_V1 */
 const THRESHOLDS = {
-    finalCraftScore:       parseThreshold("min-craft",    0.70),
-    advancedCraftScore:    parseThreshold("min-advanced", 0.60),
-    harmonyContractScore:  parseThreshold("min-harmony",  0.70),
-    evidenceCoverageScore: parseThreshold("min-evidence", 0.55),
-    pianoListenabilityScore: parseThreshold("min-piano",  0.50),
+    finalCraftScore:         parseThreshold("min-craft",    0.70),
+    advancedCraftScore:      parseThreshold("min-advanced", 0.60),
+    harmonyContractScore:    parseThreshold("min-harmony",  0.70),
+    evidenceCoverageScore:   parseThreshold("min-evidence", 0.55),
+    pianoListenabilityScore: parseThreshold("min-piano",    0.50),
+    lineageIdentityScore:    parseThreshold("min-lineage",  0.50),
 };
 
 /**
@@ -161,6 +165,7 @@ const SFT_TIER_THRESHOLDS = {
         harmonyContractScore:    0.80,
         evidenceCoverageScore:   0.70,
         pianoListenabilityScore: 0.70,
+        lineageIdentityScore:    0.70,
     },
     silver: {
         finalCraftScore:         0.75,
@@ -168,6 +173,7 @@ const SFT_TIER_THRESHOLDS = {
         harmonyContractScore:    0.70,
         evidenceCoverageScore:   0.70,
         pianoListenabilityScore: 0.50,
+        lineageIdentityScore:    0.60,
     },
 };
 
@@ -206,6 +212,7 @@ function computeSftTier(scores) {
     const hcs = scores.harmonyContractScore;           // may be undefined — no harmony plan
     const ecs = scores.evidenceCoverageScore ?? 0;
     const pls = scores.pianoListenabilityScore;        // may be undefined — non-piano
+    const lis = scores.lineageIdentityScore;           // may be undefined — legacy manifest
     const isPiano = scores.isPianoCandidate;
 
     const g = SFT_TIER_THRESHOLDS.gold;
@@ -214,7 +221,8 @@ function computeSftTier(scores) {
         || acs < g.advancedCraftScore
         || ecs < g.evidenceCoverageScore
         || (hcs !== undefined && hcs < g.harmonyContractScore)
-        || (isPiano && pls !== undefined && pls < g.pianoListenabilityScore);
+        || (isPiano && pls !== undefined && pls < g.pianoListenabilityScore)
+        || (lis !== undefined && lis < g.lineageIdentityScore);
 
     if (!goldFails) return "gold";
 
@@ -222,7 +230,8 @@ function computeSftTier(scores) {
     const silverFails =
         fcs < s.finalCraftScore
         || acs < s.advancedCraftScore
-        || ecs < s.evidenceCoverageScore;
+        || ecs < s.evidenceCoverageScore
+        || (lis !== undefined && lis < s.lineageIdentityScore);
 
     return silverFails ? "bronze" : "silver";
 }
@@ -236,6 +245,7 @@ function extractCraftScores(cm) {
     const ica = cm?.internalCriticApproval ?? null;
     const cs  = cm?.structureEvaluation?.craftScoreSummary ?? null;
     const pc  = cm?.structureEvaluation?.pianoCraftScoreSummary ?? cm?.pianoCraftScore ?? null;
+    const li  = cm?.structureEvaluation?.lineageScoreSummary ?? null;
 
     return {
         // Pre-computed approval (most authoritative when present)
@@ -253,6 +263,19 @@ function extractCraftScores(cm) {
         ),
         isPianoCandidate: pc !== null,
         scoringProfileId: ica?.scoringProfileId ?? cs?.scoringProfile ?? null,
+        // Lineage identity scores — absent on legacy manifests; gate skipped when undefined
+        lineageIdentityScore: toFinite(
+            ica?.lineageIdentityScore ?? li?.lineageIdentityScore ?? cs?.lineageIdentityScore,
+        ),
+        beethovenianMotivicPressureScore: toFinite(
+            ica?.beethovenianMotivicPressureScore ?? li?.beethovenianMotivicPressureScore,
+        ),
+        schubertianLyricExpansionScore: toFinite(
+            ica?.schubertianLyricExpansionScore ?? li?.schubertianLyricExpansionScore,
+        ),
+        mediantColorScore: toFinite(
+            ica?.mediantColorScore ?? li?.mediantColorScore,
+        ),
     };
 }
 
@@ -327,6 +350,11 @@ function computeEligibility(cm, { includeMock }) {
             && scores.pianoListenabilityScore < THRESHOLDS.pianoListenabilityScore) {
             reasons.push(`below_pianoListenabilityScore(${scores.pianoListenabilityScore?.toFixed(3)}<${THRESHOLDS.pianoListenabilityScore})`);
         }
+        // Lineage identity gate: only when score is present (absent = legacy manifest, skip)
+        if (scores.lineageIdentityScore !== undefined
+            && scores.lineageIdentityScore < THRESHOLDS.lineageIdentityScore) {
+            reasons.push(`below_lineageIdentityScore(${scores.lineageIdentityScore?.toFixed(3)}<${THRESHOLDS.lineageIdentityScore})`);
+        }
     }
 
     // ── Human calibration ────────────────────────────────────────────────────
@@ -339,6 +367,15 @@ function computeEligibility(cm, { includeMock }) {
     // P0: explicit human rejection is a hard gate — overrides critic pass
     if (humanRejected) {
         reasons.push("human_rejected");
+    }
+
+    // ── Composer routing mode gate ─────────────────────────────────────────────
+    // explicit_experimental candidates MUST NOT enter SFT/DPO positive without
+    // explicit human review (see LearnedNotagenProviderRequest.composerRoutingMode).
+    const evidence_pr = evidence.providerRequest ?? cm?.learnedNotagenProviderRequest ?? null;
+    const composerRoutingMode = toTrimmed(evidence_pr?.composerRoutingMode ?? "");
+    if (composerRoutingMode === "explicit_experimental") {
+        reasons.push("explicit_experimental_composer");
     }
 
     const eligibleForSft = reasons.length === 0;
@@ -512,6 +549,11 @@ function buildSftRow(songId, candidateId, cm) {
                     evidenceCoverageGateTier: scores.evidenceCoverageGateTier ?? null,
                     harmonyContractViolations: scores.harmonyContractViolations ?? null,
                     pianoListenabilityScore: scores.pianoListenabilityScore ?? null,
+                    lineageIdentityScore: scores.lineageIdentityScore ?? null,
+                    beethovenianMotivicPressureScore: scores.beethovenianMotivicPressureScore ?? null,
+                    schubertianLyricExpansionScore: scores.schubertianLyricExpansionScore ?? null,
+                    mediantColorScore:    scores.mediantColorScore ?? null,
+                    composerRoutingMode:  toTrimmed(pr?.composerRoutingMode ?? "") || null,
                     normalizationWarnings: Array.isArray(evidence.normalizationWarnings)
                         ? evidence.normalizationWarnings : [],
                 },
@@ -576,6 +618,7 @@ function main() {
         skippedNoAbc: 0,
         skippedNoInstruction: 0,
         skippedNotSelected: 0,
+        skippedExplicitExperimental: 0,
     };
 
     for (const songId of songIds) {
@@ -598,13 +641,14 @@ function main() {
 
             if (!row) {
                 const r = elig.reasons.join(",");
-                if (r.includes("human_rejected"))     counts.humanRejected++;
-                else if (r.includes("mock_excluded"))  counts.skippedMock++;
-                else if (r.includes("no_abc_text"))    counts.skippedNoAbc++;
+                if (r.includes("human_rejected"))                      counts.humanRejected++;
+                else if (r.includes("explicit_experimental_composer")) counts.skippedExplicitExperimental++;
+                else if (r.includes("mock_excluded"))                  counts.skippedMock++;
+                else if (r.includes("no_abc_text"))                    counts.skippedNoAbc++;
                 else if (r.includes("no_instruction") || r.includes("no_control_lines")) counts.skippedNoInstruction++;
-                else if (r.includes("not_selected"))   counts.skippedNotSelected++;
-                else if (r.includes("missing_finalCraftScore")) counts.skippedNoCraft++;
-                else                                   counts.skippedBelowThreshold++;
+                else if (r.includes("not_selected"))                   counts.skippedNotSelected++;
+                else if (r.includes("missing_finalCraftScore"))        counts.skippedNoCraft++;
+                else                                                   counts.skippedBelowThreshold++;
                 continue;
             }
 
@@ -678,6 +722,7 @@ function main() {
     console.log(`  Human anchor pairs:     ${dedupedAnchors.length}`);
     console.log(`  Skipped:`);
     console.log(`    human rejected (≤2):    ${counts.humanRejected}`);
+    console.log(`    explicit_experimental:  ${counts.skippedExplicitExperimental}`);
     console.log(`    below threshold:        ${counts.skippedBelowThreshold}`);
     console.log(`    mock backend:           ${counts.skippedMock}`);
     console.log(`    no ABC text:            ${counts.skippedNoAbc}`);
