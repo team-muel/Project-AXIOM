@@ -71,6 +71,46 @@ function composerKeyFromFile(file) {
 }
 
 /**
+ * Resolves a composer's role from the manifest composerRoles map.
+ * Falls back to "theory_only" for unknown composers (safe default).
+ *
+ * @param {string} composerKey  - Lowercase composer key (e.g., "beethoven", "bach")
+ * @param {Record<string, object>|undefined} composerRoles - manifest.composerRoles
+ * @returns {{ role: string, usedFor: string[], notUsedFor: string[] }}
+ */
+function resolveComposerRole(composerKey, composerRoles) {
+    const entry = composerRoles?.[composerKey.toLowerCase()];
+    if (!entry) {
+        return {
+            composer: composerKey,
+            role: "theory_only",
+            usedFor: [],
+            notUsedFor: ["lineageScoring", "primaryStyle"],
+            description: "Unknown composer — defaulting to theory_only.",
+        };
+    }
+    return {
+        composer: composerKey,
+        role: entry.role ?? "theory_only",
+        usedFor: entry.usedFor ?? [],
+        notUsedFor: entry.notUsedFor ?? ["lineageScoring"],
+        description: entry.description,
+    };
+}
+
+/**
+ * Returns true if a composer should contribute to identity/lineage scoring.
+ * Only "primary" role composers qualify.
+ *
+ * @param {string} composerKey
+ * @param {Record<string, object>|undefined} composerRoles
+ * @returns {boolean}
+ */
+function isLineageComposer(composerKey, composerRoles) {
+    return resolveComposerRole(composerKey, composerRoles).role === "primary";
+}
+
+/**
  * Builds a profile group object for a set of perFile entries.
  *
  * @param {string[]} composers
@@ -420,6 +460,9 @@ if (multiFileOutput) {
         byComposerMap.get(composerKey).push(entry);
     }
 
+    // Build composer role lookup from manifest
+    const manifestComposerRoles = manifest?.composerRoles ?? null;
+
     // Write by-composer/*.json
     const byComposerDir = join(outDir, "by-composer");
     await mkdir(byComposerDir, { recursive: true });
@@ -428,8 +471,13 @@ if (multiFileOutput) {
         const works = byComposerMap.get(composer);
         const profiles = works.map((w) => w.profile);
         const composerCorpus = computeCorpusProfile(profiles);
+        const roleEntry = resolveComposerRole(composer, manifestComposerRoles);
         const composerOutput = {
             composer,
+            role: roleEntry.role,
+            usedFor: roleEntry.usedFor,
+            notUsedFor: roleEntry.notUsedFor,
+            description: roleEntry.description,
             n: works.length,
             works,
             corpusProfile: {
@@ -439,7 +487,7 @@ if (multiFileOutput) {
         };
         const composerPath = join(byComposerDir, `${composer}.json`);
         await writeFile(composerPath, JSON.stringify(composerOutput, null, 2), "utf-8");
-        if (isVerbose) console.log(`  by-composer/${composer}.json (${works.length} works)`);
+        if (isVerbose) console.log(`  by-composer/${composer}.json (${works.length} works, role=${roleEntry.role})`);
     }
     console.log(`By-composer profiles written to: ${byComposerDir}/`);
 
@@ -447,12 +495,29 @@ if (multiFileOutput) {
     const composerCounts = Object.fromEntries(
         composerNames.map((c) => [c, byComposerMap.get(c).length])
     );
+
+    // Build composerRoles summary: role classification for every observed composer
+    const composerRolesSummary = Object.fromEntries(
+        composerNames.map((c) => {
+            const r = resolveComposerRole(c, manifestComposerRoles);
+            return [c, { role: r.role, usedFor: r.usedFor, notUsedFor: r.notUsedFor }];
+        })
+    );
+
     const summary = {
         generatedAt: mainOutput.generatedAt,
         n: corpusProfile.n,
         parseErrors,
         composers: composerNames,
         composerCounts,
+        // Role taxonomy — which composers contribute to identity vs. theory-only
+        // primary: in lineage scoring (R-01 gate); theory_only: benchmarks only
+        composerRoles: composerRolesSummary,
+        primaryComposers: composerNames.filter((c) => isLineageComposer(c, manifestComposerRoles)),
+        theoryOnlyComposers: composerNames.filter((c) => {
+            const r = resolveComposerRole(c, manifestComposerRoles);
+            return r.role === "theory_only" || r.role === "future_reference";
+        }),
         lineageSplit: {
             beethoven:    lineageBeethovenGroup  ? { n: lineageBeethovenGroup.n  } : null,
             schubert:     lineageSchubertGroup   ? { n: lineageSchubertGroup.n   } : null,

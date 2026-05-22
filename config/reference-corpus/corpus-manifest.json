@@ -1,5 +1,5 @@
 {
-  "version": "1",
+  "version": "2",
   "description": "AXIOM aesthetic identity taxonomy for the reference corpus. Separates primary aesthetic DNA from technical knowledge sources to prevent identity blurring.",
   "primary": {
     "composers": ["beethoven", "schubert"],
@@ -17,7 +17,7 @@
       "note": "Bach is a technical textbook, not part of AXIOM's primary aesthetic lineage."
     },
     "classical_proportion": {
-      "composers": ["mozart"],
+      "composers": ["mozart", "haydn"],
       "description": "Classical phrase clarity, balanced periods, and formal proportion. Reference for phrase-length regularity metrics.",
       "note": "Mozart/Haydn teach proportion as craft knowledge. They are not AXIOM's identity."
     },
@@ -30,10 +30,65 @@
       "composers": ["brahms"],
       "description": "Dense motivic development and chromatic voice leading. Comparison reference for motivic complexity upper bound.",
       "note": "Brahms is a future comparison reference. Do not blend into primary identity — AXIOM should lean Beethoven/Schubert, not Brahms."
+    },
+    "future_concerto_texture": {
+      "composers": ["rachmaninoff"],
+      "description": "Long-span orchestral/concerto texture reference. Future reference only — not part of the current identity or active corpus.",
+      "note": "Rachmaninoff is a long-term future reference for concerto texture. Not yet active."
     }
   },
   "notIncluded": {
     "reason": "The following composers are excluded from the current corpus to prevent identity dilution. They may be added as separate technical references in future phases.",
-    "composers": ["rachmaninoff", "debussy", "liszt", "ravel", "schumann"]
+    "composers": ["debussy", "liszt", "ravel", "schumann"]
+  },
+  "composerRoles": {
+    "beethoven": {
+      "role": "primary",
+      "usedFor": ["motivicIdentity", "structuralArchitecture", "tonalConflict", "developmentSection", "recapInevitability"],
+      "notUsedFor": ["theoryOnly", "comparisonOnly"],
+      "description": "AXIOM's structural and motivic DNA. Primary identity source."
+    },
+    "schubert": {
+      "role": "primary",
+      "usedFor": ["lyricIdentity", "harmonicWandering", "mediantColor", "majorMinorAmbiguity", "phraseExpansion"],
+      "notUsedFor": ["theoryOnly", "comparisonOnly"],
+      "description": "AXIOM's lyrical and harmonic color DNA. Primary identity source."
+    },
+    "bach": {
+      "role": "theory_only",
+      "usedFor": ["counterpoint", "voiceLeading"],
+      "notUsedFor": ["primaryStyle", "melodicIdentity", "lineageScoring"],
+      "description": "Voice-leading and counterpoint validator. Bach is a craft textbook, not AXIOM's aesthetic identity."
+    },
+    "haydn": {
+      "role": "theory_only",
+      "usedFor": ["phraseProportion", "classicalBalance"],
+      "notUsedFor": ["primaryStyle", "melodicIdentity", "lineageScoring"],
+      "description": "Classical phrase proportion validator."
+    },
+    "mozart": {
+      "role": "theory_only",
+      "usedFor": ["phraseProportion", "classicalBalance"],
+      "notUsedFor": ["primaryStyle", "melodicIdentity", "lineageScoring"],
+      "description": "Classical phrase proportion validator."
+    },
+    "chopin": {
+      "role": "theory_only",
+      "usedFor": ["pianoIdiom"],
+      "notUsedFor": ["primaryStyle", "melodicIdentity", "lineageScoring", "motivicIdentity"],
+      "description": "Piano idiom validator only. Chopin keyboard texture as craft knowledge."
+    },
+    "brahms": {
+      "role": "theory_only",
+      "usedFor": ["motivicDensityComparison"],
+      "notUsedFor": ["primaryStyle", "melodicIdentity", "lineageScoring"],
+      "description": "Motivic density comparison reference only. Not part of AXIOM's primary identity."
+    },
+    "rachmaninoff": {
+      "role": "future_reference",
+      "usedFor": ["concertoTexture"],
+      "notUsedFor": ["primaryStyle", "melodicIdentity", "lineageScoring", "currentScoring"],
+      "description": "Future concerto texture reference. Not yet active in current corpus."
+    }
   }
 }

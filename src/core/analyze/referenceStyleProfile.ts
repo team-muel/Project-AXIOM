@@ -840,6 +840,84 @@ export function computeReferenceDistanceScoreSplit(
 }
 
 // ---------------------------------------------------------------------------
+// Composer Role Taxonomy
+// ---------------------------------------------------------------------------
+
+/**
+ * Declares how a composer's corpus is used within AXIOM.
+ *
+ * - "primary"         — Core aesthetic DNA (Beethoven, Schubert). Used for identity
+ *                       scoring (R-01 gate) and lineage distance measurement.
+ * - "theory_only"     — Technical knowledge source (Bach, Mozart, Chopin, Brahms).
+ *                       Used for per-dimension benchmarks only. NEVER included in
+ *                       identity/lineage scoring.
+ * - "future_reference" — Planned future reference (Rachmaninoff). Not yet active.
+ *                       Excluded from all current scoring.
+ */
+export type ComposerRoleKind = "primary" | "theory_only" | "future_reference";
+
+/** Per-composer role descriptor from corpus-manifest.json `composerRoles` map. */
+export interface ComposerCorpusEntry {
+    /** Composer identifier (lowercase, matching corpus-manifest.json key). */
+    composer: string;
+    /** How this composer's corpus is used within AXIOM. */
+    role: ComposerRoleKind;
+    /** Domains in which this composer's corpus is actively applied. */
+    usedFor: string[];
+    /**
+     * Domains explicitly excluded for this composer.
+     * Must include "lineageScoring" for "theory_only" and "future_reference" composers.
+     */
+    notUsedFor: string[];
+    /** Human-readable role explanation. */
+    description?: string;
+}
+
+/**
+ * Resolves a composer's role entry from a loaded corpus-manifest `composerRoles` map.
+ *
+ * If the manifest is absent or the composer key is not found, returns a safe default
+ * of `theory_only` to avoid accidentally including unknown composers in identity scoring.
+ *
+ * @param composerKey  - Lowercase composer identifier (e.g., "beethoven", "bach").
+ * @param composerRoles - The `composerRoles` object from corpus-manifest.json.
+ */
+export function resolveComposerRole(
+    composerKey: string,
+    composerRoles: Record<string, Partial<ComposerCorpusEntry>> | null | undefined,
+): ComposerCorpusEntry {
+    const key = composerKey.toLowerCase();
+    const entry = composerRoles?.[key];
+    if (!entry) {
+        return {
+            composer: key,
+            role: "theory_only",
+            usedFor: [],
+            notUsedFor: ["primaryStyle", "melodicIdentity", "lineageScoring"],
+            description: "Unknown composer — defaulting to theory_only to protect identity scoring.",
+        };
+    }
+    return {
+        composer: key,
+        role: entry.role ?? "theory_only",
+        usedFor: entry.usedFor ?? [],
+        notUsedFor: entry.notUsedFor ?? ["lineageScoring"],
+        description: entry.description,
+    };
+}
+
+/**
+ * Returns true when a composer's corpus should be included in lineage / identity scoring.
+ * Only "primary" role composers contribute to the R-01 gate referenceDistanceScore.
+ */
+export function isLineageComposer(
+    composerKey: string,
+    composerRoles: Record<string, Partial<ComposerCorpusEntry>> | null | undefined,
+): boolean {
+    return resolveComposerRole(composerKey, composerRoles).role === "primary";
+}
+
+// ---------------------------------------------------------------------------
 // Utility
 // ---------------------------------------------------------------------------
 
