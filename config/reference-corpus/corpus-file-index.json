@@ -2,11 +2,11 @@
   "version": "2",
   "description": "Per-file completeness metadata for the AXIOM reference corpus. Controls which files are used for full-piece referenceDistanceScore vs. local technique analysis.",
   "completenessLevels": {
-    "complete_piece": "Self-contained short work (bagatelle, waltz, dance, character piece). All structural metrics valid: referenceDistanceScore, climaxPosition, phraseDistribution, formalArc.",
-    "complete_movement": "Complete single movement of a multi-movement work. All structural metrics valid for that movement type.",
-    "complete_section": "Complete labeled section within a larger formal structure (e.g. variation theme, da capo section, introductory Grave). Phrase and cadence metrics valid; formalArc and referenceDistanceScore NOT valid.",
-    "excerpt": "Partial extract from a longer work (opening passage, thematic phrase, introduction). Local technique ONLY: motivicCell, localHarmonicColor, texturePattern, cadenceFormula.",
-    "incipit_only": "Opening bars only (≤8 measures). Opening gesture and motif ONLY. No structural metrics."
+    "complete_piece": "Self-contained short work (bagatelle, waltz, dance, character piece). All structural metrics valid: referenceDistanceScore, climaxPosition, phraseDistribution, formalArc, movementLevelIdentityProfile, beethovenianArchitecture, schubertianPhraseExpansion.",
+    "complete_movement": "Complete single movement of a multi-movement work. All structural metrics valid for that movement type, including movementLevelIdentityProfile, beethovenianArchitecture, schubertianPhraseExpansion.",
+    "complete_section": "Complete labeled section within a larger formal structure (e.g. variation theme, da capo section, introductory Grave). phraseDistribution, cadencePlacement, technique metrics valid; referenceDistanceScore, climaxPosition, formalArc, movementLevelIdentityProfile NOT valid.",
+    "excerpt": "Partial extract from a longer work (opening passage, thematic phrase, introduction). Local technique ONLY: motivicCell, localHarmonicColor, texturePattern, cadenceFormula, voiceLeadingPattern, pianoFiguration. No movement-level metrics.",
+    "incipit_only": "Opening bars only (≤8 measures). Opening gesture and motif ONLY: openingMotif, openingGesture, openingTexture. No structural or technique metrics."
   },
   "validForMatrix": {
     "complete_piece": [
@@ -18,7 +18,12 @@
       "leapSmoothness",
       "referenceDistanceScore",
       "formalArc",
-      "cadencePlacement"
+      "cadencePlacement",
+      "movementLevelIdentityProfile",
+      "beethovenianArchitecture",
+      "schubertianPhraseExpansion",
+      "voiceLeadingPattern",
+      "pianoFiguration"
     ],
     "complete_movement": [
       "climaxPosition",
@@ -29,7 +34,12 @@
       "leapSmoothness",
       "referenceDistanceScore",
       "formalArc",
-      "cadencePlacement"
+      "cadencePlacement",
+      "movementLevelIdentityProfile",
+      "beethovenianArchitecture",
+      "schubertianPhraseExpansion",
+      "voiceLeadingPattern",
+      "pianoFiguration"
     ],
     "complete_section": [
       "phraseDistribution",
@@ -39,7 +49,9 @@
       "harmonicColor",
       "leapSmoothness",
       "texturePattern",
-      "cadenceFormula"
+      "cadenceFormula",
+      "voiceLeadingPattern",
+      "pianoFiguration"
     ],
     "excerpt": [
       "pitchRange",
@@ -49,7 +61,9 @@
       "motivicCell",
       "localHarmonicColor",
       "texturePattern",
-      "cadenceFormula"
+      "cadenceFormula",
+      "voiceLeadingPattern",
+      "pianoFiguration"
     ],
     "incipit_only": [
       "openingMotif",

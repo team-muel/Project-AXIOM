@@ -68,7 +68,32 @@
         ],
         "minSimilarityThreshold": 0.5,
         "source": "computed from ABC file"
-      }
+      },
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op119_no2",
@@ -92,7 +117,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op119_no3",
@@ -116,7 +166,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op119_no9",
@@ -140,7 +215,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op119_no11",
@@ -164,7 +264,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op126_no1",
@@ -188,7 +313,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op126_no2",
@@ -212,7 +362,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op126_no4",
@@ -236,7 +411,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op033_no2",
@@ -260,7 +460,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo54",
@@ -284,7 +509,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo59",
@@ -331,7 +581,32 @@
         ],
         "minSimilarityThreshold": 0.6,
         "source": "computed from ABC file verified against public-domain score"
-      }
+      },
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo10_no2",
@@ -377,7 +652,32 @@
         ],
         "minSimilarityThreshold": 0.5,
         "source": "computed from ABC file: D,G,A,B,d,G,B,d"
-      }
+      },
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo10_no3",
@@ -401,7 +701,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo8_no1",
@@ -425,7 +750,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo86",
@@ -449,7 +799,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo83_no1",
@@ -473,7 +848,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo14_no1",
@@ -497,7 +897,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo14_no7",
@@ -521,7 +946,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo82",
@@ -545,7 +995,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo84",
@@ -569,7 +1044,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo85",
@@ -593,7 +1093,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo81",
@@ -617,7 +1142,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op125_ode_theme",
@@ -641,7 +1191,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_sonatina_g_mvt1",
@@ -665,7 +1240,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op051_no1",
@@ -689,7 +1289,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op129_excerpt",
@@ -713,7 +1338,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo57_excerpt",
@@ -737,7 +1387,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op113_turkish_march",
@@ -761,7 +1436,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op002_no1_mvt1_incipit",
@@ -785,7 +1485,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ]
     },
     {
       "id": "beethoven_op007_mvt2_excerpt",
@@ -809,7 +1534,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op010_no1_mvt1_excerpt",
@@ -833,7 +1583,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op013_grave_excerpt",
@@ -857,7 +1632,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op013_allegro_excerpt",
@@ -901,7 +1701,32 @@
         ],
         "minSimilarityThreshold": 0.5,
         "source": "computed from ABC file: G,,G,,Eb,Eb,D,D,C (Pathetique Allegro main theme)"
-      }
+      },
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op014_no1_mvt1_excerpt",
@@ -925,7 +1750,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op014_no2_mvt1_excerpt",
@@ -949,7 +1799,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op022_mvt1_excerpt",
@@ -973,7 +1848,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op026_mvt2_excerpt",
@@ -997,7 +1897,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op027_no1_mvt2_excerpt",
@@ -1021,7 +1946,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op028_mvt1_excerpt",
@@ -1045,7 +1995,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op031_no2_mvt1_excerpt",
@@ -1069,7 +2044,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op049_no1_mvt1_excerpt",
@@ -1093,7 +2093,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op049_no2_mvt1_excerpt",
@@ -1117,7 +2142,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op053_mvt1_excerpt",
@@ -1141,7 +2191,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op057_mvt1_excerpt",
@@ -1165,7 +2240,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op078_mvt1_excerpt",
@@ -1189,7 +2289,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op079_mvt1_excerpt",
@@ -1213,7 +2338,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op081a_mvt1_excerpt",
@@ -1237,7 +2387,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op090_mvt1_excerpt",
@@ -1261,7 +2436,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op101_mvt1_excerpt",
@@ -1285,7 +2485,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op109_mvt1_excerpt",
@@ -1309,7 +2534,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op110_mvt1_excerpt",
@@ -1333,7 +2583,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op111_mvt1_excerpt",
@@ -1357,7 +2632,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op027_no2_mvt1_incipit",
@@ -1381,7 +2681,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ]
     },
     {
       "id": "beethoven_op018_no1_mvt1_excerpt",
@@ -1405,7 +2730,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op018_no4_mvt1_excerpt",
@@ -1429,7 +2779,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op059_no1_mvt2_excerpt",
@@ -1453,7 +2828,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo78_theme",
@@ -1477,7 +2877,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "phraseDistribution",
+        "cadencePlacement",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "formalArc",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_woo80_theme",
@@ -1501,7 +2926,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "phraseDistribution",
+        "cadencePlacement",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "formalArc",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op034_theme",
@@ -1525,7 +2975,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "phraseDistribution",
+        "cadencePlacement",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "formalArc",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "beethoven_op035_bass_theme",
@@ -1549,7 +3024,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "phraseDistribution",
+        "cadencePlacement",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "formalArc",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d899_no1_excerpt",
@@ -1593,7 +3093,32 @@
         ],
         "minSimilarityThreshold": 0.5,
         "source": "computed from ABC file: G,,C,Eb,D,C,G,,C"
-      }
+      },
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d899_no2_excerpt",
@@ -1637,7 +3162,32 @@
         ],
         "minSimilarityThreshold": 0.5,
         "source": "computed from ABC file: b,e',d',c',b,a,g"
-      }
+      },
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d899_no3_excerpt",
@@ -1661,7 +3211,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d899_no4_excerpt",
@@ -1685,7 +3260,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d935_no1_excerpt",
@@ -1709,7 +3309,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d935_no2_excerpt",
@@ -1733,7 +3358,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d935_no3_theme",
@@ -1757,7 +3407,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "phraseDistribution",
+        "cadencePlacement",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "formalArc",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d935_no4_excerpt",
@@ -1781,7 +3456,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d780_no1",
@@ -1827,7 +3527,32 @@
         ],
         "minSimilarityThreshold": 0.5,
         "source": "computed from ABC file"
-      }
+      },
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d780_no2",
@@ -1851,7 +3576,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d780_no3",
@@ -1875,7 +3625,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d780_no4",
@@ -1899,7 +3674,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d780_no5",
@@ -1923,7 +3723,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d780_no6",
@@ -1947,7 +3772,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d365_no1",
@@ -1971,7 +3821,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d365_no2",
@@ -1995,7 +3870,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d365_no3",
@@ -2019,7 +3919,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d365_no6",
@@ -2043,7 +3968,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d365_no14",
@@ -2067,7 +4017,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d145_no1",
@@ -2091,7 +4066,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d969_no6",
@@ -2115,7 +4115,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d779_no13",
@@ -2139,7 +4164,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d814_no1",
@@ -2163,7 +4213,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d814_no3",
@@ -2187,7 +4262,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d814_no6",
@@ -2211,7 +4311,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d783_no1",
@@ -2235,7 +4360,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d783_no2",
@@ -2259,7 +4409,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d783_no10",
@@ -2283,7 +4458,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_ecossaise_d145_no1",
@@ -2307,7 +4507,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_ecossaise_d145_no2",
@@ -2331,7 +4556,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d976_no1",
@@ -2355,7 +4605,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d915_excerpt",
@@ -2379,7 +4654,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d593_no1_excerpt",
@@ -2403,7 +4703,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d957_no4_arr_excerpt",
@@ -2427,7 +4752,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d957_no4_excerpt",
@@ -2451,7 +4801,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d839_excerpt",
@@ -2475,7 +4850,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d550_excerpt",
@@ -2499,7 +4899,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d118_incipit",
@@ -2523,7 +4948,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ]
     },
     {
       "id": "schubert_d531_excerpt",
@@ -2547,7 +4997,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d328_excerpt",
@@ -2571,7 +5046,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d911_no1_excerpt",
@@ -2595,7 +5095,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d760_adagio_theme",
@@ -2619,7 +5144,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "phraseDistribution",
+        "cadencePlacement",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "formalArc",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d797_ballet_excerpt",
@@ -2643,7 +5193,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d537_mvt1_excerpt",
@@ -2667,7 +5242,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d557_mvt1_excerpt",
@@ -2691,7 +5291,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d568_mvt1_excerpt",
@@ -2715,7 +5340,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d575_mvt1_excerpt",
@@ -2739,7 +5389,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d575_mvt2_excerpt",
@@ -2763,7 +5438,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d664_mvt1_excerpt",
@@ -2787,7 +5487,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d664_mvt2_excerpt",
@@ -2811,7 +5536,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d845_mvt1_excerpt",
@@ -2835,7 +5585,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d850_mvt1_excerpt",
@@ -2859,7 +5634,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d894_mvt1_excerpt",
@@ -2883,7 +5683,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d958_mvt1_excerpt",
@@ -2907,7 +5732,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d959_mvt1_excerpt",
@@ -2931,7 +5781,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d960_mvt1_excerpt",
@@ -2955,7 +5830,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d946_no1_excerpt",
@@ -2979,7 +5879,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d946_no2_excerpt",
@@ -3003,7 +5928,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "schubert_d946_no3_excerpt",
@@ -3027,7 +5977,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "bach_bourree_e_minor",
@@ -3051,7 +6026,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "bach_minuet_g",
@@ -3075,7 +6075,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "bach_invention_01",
@@ -3099,7 +6124,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "bach_prelude_c_wtc1",
@@ -3123,7 +6173,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "mozart_minuet_k1",
@@ -3147,7 +6222,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "mozart_eine_kleine_mvt1",
@@ -3171,7 +6271,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration",
+        "motivicCell",
+        "localHarmonicColor"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "mozart_rondo_alla_turca",
@@ -3195,7 +6320,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "mozart_sonata_k331_theme",
@@ -3219,7 +6369,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "phraseDistribution",
+        "cadencePlacement",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "texturePattern",
+        "cadenceFormula",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "formalArc",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "chopin_waltz_op64_1",
@@ -3243,7 +6418,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "chopin_prelude_op28_4",
@@ -3267,7 +6467,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "chopin_nocturne_op9_2",
@@ -3291,7 +6516,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "brahms_waltz_op39_15",
@@ -3315,7 +6565,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "brahms_lullaby",
@@ -3339,7 +6614,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     },
     {
       "id": "brahms_intermezzo_op118_2",
@@ -3363,7 +6663,32 @@
       "verificationNotes": null,
       "sha256": null,
       "verified": false,
-      "incipitFingerprint": null
+      "incipitFingerprint": null,
+      "allowedMetrics": [
+        "referenceDistanceScore",
+        "climaxPosition",
+        "phraseDistribution",
+        "formalArc",
+        "cadencePlacement",
+        "movementLevelIdentityProfile",
+        "beethovenianArchitecture",
+        "schubertianPhraseExpansion",
+        "pitchRange",
+        "noteDensity",
+        "harmonicColor",
+        "leapSmoothness",
+        "voiceLeadingPattern",
+        "pianoFiguration"
+      ],
+      "excludedMetrics": [
+        "texturePattern",
+        "cadenceFormula",
+        "motivicCell",
+        "localHarmonicColor",
+        "openingMotif",
+        "openingGesture",
+        "openingTexture"
+      ]
     }
   ]
 }

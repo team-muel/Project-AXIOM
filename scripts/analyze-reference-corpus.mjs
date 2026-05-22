@@ -103,6 +103,9 @@ function buildFileManifestMap(fileManifest) {
  * filenames that are allowed for full-piece referenceDistanceScore (complete_piece
  * or complete_movement only). Returns null when index is absent (= use all files).
  *
+ * When fileManifestMap is provided, per-entry allowedMetrics is checked first
+ * (allows for future per-file overrides). Falls back to completeness level.
+ *
  * Excluded levels (v2 schema):
  *   - complete_section: valid for phrase/cadence analysis but NOT referenceDistanceScore or formalArc
  *   - excerpt: partial extract, cannot represent climax position or full phrase distribution
@@ -110,14 +113,24 @@ function buildFileManifestMap(fileManifest) {
  *
  * @param {object|null} fileIndex
  * @param {string} composerKey
+ * @param {Map<string, object>} [manifestMap]   Optional file-manifest map for per-entry override
  * @returns {Set<string>|null}
  */
-function getFullPieceAllowedSet(fileIndex, composerKey) {
+function getFullPieceAllowedSet(fileIndex, composerKey, manifestMap) {
     if (!fileIndex) return null;
     const composerEntries = fileIndex.files?.[composerKey];
     if (!composerEntries) return null;
     const allowed = new Set();
     for (const [filename, meta] of Object.entries(composerEntries)) {
+        // Per-entry override: if file-manifest has allowedMetrics, use that
+        const manifestEntry = manifestMap?.get(filename);
+        if (manifestEntry?.allowedMetrics) {
+            if (manifestEntry.allowedMetrics.includes("referenceDistanceScore")) {
+                allowed.add(filename);
+            }
+            continue;
+        }
+        // Fallback: completeness level
         if (meta.completeness === "complete_piece" || meta.completeness === "complete_movement") {
             allowed.add(filename);
         }
@@ -329,8 +342,8 @@ if (fileManifest) {
 // ─── Load corpus file index (completeness filter) ──────────────────────────────
 
 const corpusFileIndex = await loadCorpusFileIndex(rootArg);
-const beethovenAllowed = getFullPieceAllowedSet(corpusFileIndex, "beethoven");
-const schubertAllowed  = getFullPieceAllowedSet(corpusFileIndex, "schubert");
+const beethovenAllowed = getFullPieceAllowedSet(corpusFileIndex, "beethoven", fileManifestMap);
+const schubertAllowed  = getFullPieceAllowedSet(corpusFileIndex, "schubert",  fileManifestMap);
 
 if (!corpusFileIndex && rootArg) {
     console.log("No corpus-file-index.json found — all files will be used for referenceDistanceScore (excerpt files may skew statistics).");

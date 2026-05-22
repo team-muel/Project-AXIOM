@@ -478,6 +478,8 @@ console.log("\nRunning reference corpus validation...\n");
     if (existsSync(fileIndexPath)) {
         const fileIndex = JSON.parse(await readFile(fileIndexPath, "utf-8"));
         const validForMatrix = fileIndex.validForMatrix ?? {};
+
+        // Check 1: validForMatrix-level guard — excerpt/incipit_only must not list movement-level metrics
         for (const [level, metrics] of Object.entries(validForMatrix)) {
             if (level === "excerpt" || level === "incipit_only") {
                 const forbidden = metrics.filter((m) => MOVEMENT_LEVEL_METRICS.has(m));
@@ -488,20 +490,55 @@ console.log("\nRunning reference corpus validation...\n");
                 }
             }
         }
-        // Also verify that all excerpt/incipit entries in the manifest do NOT have
-        // completeness levels that would allow movement-level metrics in the matrix.
+
+        // Check 2: per-entry allowedMetrics/excludedMetrics consistency
+        //   a) allowedMetrics must match validForMatrix[completeness] exactly
+        //   b) excludedMetrics must not overlap allowedMetrics
+        //   c) excerpt/incipit_only allowedMetrics must not contain movement-level metrics
         const restrictedLevels = new Set(["excerpt", "incipit_only"]);
         for (const entry of allEntries) {
-            if (restrictedLevels.has(entry.completeness)) {
-                // Double-check: these must not appear in any allowed set used for referenceDistanceScore
-                // (This is enforced by code; this check catches future schema drift)
-                const allowedMetrics = validForMatrix[entry.completeness] ?? [];
-                const forbidden = allowedMetrics.filter((m) => MOVEMENT_LEVEL_METRICS.has(m));
-                if (forbidden.length > 0) {
+            const canonical = new Set(validForMatrix[entry.completeness] ?? []);
+
+            // 2a: per-entry drift check (if allowedMetrics is present)
+            if (Array.isArray(entry.allowedMetrics)) {
+                const entryAllowed = new Set(entry.allowedMetrics);
+                const extraInEntry = [...entryAllowed].filter((m) => !canonical.has(m));
+                const missingFromEntry = [...canonical].filter((m) => !entryAllowed.has(m));
+                if (extraInEntry.length > 0) {
                     errors.push(
-                        `${entry.id} (${entry.completeness}): validForMatrix allows movement-level metrics: ${forbidden.join(", ")}`
+                        `${entry.id}: allowedMetrics contains "${extraInEntry.join(", ")}" not in validForMatrix["${entry.completeness}"]`
                     );
                 }
+                if (missingFromEntry.length > 0) {
+                    errors.push(
+                        `${entry.id}: allowedMetrics is missing "${missingFromEntry.join(", ")}" from validForMatrix["${entry.completeness}"]`
+                    );
+                }
+            }
+
+            // 2b: no overlap between allowedMetrics and excludedMetrics
+            if (Array.isArray(entry.allowedMetrics) && Array.isArray(entry.excludedMetrics)) {
+                const overlap = entry.allowedMetrics.filter((m) => entry.excludedMetrics.includes(m));
+                if (overlap.length > 0) {
+                    errors.push(
+                        `${entry.id}: metrics appear in BOTH allowedMetrics and excludedMetrics: ${overlap.join(", ")}`
+                    );
+                }
+            }
+
+            // 2c: movement-level gate for restricted completeness levels
+            if (restrictedLevels.has(entry.completeness)) {
+                const allowed = entry.allowedMetrics ?? [...canonical];
+                const forbidden = allowed.filter((m) => MOVEMENT_LEVEL_METRICS.has(m));
+                if (forbidden.length > 0) {
+                    errors.push(
+                        `${entry.id} (${entry.completeness}): allowedMetrics includes movement-level metrics: ${forbidden.join(", ")}`
+                    );
+                }
+            }
+
+            if (isVerbose && entry.allowedMetrics) {
+                console.log(`    [C7] ${entry.id}: allowed=${entry.allowedMetrics.length}, excluded=${entry.excludedMetrics?.length ?? "?"}`);
             }
         }
     } else {
