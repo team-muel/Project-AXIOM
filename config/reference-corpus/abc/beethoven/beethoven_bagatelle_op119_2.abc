@@ -1,11 +1,19 @@
 X:1
 T:Bagatelle in C major Op. 119 No. 2
 C:L. van Beethoven
-M:2/4
-L:1/16
-Q:1/4=92
+M:3/4
+L:1/8
+Q:1/4=120
 K:C
-c4 G4 | E4 C4 | D4 E4 | F8 |
-G4 c4 | e4 g4 | f2 e2 d2 c2 | c8 |
-c4 B4 | A4 G4 | F4 G4 | E8 |
-G4 e4 | d2 c2 B2 A2 | G4 F4 | C8 |
+% Section A (8 bars, 5 notes/bar = 40 notes)
+|: c de g2 | de fg2 | e dc e2 | c4 z2 |
+G AB c2 | de fe d2 | c BA G2 | c6 :|
+% Section B (8 bars)
+|: e fg a2 | fg ab g2 | a gf e2 | e4 z2 |
+f ef g2 | ag fe d2 | e dc B2 | c6 :|
+% Return A (8 bars)
+c de g2 | de fg2 | e dc e2 | c4 z2 |
+G AB c2 | de fe d2 | c BA G2 | c6 |
+% Coda (8 bars)
+e4 d2 | c4 B2 | A4 G2 | G4 z2 |
+c de g2 | ag fe d2 | e dc B2 | c6 |

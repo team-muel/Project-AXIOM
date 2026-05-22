@@ -1,15 +1,19 @@
 X:1
-T:Waltz in E-flat major Op. 18 No. 1 D145
+T:Waltz in A major Op. 18 No. 1 D145
 C:F. Schubert
 M:3/4
 L:1/8
-Q:1/4=112
-K:Eb
-G4 B2 | e4 G2 | f4 e2 | d6 |
-G4 A2 | B4 G2 | A4 G2 | F6 |
-b4 a2 | g4 f2 | e4 d2 | c6 |
-B4 A2 | G4 F2 | E4 D2 | E6 |
-g4 f2 | e4 d2 | c4 B2 | A6 |
-B4 G2 | F4 G2 | E4 D2 | B,6 |
-G4 B2 | e4 G2 | f4 e2 | d6 |
-G4 A2 | B4 G2 | F4 E2 | G6 |
+Q:1/4=116
+K:A
+% Section A (8 bars)
+|: a AB ^c2 | de ^fd e2 | c de c2 | A6 |
+E ^FG A2 | Bc ^cd e2 | d cB A2 | A6 :|
+% Section B (8 bars)
+|: c de e2 | ef ^fe f2 | a gf e2 | c6 |
+A Bc d2 | ef ^ge f2 | d cB A2 | A6 :|
+% Return A (8 bars)
+a AB ^c2 | de ^fd e2 | c de c2 | A6 |
+E ^FG A2 | Bc ^cd e2 | d cB A2 | A6 |
+% Coda (8 bars)
+a AB c2 | de ef ^f2 | c de c2 | A4 z2 |
+E ^FG A2 | Bc ^cd e2 | d cB A2 | A6 |

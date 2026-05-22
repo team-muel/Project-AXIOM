@@ -1,15 +1,15 @@
 X:1
-T:Ecossaises in E-flat major WoO 83
+T:Ecossaises in G major WoO 83
 C:L. van Beethoven
 M:2/4
 L:1/8
-Q:1/4=138
-K:Eb
-G2 B2 | e4 | B2 G2 | e4 |
-f2 e2 | d2 c2 | B4 | G2 z2 |
-g2 b2 | e'4 | b2 g2 | e4 |
-c'2 b2 | a2 g2 | f4 | e2 z2 |
-B2 c2 | d2 e2 | f4 | g2 f2 |
-e2 d2 | c2 B2 | G4 | G2 z2 |
-e2 g2 | b2 e'2 | g4 | e2 g2 |
-b2 a2 | g2 f2 | e4 | e2 z2 |
+Q:1/4=132
+K:G
+% Ecossaise 1 - A section (8 bars)
+|: G2 B2 | d4 | d2 c2 | B4 | G2 A2 | B4 | A2 ^F2 | G4 :|
+% Ecossaise 1 - B section (8 bars)
+|: b4 | b2 a2 | g2 ^f2 | g4 | d4 | e2 d2 | c2 B2 | A4 :|
+% Ecossaise 2 - A section (8 bars)
+|: d4 | e2 d2 | c2 B2 | A4 | d4 | g4 | ^f2 e2 | d4 :|
+% Ecossaise 2 - B section (8 bars)
+|: a4 | b2 a2 | g2 ^f2 | g4 | e4 | d2 e2 | c2 d2 | G4 :|

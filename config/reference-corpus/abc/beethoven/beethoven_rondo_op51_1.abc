@@ -5,11 +5,18 @@ M:3/4
 L:1/8
 Q:1/4=100
 K:C
-e4 g2 | c4 e2 | f4 e2 | d6 |
-e4 c2 | G4 E2 | F4 G2 | E6 |
+% Rondo theme (8 bars)
+|: c4 d2 | e4 f2 | g4 e2 | c6 |
+f4 e2 | d4 c2 | B4 G2 | c6 :|
+% Episode 1 - A minor (8 bars)
+|: A4 B2 | c4 d2 | e4 ^f2 | e6 |
+d4 e2 | c4 B2 | A4 ^G2 | A6 :|
+% Return rondo (8 bars)
+c4 d2 | e4 f2 | g4 e2 | c6 |
+f4 e2 | d4 c2 | B4 G2 | c6 |
+% Episode 2 - F major (8 bars)
+|: f4 g2 | a4 b2 | c'4 a2 | f6 |
+g4 f2 | e4 d2 | c4 B2 | c6 :|
+% Final rondo (8 bars)
 c4 d2 | e4 f2 | g4 a2 | g6 |
-f4 e2 | d4 c2 | B4 A2 | G6 |
-g4 e2 | c4 e2 | f4 d2 | e6 |
-c4 B2 | A4 G2 | F4 E2 | C6 |
-e4 g2 | c4 e2 | f4 e2 | d6 |
-e4 c2 | G4 E2 | F4 G2 | C6 |
+f4 e2 | d4 c2 | G4 B2 | c6 |

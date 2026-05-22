@@ -1,15 +1,19 @@
 X:1
-T:Bagatelle in B-flat major Op. 119 No. 11
+T:Bagatelle in Bb major Op. 119 No. 11
 C:L. van Beethoven
 M:3/4
 L:1/8
-Q:1/4=84
+Q:1/4=108
 K:Bb
-f4 d2 | B4 f2 | g4 f2 | e6 |
-f4 d2 | B4 G2 | A4 B2 | B6 |
-d4 f2 | b4 g2 | f4 e2 | d6 |
-c4 e2 | g4 c2 | d4 c2 | B6 |
-b4 g2 | f4 d2 | e4 f2 | g6 |
-a4 g2 | f4 e2 | d4 c2 | B6 |
-f4 d2 | B4 f2 | g4 f2 | e6 |
-d4 c2 | B4 A2 | B4 z2 | B6 |
+% Section A (8 bars)
+|: d ef g2 | fg ab g2 | f ed c2 | d6 |
+Bc de f2 | ef ga f2 | d cB A2 | Bc d2 z2 |
+% Section B - F major (8 bars)
+|: f ga c'2 | bc' ba g2 | a gf e2 | f6 |
+c de f2 | ef gf e2 | d ef g2 | f6 :|
+% Return A (8 bars)
+d ef g2 | fg ab g2 | f ed c2 | d6 |
+Bc de f2 | ef ga f2 | d cB A2 | d6 |
+% Coda (8 bars)
+g fg f2 | e de d2 | c Bc B2 | A6 |
+d ef g2 | ag fe d2 | c BA B2 | d6 |

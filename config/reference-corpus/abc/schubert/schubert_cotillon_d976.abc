@@ -1,15 +1,22 @@
 X:1
-T:Cotillon in E major D976 No. 1
+T:Cotillon in Eb major D976 No. 1
 C:F. Schubert
 M:2/4
 L:1/8
-Q:1/4=112
-K:E
-e2 B2 | G2 E2 | F2 G2 | A4 |
-B2 A2 | G2 F2 | E2 D2 | E4 |
-e2 f2 | g2 a2 | b2 a2 | g4 |
-f2 e2 | d2 c2 | B2 A2 | e4 |
-b2 g2 | e2 b2 | a2 f2 | d4 |
-e2 f2 | g2 e2 | f2 d2 | B4 |
-e2 B2 | G2 E2 | F2 G2 | A4 |
-B2 A2 | G2 F2 | E4 | E4 |
+Q:1/4=126
+K:Eb
+% Section A (8 bars)
+|: Bc de | fg ef | gf ed | e4 |
+Bc de | fg ab | gf ed | c4 :|
+% Section B (8 bars)
+|: ef ga | bc' ba | gf eg | e4 |
+Bc de | fg ab | gf ed | c4 :|
+% Return A (8 bars)
+Bc de | fg ef | gf ed | e4 |
+Bc de | fg ab | gf ed | c4 |
+% Coda (8 bars)
+g2 e2 | c2 g2 | f2 d2 | B4 |
+Bc de | fg ab | gf ed | e4 |
+% Extra (8 bars)
+ef ga | bc' ab | gf eg | e4 |
+cd ef | ga fg | ef de | c4 |

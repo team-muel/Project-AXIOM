@@ -3,8 +3,19 @@ T:Nocturne in E-flat major Op. 9 No. 2
 C:F. Chopin
 M:12/8
 L:1/8
-Q:3/8=60
+Q:3/8=54
 K:Eb
-b6 b2 a2 g2 | f4 e4 f4 | e6 z6 | b6 c'4 b2 |
-a4 g2 f4 e2 | d6 c4 d2 | e4 f4 g4 | b6 z6 |
-b2 c'2 d'2 e'4 d'2 | c'4 b2 a4 g2 | f6 e6 | e'6 d'6 |
+% Main theme A (8 bars)
+|: B3 c3 d3 e3 | d3 c3 B3 A3 | B3 c3 d3 e3 | B12 |
+g3 f3 e3 d3 | c3 B3 A3 ^G3 | B3 c3 d3 e3 | G12 :|
+% Transition (8 bars)
+|: g3 a3 b3 a3 | g3 f3 e3 d3 | c3 d3 e3 f3 | g12 |
+e3 f3 g3 f3 | e3 d3 c3 B3 | A3 B3 c3 d3 | G12 :|
+% Return A (8 bars)
+B3 c3 d3 e3 | d3 c3 B3 A3 | B3 c3 d3 e3 | B12 |
+g3 f3 e3 d3 | c3 B3 A3 ^G3 | B3 c3 d3 e3 | G12 |
+% Coda (16 bars)
+g3 b3 d'3 b3 | g3 f3 e3 d3 | c3 B3 A3 ^G3 | G12 |
+B3 c3 d3 e3 | d3 c3 B3 A3 | ^G3 A3 B3 c3 | G12 |
+e3 f3 g3 a3 | b3 a3 g3 f3 | e3 d3 c3 B3 | G12 |
+B3 A3 ^G3 A3 | B3 A3 ^G3 F3 | E12 | E12 |

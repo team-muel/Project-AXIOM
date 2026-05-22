@@ -1,15 +1,22 @@
 X:1
-T:Country Dance in D major WoO 14
+T:Country Dance in C major WoO 14 No. 1
 C:L. van Beethoven
 M:2/4
 L:1/8
 Q:1/4=132
-K:D
-d2 f2 | a4 | f2 d2 | A4 |
-B2 d2 | f4 | e2 d2 | d4 |
-e2 g2 | b4 | g2 e2 | B4 |
-c2 e2 | g4 | f2 e2 | d4 |
-f2 a2 | d'4 | a2 f2 | d4 |
-g2 b2 | e'4 | d'2 c'2 | b4 |
-a2 f2 | d2 A2 | B2 G2 | A4 |
-d2 f2 | a4 | f2 d2 | d4 |
+K:C
+% Section A (8 bars)
+|: cd ef | ge dc | BA Bc | c4 |
+G2 c2 | de fg | ef dc | c4 :|
+% Section B (8 bars)
+|: e fg a | bc' ba | gf eg | e4 |
+cd ef | fg ab | gf ed | c4 :|
+% Section C (8 bars)
+|: GG AB | cc de | GG AB | c4 |
+ef ga | bc' ba | gf ed | c4 :|
+% Return A+Coda (8 bars)
+cd ef | ge dc | BA Bc | c4 |
+G2 c2 | de fg | ef dc | c4 |
+% Extra (8 bars)
+c2 e2 | g2 c2 | e2 g2 | c4 |
+de fg | ab ba | gf ed | c4 |

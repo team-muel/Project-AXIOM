@@ -1,11 +1,19 @@
 X:1
 T:Bagatelle in D major Op. 119 No. 3
 C:L. van Beethoven
-M:3/8
+M:3/4
 L:1/8
-Q:3/8=72
+Q:1/4=126
 K:D
-d2 f | a2 f | d2 e | f3 |
-g2 e | c2 A | B2 G | A3 |
-d2 f | a f d | A2 B | d3 |
-e2 ^c | d B G | A F D | D3 |
+% Section A (8 bars)
+|: d ef a2 | ef ga f2 | e dc B2 | d6 |
+A Bc d2 | ef ^ge f2 | d cB A2 | d6 :|
+% Section B - Bm (8 bars)
+|: f ef g2 | ga gb a2 | g fe f2 | e6 |
+d ef g2 | ag fe d2 | e dc B2 | B6 :|
+% Return A (8 bars)
+d ef a2 | ef ga f2 | e dc B2 | d6 |
+A Bc d2 | ef ^ge f2 | d cB A2 | d6 |
+% Coda (8 bars)
+f ef a2 | ag fe d2 | e dc B2 | d4 z2 |
+A Bc d2 | ef ^gf a2 | f dc A2 | d6 |

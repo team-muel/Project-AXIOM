@@ -1,17 +1,22 @@
 X:1
-T:Moment Musical in C major Op. 94 No. 1 D780
+T:Moment Musical No. 1 in C major D. 780
 C:F. Schubert
-M:3/4
+M:4/4
 L:1/8
-Q:1/4=80
+Q:1/4=96
 K:C
-G4 E2 | c4 G2 | F4 E2 | G6 |
-A4 F2 | d4 A2 | G4 F2 | E6 |
-G4 A2 | B4 c2 | d4 B2 | G6 |
-c4 B2 | A4 G2 | F4 E2 | C6 |
-e4 d2 | c4 B2 | A4 G2 | F6 |
-G4 A2 | B4 c2 | d4 G2 | G6 |
-e4 c2 | G4 E2 | F4 G2 | A6 |
-G4 F2 | E4 D2 | G4 F2 | E6 |
-c4 d2 | e4 f2 | g4 e2 | c6 |
-B4 A2 | G4 F2 | E4 D2 | C6 |
+% Section A - C major (16 bars)
+|: e4 d2 c2 | B4 A2 G2 | A4 G2 F2 | E8 |
+c4 d2 e2 | f4 e2 d2 | c4 B2 A2 | G8 |
+e4 f2 g2 | a4 g2 f2 | e4 d2 c2 | d8 |
+c4 B2 A2 | G4 A2 B2 | c4 d2 e2 | c8 :|
+% Section B - A minor (16 bars)
+|: A4 B2 c2 | d4 c2 B2 | A4 ^G2 A2 | e8 |
+c4 d2 e2 | f4 e2 d2 | e4 d2 c2 | A8 |
+e4 ^f2 g2 | a4 g2 ^f2 | e4 d2 c2 | B8 |
+A4 G2 ^F2 | G4 A2 B2 | c4 d2 e2 | A8 :|
+% Return A (16 bars)
+e4 d2 c2 | B4 A2 G2 | A4 G2 F2 | E8 |
+c4 d2 e2 | f4 e2 d2 | c4 B2 A2 | G8 |
+e4 f2 g2 | a4 g2 f2 | e4 d2 c2 | d8 |
+c8 | B8 | A4 G2 F2 | c8 |

@@ -1,15 +1,22 @@
 X:1
-T:Ecossaise in E-flat major WoO 86
+T:Ecossaise in Eb major WoO 86
 C:L. van Beethoven
 M:2/4
 L:1/8
-Q:1/4=138
+Q:1/4=132
 K:Eb
-B4 | G2 B2 | e4 | G2 e2 |
-f2 e2 | d2 c2 | B4 | G4 |
-g4 | e2 g2 | b4 | g2 b2 |
-c'2 b2 | a2 g2 | f4 | e4 |
-B2 c2 | d2 e2 | f4 | e2 d2 |
-c2 B2 | A2 G2 | F4 | G4 |
-B2 G2 | e2 G2 | B4 | G4 |
-e2 f2 | g4 | G2 F2 | G4 |
+% Section A (8 bars)
+|: Bc de | fg ef | dc Bc | B4 |
+G AB c | de cd | BA GF | G4 :|
+% Section B (8 bars)
+|: g ab c' | b'a gf | eg fe | g4 |
+ef ga | bg fe | dc Bc | G4 :|
+% Return A (8 bars)
+Bc de | fg ef | dc Bc | B4 |
+G AB c | de cd | BA GF | G4 |
+% Coda (8 bars)
+e fg g | ab ba | gf eg | e4 |
+Bc de | fg ab | g ef e | e4 |
+% Extra section (8 bars)
+g2 e2 | c2 g2 | e2 c2 | g4 |
+Bc de | fg ef | dc BA | G4 |

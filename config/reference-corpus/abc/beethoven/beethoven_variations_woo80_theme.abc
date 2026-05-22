@@ -1,15 +1,16 @@
 X:1
-T:32 Variations in C minor WoO 80 Theme
+T:Theme from 32 Variations in C minor WoO 80
 C:L. van Beethoven
 M:3/4
 L:1/8
-Q:1/4=88
+Q:1/4=66
 K:Cmin
-c4 B2 | A4 G2 | F4 G2 | E6 |
-c4 B2 | A4 G2 | F4 E2 | C6 |
-G4 A2 | B4 c2 | d4 e2 | f6 |
-e4 d2 | c4 B2 | G4 ^F2 | G6 |
-c4 B2 | A4 G2 | F4 E2 | D6 |
-G4 A2 | B4 c2 | d4 G2 | G6 |
-c4 d2 | e4 f2 | g4 A2 | G6 |
-c4 B2 | A4 G2 | F4 E2 | C6 |
+% Theme Part A (8 bars)
+|: c2 ed c2 | B2 cB A2 | G2 AB G2 | C6 |
+D2 EF G2 | AB cB A2 | G2 AB c2 | G6 :|
+% Theme Part B (8 bars)
+|: e2 fg e2 | d2 ef d2 | c2 de c2 | G6 |
+A2 Bc A2 | G2 AB G2 | F2 GA B2 | C6 :|
+% Variation I sketch (8 bars)
+|: c ef c2 | B cB A2 | G AB G2 | C6 |
+D EF G2 | AB cd e2 | G ^FG A2 | G6 :|

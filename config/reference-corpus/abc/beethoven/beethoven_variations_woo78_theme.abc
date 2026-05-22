@@ -1,14 +1,16 @@
 X:1
-T:Ten Variations on God Save the King WoO 78 Theme
+T:Theme from 8 Variations on Rule Britannia WoO 78
 C:L. van Beethoven
-M:3/4
+M:4/4
 L:1/8
-Q:1/4=80
+Q:1/4=88
 K:C
-G4 G2 | E4 G2 | c4 B2 | A6 |
-c4 G2 | E4 G2 | F4 E2 | D6 |
-G4 A2 | B4 A2 | G4 A2 | G6 |
-c4 G2 | E4 G2 | F4 E2 | C6 |
-G4 A2 | B4 c2 | d4 c2 | B6 |
-A4 G2 | F4 E2 | D4 G2 | G6 |
-c4 G2 | E4 G2 | F4 E2 | C6 |
+% Theme Part A (8 bars)
+|: c2 e2 g2 c2 | e2 d2 c2 d2 | e2 f2 g2 a2 | g8 |
+a2 g2 f2 e2 | d2 c2 B2 c2 | d2 e2 d2 c2 | c8 :|
+% Theme Part B (8 bars)
+|: e2 f2 g2 a2 | b2 a2 g2 f2 | e2 g2 e2 c2 | e8 |
+d2 e2 f2 g2 | a2 g2 f2 e2 | d2 e2 d2 c2 | c8 :|
+% Variation I sketch (8 bars)
+|: c4 de fg | a4 gfed | e4 ^fgab | c'8 |
+g4 fgab | a4 gfed | e4 dcBA | c8 :|

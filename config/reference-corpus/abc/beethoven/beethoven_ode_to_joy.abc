@@ -1,12 +1,19 @@
 X:1
-T:Ode to Joy - Symphony No. 9, 4th Movement Theme
-C:L. van Beethoven Op. 125
+T:Ode to Joy Theme from Symphony No. 9 Op. 125
+C:L. van Beethoven
 M:4/4
 L:1/8
-Q:1/4=120
+Q:1/4=88
 K:D
-E2 E2 F2 G2 | G2 F2 E2 D2 | C2 C2 D2 E2 | E4 D4 |
-E2 E2 F2 G2 | G2 F2 E2 D2 | C2 C2 D2 E2 | D8 |
-D2 D2 E2 C2 | D2 E2 F2 E2 | C2 C2 D2 E2 | D4 C4 |
-D2 D2 E2 C2 | D2 E2 F2 E2 | C2 D2 E2 F2 | G8 |
-E2 E2 F2 G2 | G2 F2 E2 D2 | C2 C2 D2 E2 | D8 |
+% Main theme (8 bars)
+|: B4 B4 | c4 d4 | d4 c4 | B4 A4 |
+G4 G4 | A4 B4 | B6 A2 | A8 :|
+% Variation/extension (8 bars)
+|: B4 B4 | c4 d4 | d4 c4 | B4 A4 |
+G4 G4 | A4 B4 | A6 G2 | G8 :|
+% Development section (8 bars)
+A4 B4 | G4 A4 | B4 c4 | B4 A4 |
+d4 d4 | e4 d4 | c4 B4 | A8 |
+% Return and coda (8 bars)
+B4 B4 | c4 d4 | d4 c4 | B4 A4 |
+G4 G4 | A4 B4 | B6 A2 | A8 |

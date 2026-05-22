@@ -1,15 +1,19 @@
 X:1
-T:Bagatelle in B minor Op. 126 No. 4
+T:Bagatelle in Bb major Op. 126 No. 4
 C:L. van Beethoven
-M:2/4
-L:1/16
-Q:1/4=126
-K:Bmin
-B4 d4 | f4 d4 | e4 ^c4 | d8 |
-B4 d4 | f4 a4 | g4 e4 | d8 |
-b4 a4 | g4 f4 | e4 d4 | ^c8 |
-d4 e4 | f4 g4 | a4 b4 | d'8 |
-b4 a4 | g4 f4 | e4 ^c4 | d8 |
-d4 e4 | f4 g4 | a4 b4 | d'8 |
-f4 d4 | B4 d4 | e4 ^c4 | d8 |
-B4 A4 | G4 F4 | E4 D4 | B,8 |
+M:3/4
+L:1/8
+Q:1/4=84
+K:Bb
+% Section A (8 bars)
+|: f ef g2 | ab ba g2 | f ga f2 | d6 |
+d ef g2 | fg af g2 | f ed c2 | f6 :|
+% Section B - G minor (8 bars)
+|: g ag g2 | ^f g^f g2 | a ba a2 | g6 |
+e fg e2 | d ef d2 | c de c2 | d6 :|
+% Return A (8 bars)
+f ef g2 | ab ba g2 | f ga f2 | d6 |
+d ef g2 | fg af g2 | f ed c2 | d6 |
+% Coda (8 bars)
+f ef f2 | ef ge f2 | d ef g2 | d4 z2 |
+Bc de f2 | ga fg e2 | d cB A2 | d6 |

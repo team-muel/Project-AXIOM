@@ -1,15 +1,19 @@
 X:1
-T:Valse noble in A-flat major Op. 77 No. 6 D969
+T:Valse Noble in G major D969 No. 6
 C:F. Schubert
 M:3/4
 L:1/8
-Q:1/4=108
-K:Ab
-e4 c2 | A4 c2 | d4 e2 | f6 |
-e4 d2 | c4 B2 | A4 G2 | F6 |
-g4 f2 | e4 d2 | c4 B2 | A6 |
-B4 A2 | G4 F2 | E4 D2 | C6 |
-e4 f2 | g4 e2 | d4 c2 | B6 |
-A4 G2 | F4 E2 | D4 C2 | A,6 |
-e4 c2 | A4 c2 | d4 e2 | f6 |
-e4 d2 | c4 B2 | A4 G2 | A6 |
+Q:1/4=116
+K:G
+% Section A (8 bars)
+|: g fg d2 | e de B2 | d Bd g2 | G6 |
+G AB c2 | de ^fe d2 | G AB G2 | G6 :|
+% Section B (8 bars)
+|: b ab g2 | ^f g^f e2 | d ef d2 | b6 |
+g ab g2 | ^f g^f e2 | d ef d2 | g6 :|
+% Return A (8 bars)
+g fg d2 | e de B2 | d Bd g2 | G6 |
+G AB c2 | de ^fe d2 | G AB G2 | G6 |
+% Coda (8 bars)
+g fg d2 | e de B2 | d Bd g2 | G4 z2 |
+G AB c2 | de ^fe d2 | G AB G2 | G6 |

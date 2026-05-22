@@ -5,11 +5,15 @@ M:3/4
 L:1/8
 Q:1/4=116
 K:A
-e4 c2 | A4 c2 | d4 c2 | B6 |
-A4 B2 | c4 d2 | e4 c2 | A6 |
-e4 f2 | g4 a2 | b4 a2 | g6 |
-f4 e2 | d4 c2 | B4 A2 | E6 |
-a4 g2 | f4 e2 | d4 c2 | B6 |
-c4 d2 | e4 f2 | g4 e2 | A6 |
-e4 c2 | A4 c2 | d4 c2 | B6 |
-A4 B2 | c4 e2 | A4 G2 | A6 |
+% Section A (8 bars)
+|: a ef a2 | g ^fg e2 | c de c2 | A6 |
+E ^FG A2 | Bc dB c2 | B AG ^F2 | A6 :|
+% Section B (8 bars)
+|: c de e2 | ef ge f2 | e dc B2 | c6 |
+A Bc d2 | ef ^gf e2 | d cB A2 | A6 :|
+% Return A (8 bars)
+a ef a2 | g ^fg e2 | c de c2 | A6 |
+E ^FG A2 | Bc dB c2 | B AG ^F2 | A6 |
+% Coda (8 bars)
+a AB c2 | de ef d2 | c BA G2 | A4 z2 |
+E ^FG A2 | Bc de f2 | e dc B2 | A6 |

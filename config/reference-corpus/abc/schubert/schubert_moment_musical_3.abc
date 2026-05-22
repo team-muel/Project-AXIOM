@@ -1,13 +1,24 @@
 X:1
-T:Moment Musical No. 3 in F minor Op. 94
+T:Moment Musical No. 3 in F minor D. 780
 C:F. Schubert
 M:2/4
 L:1/16
 Q:1/4=132
 K:Fmin
-f4e4d4c4 | _B4c4d4e4 | f4g4a4_b4 | c'16 |
-_b4a4g4f4 | e4f4g4a4 | _b4g4e4c4 | f16 |
-A4_B4c4d4 | e4d4c4_B4 | A4G4F4E4 | F16 |
-c4d4e4f4 | g4f4e4d4 | c4_B4A4G4 | f16 |
-a4g4f4e4 | d4e4f4g4 | a4_b4c'4d'4 | c'16 |
-_b4a4g4f4 | e4f4g4a4 | _b4g4e4c4 | f16 |
+% Main theme - F minor descending tetrachord (8 bars)
+|: f4e4d4c4 | B4c4d4e4 | f4g4a4b4 | c'8z8 |
+b4a4g4f4 | e4f4g4a4 | b4g4e4c4 | f8z8 :|
+% Development - Db major (8 bars)
+|: A4B4c4d4 | e4d4c4B4 | A4G4F4E4 | F8z8 |
+c4d4e4f4 | g4f4e4d4 | c4B4A4G4 | f8z8 :|
+% Return main theme (8 bars)
+f4e4d4c4 | B4c4d4e4 | f4g4a4b4 | c'8z8 |
+b4a4g4f4 | e4f4g4a4 | b4g4e4c4 | f8z8 |
+% Middle section - Ab major / F major (16 bars)
+|: c'4b4a4g4 | f4g4a4b4 | c'4b4a4g4 | =A8z8 |
+=A4B4c4d4 | =e4d4c4B4 | =A4G4F4E4 | F8z8 |
+f4g4a4b4 | c'4b4a4g4 | f4e4d4c4 | B8z8 |
+c4d4e4f4 | g4a4b4c'4 | b4a4g4f4 | f8z8 :|
+% Final return (8 bars)
+f4e4d4c4 | B4c4d4e4 | f4g4a4b4 | c'8z8 |
+b4a4g4f4 | e4d4c4B4 | A4G4F4E4 | F8z8 |

@@ -1,10 +1,16 @@
 X:1
-T:Six Variations in F major Op. 34 - Theme (Adagio cantabile)
+T:Theme from 6 Variations Op. 34 in F major
 C:L. van Beethoven
-M:6/8
+M:3/4
 L:1/8
-Q:3/8=52
+Q:1/4=88
 K:F
-c3 | A2 G F2 G | A3 c3 | d2 c B2 A | G6 |
-G2 A B2 c | d3 g3 | f2 e d2 c | c6 |
-A3 c3 | d2 c B2 A | G3 F3 | F6 |
+% Theme Part A (8 bars)
+|: f2 ga f2 | e2 fg e2 | d2 ef d2 | c6 |
+c2 de c2 | B2 cd B2 | A2 Bc A2 | F6 :|
+% Theme Part B (8 bars)
+|: a2 bc a2 | g2 ab g2 | f2 ga f2 | c6 |
+d2 ef d2 | c2 de c2 | B2 cB A2 | F6 :|
+% Var I theme (8 bars)
+|: f ga f2 | e fg e2 | d ef d2 | c6 |
+c de c2 | B cd B2 | A Bc A2 | F6 :|

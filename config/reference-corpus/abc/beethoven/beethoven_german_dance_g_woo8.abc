@@ -3,9 +3,17 @@ T:German Dance in G major WoO 8 No. 1
 C:L. van Beethoven
 M:3/4
 L:1/8
-Q:1/4=138
-K:Gmaj
-d2 | G2 G2 G2 | B2 A2 G2 | c2 B2 A2 | B4 d2 |
-G2 G2 G2 | B2 A2 G2 | d2 c2 B2 | G4 z2 |
-e2 e2 e2 | e2 d2 c2 | d2 d2 d2 | d2 c2 B2 |
-G2 B2 d2 | b2 a2 g2 | f2 e2 d2 | g4 z2 |
+Q:1/4=126
+K:G
+% Section A (8 bars)
+|: d Gd g2 | e Ae a2 | d Gd g2 | B6 |
+e de g2 | d cB c2 | B AG ^F2 | G6 :|
+% Section B - D major (8 bars)
+|: a AB d2 | e de f2 | a gf e2 | d6 |
+^f g^f g2 | a gf e2 | d ef d2 | d6 :|
+% Return A (8 bars)
+d Gd g2 | e Ae a2 | d Gd g2 | B6 |
+e de g2 | d cB c2 | B AG ^F2 | G6 |
+% Trio - G minor (8 bars)
+d gd g2 | ^f g^f g2 | e gf e2 | g6 |
+d ef g2 | ag fe d2 | e dc B2 | G6 |
