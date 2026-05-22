@@ -1,6 +1,14 @@
 {
-  "version": "2",
+  "version": "3",
   "description": "AXIOM aesthetic identity taxonomy for the reference corpus. Separates primary aesthetic DNA from technical knowledge sources to prevent identity blurring.",
+  "primaryCorpusSize": {
+    "beethoven": 60,
+    "schubert": 59,
+    "total": 119,
+    "milestone": "100+ initial benchmark achieved",
+    "lastExpanded": "2026-05-22",
+    "note": "Target: 300–500 for R-01 gate stabilization. See docs/reference-corpus-policy.md."
+  },
   "primary": {
     "composers": ["beethoven", "schubert"],
     "description": "AXIOM's core aesthetic DNA. All referenceDistanceScore (R-01 gate) measurements are computed against this profile only — NOT the global average.",

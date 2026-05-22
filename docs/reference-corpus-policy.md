@@ -58,26 +58,28 @@ AXIOM Beethoven·Schubert lineage anchor의 신뢰도는 코퍼스 크기에 직
 
 | 단계 | 목표 규모 | 용도 |
 |------|-----------|------|
-| Seed (현재) | ~19개 | 개발/검증용 seed. 통계 불안정. 운영 anchor 불가. |
-| 초기 benchmark | 100개 이상 | R-01 gate 초기 안정화. promotion 참고 지표로 활용 가능. |
+| Seed | ~19개 | 개발/검증용 seed. 통계 불안정. 운영 anchor 불가. |
+| 초기 benchmark (현재 ✅) | 100개 이상 | R-01 gate 초기 안정화. promotion 참고 지표로 활용 가능. **현재 Beethoven 60개 + Schubert 59개 = 119개 달성.** |
 | Gate 안정화 | 300–500개 | R-01 gate를 production promotion 필수 조건으로 격상 가능. |
 | 장기 anchor | 1,000개 이상 | Serious identity anchor. 통계적으로 강건한 lineage 기준점. |
 
 ### Beethoven 우선 확장 대상
 
-현재 소나타 중심에서 아래로 폭을 넓혀야 합니다:
-- 피아노 소나타 (현재 보유 확장)
-- 변주곡 (WoO/Op — 주제와 변주)
-- 바가텔 Op.33, Op.119, Op.126
-- 현악 사중주 일부 (ABC 변환 가능한 단성부/멜로디 성부 기준)
-- 피아노 협주곡 솔로 파트
+현재 **60개** (seed 10 + 확장 50). 다음 단계는 300개를 향한 추가 확장입니다:
+- 피아노 소나타 추가 악장 (Adagio, Scherzo, Rondo 단독 excerpt)
+- 변주곡 variation 개별 파트 (WoO/Op variation 단락)
+- 현악 사중주 추가 작품 (Op.59/2, Op.74, Op.95, Op.130–133)
+- 교향곡 주요 주제 (관현악 멜로디 성부, ABC 단성부 추출)
+- 피아노 협주곡 솔로 파트 (Op.37, Op.58, Op.73)
 
 ### Schubert 우선 확장 대상
 
-- 즉흥곡 (Op.90, Op.142)
-- 악흥의 순간 (Moments Musicaux Op.94)
-- 가곡풍 피아노곡 (레들리헤 ABC 변환 가능한 작품)
-- 피아노 소나타 악장 (D.845, D.894, D.960)
+현재 **59개** (seed 9 + 확장 50). 다음 단계는 300개를 향한 추가 확장입니다:
+- 즉흥곡 추가 variation 단락 (Op.90/142)
+- 가곡 반주 피아노 성부 추가 (Die schöne Müllerin, Winterreise)
+- 현악 사중주/5중주 (D887, D956)
+- 교향곡 주요 주제 (D729, D759 Unfinished)
+- 피아노 이중주 (D940, D812)
 
 ### 코퍼스 확장 실행 방법
 
